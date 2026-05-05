@@ -1,0 +1,9 @@
+@startuml
+title Hello TypstUML
+
+participant Alice
+participant Bob
+
+Alice -> Bob : hi
+Bob --> Alice : hello back
+@enduml

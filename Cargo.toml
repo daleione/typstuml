@@ -1,0 +1,36 @@
+[package]
+name = "typstuml"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "TypstUML — render PlantUML diagrams via Typst (Rust + blockcell)"
+repository = "https://github.com/daleione/typstuml"
+readme = "README.md"
+keywords = ["plantuml", "typst", "diagram", "cli", "uml"]
+categories = ["command-line-utilities", "visualization"]
+
+[[bin]]
+name = "typstuml"
+path = "src/main.rs"
+
+[lib]
+name = "typstuml"
+path = "src/lib.rs"
+
+[dependencies]
+typst = "0.13.1"
+typst-svg = "0.13.1"
+typst-pdf = "0.13.1"
+typst-render = "0.13.1"
+typst-kit = { version = "0.13.1", features = ["embed-fonts"] }
+comemo = "0.4"
+
+clap = { version = "4.5", features = ["derive"] }
+include_dir = "0.7"
+thiserror = "1"
+time = { version = "0.3", features = ["std"] }
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"

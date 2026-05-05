@@ -1,6 +1,6 @@
 //! PlantUML preprocessor.
 //!
-//! M0 supports only the safe-to-implement subset, as agreed in design doc §11:
+//! Supports the safe-to-implement subset from design doc §11:
 //!
 //! - `!include`        file inlining (relative to source dir or any `--include` path)
 //! - constant `!define NAME value` substituted at identifier word boundaries
@@ -71,7 +71,7 @@ fn run_inner(
 
         if is_unsupported_directive(trimmed) {
             let head = trimmed.split_whitespace().next().unwrap_or("?");
-            let msg = format!("preprocessor directive not supported in M0: {head:?}");
+            let msg = format!("unsupported preprocessor directive: {head:?}");
             if compat == CompatMode::Strict {
                 return Err(Error::Parse {
                     line: line_no,

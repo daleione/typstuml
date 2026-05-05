@@ -1,13 +1,16 @@
-//! End-to-end smoke tests for the M0 pipeline.
+//! End-to-end smoke tests for the CLI pipeline.
 //!
-//! These run the actual CLI binary via `assert_cmd`. They exercise the full
+//! These run the actual binary via `assert_cmd`. They exercise the full
 //! parse → preprocess → codegen → typst-compile → encode chain, so they
-//! double as a regression net for vendoring drift in `assets/blockcell/`.
+//! double as a regression net for vendoring drift in `vendor/blockcell/`.
 //!
 //! The viewBox-width assertion is deliberate: the previous codegen had a
 //! page-width / `seq-puml(width: auto)` interaction that collapsed every
 //! diagram into a ~100pt column. Asserting a sensible minimum width here
 //! makes that failure mode regress loudly instead of silently.
+//!
+//! Golden snapshots for `--emit-typst` live under `tests/golden/sequence/`.
+//! Re-generate them with `UPDATE_GOLDEN=1 cargo test`.
 
 use assert_cmd::Command;
 use predicates::str::contains;
@@ -88,6 +91,74 @@ fn renders_svg_for_auth_flow_with_real_columns() {
     assert!(
         width > 350.0,
         "auth-flow expected to be wider than hello: viewBox width={width}"
+    );
+}
+
+fn emit_typst(fixture_name: &str) -> String {
+    let output = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("--emit-typst")
+        .arg("--stdout")
+        .arg(fixture(fixture_name))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    String::from_utf8(output).expect("emit-typst output is UTF-8")
+}
+
+fn assert_golden(name: &str, actual: &str) {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/golden/sequence");
+    path.push(format!("{name}.typ.golden"));
+
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        std::fs::write(&path, actual).expect("write golden");
+        return;
+    }
+    let expected = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
+    assert_eq!(
+        actual, expected,
+        "golden mismatch for {name}; rerun with UPDATE_GOLDEN=1 to refresh"
+    );
+}
+
+#[test]
+fn golden_emit_typst_hello() {
+    assert_golden("hello", &emit_typst("hello.puml"));
+}
+
+#[test]
+fn golden_emit_typst_auth_flow() {
+    assert_golden("auth-flow", &emit_typst("auth-flow.puml"));
+}
+
+#[test]
+fn golden_emit_typst_styled() {
+    assert_golden("styled", &emit_typst("styled.puml"));
+}
+
+#[test]
+fn skinparam_drives_page_fill_in_svg() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("styled.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture("styled.puml"))
+        .arg("-o")
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    // backgroundColor #F8F8F2 → page fill → SVG <rect> filling the viewBox.
+    // We don't pin the exact element shape, but the hex (or rgb()) should
+    // appear somewhere in the document.
+    let case_insensitive = svg.to_ascii_lowercase();
+    assert!(
+        case_insensitive.contains("#f8f8f2") || case_insensitive.contains("248"),
+        "expected styled background color in SVG output"
     );
 }
 

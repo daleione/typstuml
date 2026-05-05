@@ -20,7 +20,7 @@ pub struct UmlBlock {
 
 #[derive(Clone, Debug)]
 pub struct BodyLine {
-    /// 1-based source line number — preserved so M1 diagnostics can point
+    /// 1-based source line number — preserved so diagnostics can point
     /// back into the original `.puml` even after preprocessing reorders
     /// content via `!include`.
     pub line: usize,

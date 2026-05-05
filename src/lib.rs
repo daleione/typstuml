@@ -1,9 +1,7 @@
 //! TypstUML — render PlantUML diagrams via Typst.
 //!
-//! This crate is organized as a single crate with module-level layering, per
-//! the project's architecture decision (see the design doc in the parent
-//! `blockcell` repo). Crate splits are deferred until M3+ when boundaries
-//! settle.
+//! Single crate, module-level layering. Crate splits are deferred until
+//! module boundaries settle.
 //!
 //! Pipeline: source text → [`parser`] → [`ir`] → [`codegen`] → [`runtime`].
 //! [`theme`] feeds into codegen; [`cli`] orchestrates the whole thing.

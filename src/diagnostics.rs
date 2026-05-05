@@ -2,8 +2,8 @@
 //!
 //! Per design doc §10.3, unsupported syntax is bucketed into three behaviors —
 //! `error`, `warn + degrade`, `ignore` — selected via the `--compat` flag.
-//! M0 routes "Strict" through [`Error::Unsupported`] and lets Warn/Loose fall
-//! through with a [`Diagnostic`].
+//! Strict bubbles up as [`Error::Unsupported`]; Warn/Loose fall through with
+//! a [`Diagnostic`].
 
 use std::fmt;
 use std::path::PathBuf;

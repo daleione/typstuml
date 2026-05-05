@@ -8,9 +8,9 @@
 //!   3. Real on-disk files under the user's project root (used when the
 //!      Typst program references local images / fonts via relative paths).
 //!
-//! Typst package downloads (`@preview/...`) are intentionally NOT supported
-//! in M0 — the binary is fully offline. Add a downloader (or accept a
-//! pre-populated cache) in M3+ if user templates need third-party packages.
+//! Typst package downloads (`@preview/...`) are intentionally NOT supported —
+//! the binary is fully offline. Add a downloader (or accept a pre-populated
+//! cache) later if user templates need third-party packages.
 
 mod world;
 

@@ -37,7 +37,8 @@ pub struct Args {
     #[arg(short = 'f', long, value_enum)]
     pub format: Option<Format>,
 
-    /// Theme name (M1+: full skinparam mapping). Currently a passthrough.
+    /// Theme name. Currently a passthrough — full `skinparam` / `!theme`
+    /// mapping is parsed off the source, not from this flag.
     #[arg(short = 't', long)]
     pub theme: Option<String>,
 
@@ -65,11 +66,11 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = CompatMode::Warn)]
     pub compat: CompatMode,
 
-    /// (planned, M1+) Watch the input file for changes and re-render.
+    /// (not yet implemented) Watch the input file for changes and re-render.
     #[arg(long)]
     pub watch: bool,
 
-    /// (planned, M1+) Emit machine-readable JSON diagnostics.
+    /// (not yet implemented) Emit machine-readable JSON diagnostics.
     #[arg(long)]
     pub json: bool,
 }
@@ -81,10 +82,10 @@ pub fn run() -> Result<()> {
 
 pub fn run_with(args: Args) -> Result<()> {
     if args.watch {
-        eprintln!("typstuml: --watch is planned for M1+; ignoring");
+        eprintln!("typstuml: --watch is not yet implemented; ignoring");
     }
     if args.json {
-        eprintln!("typstuml: --json is planned for M1+; ignoring");
+        eprintln!("typstuml: --json is not yet implemented; ignoring");
     }
 
     let source_text = read_input(&args.input)?;

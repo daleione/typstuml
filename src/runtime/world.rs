@@ -4,7 +4,7 @@
 //!   - blockcell's Typst sources are embedded at compile time and served
 //!     from a virtual root (`/blockcell/...`).
 //!   - Typst package downloads are disabled (returns NotFound). The CLI is
-//!     fully offline by design in M0.
+//!     fully offline by design.
 //!
 //! `typst::World` requires `Sync`, so the file cache uses `Mutex` even
 //! though Typst's compile loop is single-threaded.

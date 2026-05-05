@@ -1,0 +1,15 @@
+@startuml
+title Background + font via skinparam
+
+skinparam backgroundColor #F8F8F2
+skinparam defaultFontSize 12
+
+participant Client
+participant API #LightBlue
+database  Store
+
+Client -> API : GET /things
+API -> Store : SELECT
+Store --> API : rows
+API --> Client : 200 OK
+@enduml

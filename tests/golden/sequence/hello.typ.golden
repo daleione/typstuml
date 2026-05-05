@@ -1,0 +1,12 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Hello TypstUML*]
+
+#seq-puml(width: 360pt, "participant Alice
+participant Bob
+
+Alice -> Bob : hi
+Bob --> Alice : hello back
+")

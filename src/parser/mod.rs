@@ -11,10 +11,11 @@
 //!   -> diagram-specific AST -> normalized IR
 //! ```
 //!
-//! In M0 the per-diagram parsers are stubs that capture each block's raw
-//! body plus a few layout hints. The actual parsing work happens during
-//! codegen, where Sequence diagrams are routed to `blockcell`'s existing
-//! `seq-puml` function. M1 replaces this with native parsing + golden tests.
+//! Sequence diagrams have a native parser that produces a [`StructuredSequence`].
+//! Other diagram types are recognized by the dispatcher but don't have parsers
+//! yet — `--compat strict` rejects them, otherwise we emit a warning and skip.
+//!
+//! [`StructuredSequence`]: crate::ir::StructuredSequence
 
 pub mod dispatcher;
 pub mod lexer;
@@ -48,7 +49,7 @@ pub fn parse(
             }
             other => {
                 let detail = format!(
-                    "diagram type {other:?} is not yet supported in M0; \
+                    "diagram type {other:?} is not yet supported; \
                      only Sequence diagrams render today"
                 );
                 if compat == CompatMode::Strict {

@@ -1,0 +1,30 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*OAuth-style login*]
+
+#seq-puml(width: 440pt, "actor User
+participant App
+participant Auth
+database DB
+
+User -> App : open page
+App -> Auth : redirect /authorize
+Auth -> User : show login form
+User -> Auth : credentials
+Auth -> DB : verify
+DB --> Auth : ok
+Auth --> App : code
+App -> Auth : exchange code
+Auth --> App : access_token
+note over App, Auth
+  token cached
+  for 1h
+end note
+alt token valid
+  App -> User : show dashboard
+else token expired
+  App -> Auth : refresh
+end
+")

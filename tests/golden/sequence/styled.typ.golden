@@ -1,0 +1,18 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#set page(fill: rgb("#F8F8F2"))
+#set text(size: 12pt)
+
+#align(center)[*Background + font via skinparam*]
+
+#seq-puml(width: 360pt, "participant Client
+participant API #LightBlue
+database Store
+
+Client -> API : GET /things
+API -> Store : SELECT
+Store --> API : rows
+API --> Client : 200 OK
+")

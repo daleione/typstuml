@@ -5,6 +5,7 @@
 //! embedded virtual filesystem (`runtime::world`); from the Typst side it
 //! looks like an ordinary file at `/blockcell/lib.typ`.
 
+mod json;
 mod sequence;
 
 use crate::diagnostics::{Error, Result};
@@ -40,6 +41,7 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
         }
         match diagram {
             Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
+            Diagram::Json(j) => json::emit(&mut out, j),
         }
     }
 

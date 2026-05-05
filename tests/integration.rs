@@ -23,6 +23,14 @@ fn fixture(name: &str) -> PathBuf {
     p
 }
 
+fn fixture_in(subdir: &str, name: &str) -> PathBuf {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("tests/fixtures");
+    p.push(subdir);
+    p.push(name);
+    p
+}
+
 fn svg_viewbox_width(svg: &str) -> Option<f64> {
     let start = svg.find("viewBox=\"")? + "viewBox=\"".len();
     let end = svg[start..].find('"')? + start;
@@ -109,8 +117,13 @@ fn emit_typst(fixture_name: &str) -> String {
 }
 
 fn assert_golden(name: &str, actual: &str) {
+    assert_golden_in("sequence", name, actual);
+}
+
+fn assert_golden_in(subdir: &str, name: &str, actual: &str) {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("tests/golden/sequence");
+    path.push("tests/golden");
+    path.push(subdir);
     path.push(format!("{name}.typ.golden"));
 
     if std::env::var_os("UPDATE_GOLDEN").is_some() {
@@ -121,8 +134,22 @@ fn assert_golden(name: &str, actual: &str) {
         .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
     assert_eq!(
         actual, expected,
-        "golden mismatch for {name}; rerun with UPDATE_GOLDEN=1 to refresh"
+        "golden mismatch for {subdir}/{name}; rerun with UPDATE_GOLDEN=1 to refresh"
     );
+}
+
+fn emit_typst_path(path: &std::path::Path) -> String {
+    let output = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("--emit-typst")
+        .arg("--stdout")
+        .arg(path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    String::from_utf8(output).expect("emit-typst output is UTF-8")
 }
 
 #[test]
@@ -160,6 +187,54 @@ fn skinparam_drives_page_fill_in_svg() {
         case_insensitive.contains("#f8f8f2") || case_insensitive.contains("248"),
         "expected styled background color in SVG output"
     );
+}
+
+#[test]
+fn golden_emit_typst_json_person() {
+    let actual = emit_typst_path(&fixture_in("json", "person.puml"));
+    assert_golden_in("json", "person", &actual);
+}
+
+#[test]
+fn renders_svg_for_json_person() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("person.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("json", "person.puml"))
+        .arg("-o")
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    // Typst rasterizes glyphs to paths, so we can't grep for label text;
+    // assert structure instead — the JSON tree should produce many node
+    // boxes (rects with stroke) and connector strokes.
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 50,
+        "expected JSON tree to emit many <path>s; got {path_count}"
+    );
+    let width = svg_viewbox_width(&svg).expect("viewBox missing");
+    assert!(
+        width > 200.0,
+        "JSON tree viewBox width unexpectedly small: {width}"
+    );
+}
+
+#[test]
+fn json_strict_rejects_invalid() {
+    let tmp = tempfile::tempdir().unwrap();
+    let bad = tmp.path().join("bad.puml");
+    std::fs::write(&bad, "@startjson\n{\n  \"k\":,\n}\n@endjson\n").unwrap();
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("--check")
+        .arg(&bad)
+        .assert()
+        .failure()
+        .stderr(contains("invalid JSON"));
 }
 
 #[test]

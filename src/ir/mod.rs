@@ -21,7 +21,17 @@ pub struct Document {
 #[derive(Clone, Debug)]
 pub enum Diagram {
     Sequence(SequenceDiagram),
+    Json(JsonDiagram),
     // Future: State(StateDiagram), Activity(...), MindMap(TreeDiagram), ...
+}
+
+#[derive(Clone, Debug)]
+pub struct JsonDiagram {
+    pub name: Option<String>,
+    pub title: Option<String>,
+    /// Parsed JSON value. The full serde_json::Value tree is the AST — there's
+    /// no further normalization since `tree` codegen walks it recursively.
+    pub root: serde_json::Value,
 }
 
 #[derive(Clone, Debug)]

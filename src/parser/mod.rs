@@ -18,6 +18,7 @@
 //! [`StructuredSequence`]: crate::ir::StructuredSequence
 
 pub mod dispatcher;
+pub mod json;
 pub mod lexer;
 pub mod preprocessor;
 pub mod sequence;
@@ -44,6 +45,11 @@ pub fn parse(
         match kind {
             dispatcher::DiagramKind::Sequence => {
                 let (diagram, mut diags) = sequence::parse(block, compat)?;
+                diagrams.push(diagram);
+                diagnostics.append(&mut diags);
+            }
+            dispatcher::DiagramKind::Json => {
+                let (diagram, mut diags) = json::parse(block, compat)?;
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }

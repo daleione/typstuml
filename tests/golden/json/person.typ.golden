@@ -1,0 +1,7 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Person record*]
+
+#tree(node[\{\}], node[firstName: "John"], node[lastName: "Smith"], node[isAlive: true], node[age: 28], tree(node[address: \{\}], node[streetAddress: "21 2nd Street"], node[city: "New York"], node[postalCode: "10021-3100"]), tree(node[phoneNumbers: \[\]], tree(node[0: \{\}], node[type: "home"], node[number: "212 555-1234"]), tree(node[1: \{\}], node[type: "office"], node[number: "646 555-4567"])), node[children: \[\]], node[spouse: null])

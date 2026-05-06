@@ -50,18 +50,23 @@ fn emit_node(out: &mut String, value: &Value) {
     }
     out.push_str("), children: (");
 
-    let mut first_child = true;
+    let mut child_count = 0usize;
     for (i, e) in entries.iter().enumerate() {
         for child in spawn_children(&e.value) {
-            if first_child {
-                first_child = false;
-            } else {
+            if child_count > 0 {
                 out.push_str(", ");
             }
             out.push_str(&format!("(row: {i}, node: "));
             emit_node(out, &child);
             out.push(')');
+            child_count += 1;
         }
+    }
+    if child_count == 1 {
+        // Trailing comma so a single-child tuple parses as an array of one,
+        // not a parenthesized dict — otherwise blockcell's `for ch in
+        // children` iterates the dict's entries instead and `ch.node` fails.
+        out.push(',');
     }
     out.push_str("))");
 }
@@ -234,5 +239,16 @@ mod tests {
     fn title_is_emitted_in_record_graph_param() {
         let out = render(Some("My data"), json!({"x": 1}));
         assert!(out.starts_with("#record-graph(title: [My data], "));
+    }
+
+    #[test]
+    fn single_child_gets_trailing_comma() {
+        // One-element children tuple must parse as array, not parenthesized
+        // dict — otherwise blockcell iterates entries and crashes on `ch.node`.
+        let out = render(None, json!({"only": {"k": "v"}}));
+        assert!(
+            out.contains("(row: 0, node: (rows: ((key: [k], value: [\"v\"]),), children: ())),"),
+            "single-child children tuple missing trailing comma: {out}"
+        );
     }
 }

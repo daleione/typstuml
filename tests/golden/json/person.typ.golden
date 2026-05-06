@@ -2,4 +2,17 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#record-graph(title: [Person record], (rows: ((key: [firstName], value: ["John"]), (key: [lastName], value: ["Smith"]), (key: [isAlive], value: [☑ true]), (key: [age], value: [28]), (key: [address], value: []), (key: [phoneNumbers], value: []), (key: [children], value: []), (key: [spouse], value: [␀])), children: ((row: 4, node: (rows: ((key: [streetAddress], value: ["21 2nd Street"]), (key: [city], value: ["New York"]), (key: [postalCode], value: ["10021-3100"])), children: ())), (row: 5, node: (rows: ((key: [type], value: ["home"]), (key: [number], value: ["212 555-1234"])), children: ())), (row: 5, node: (rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"])), children: ())))))
+#record-layout(
+  title: [Person record],
+  records: (
+    (x: 10.00pt, y: 25.75pt, rows: ((key: [firstName], value: ["John"]), (key: [lastName], value: ["Smith"]), (key: [isAlive], value: [☑ true]), (key: [age], value: [28]), (key: [address], value: []), (key: [phoneNumbers], value: []), (key: [children], value: []), (key: [spouse], value: [␀]))),
+    (x: 160.50pt, y: 10.00pt, rows: ((key: [streetAddress], value: ["21 2nd Street"]), (key: [city], value: ["New York"]), (key: [postalCode], value: ["10021-3100"]))),
+    (x: 184.25pt, y: 81.00pt, rows: ((key: [type], value: ["home"]), (key: [number], value: ["212 555-1234"]))),
+    (x: 184.25pt, y: 135.00pt, rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"]))),
+  ),
+  edges: (
+    (from: 0, from-row: 4, to: 1, c1: (168.28pt, 69.12pt), c2: (143.99pt, 78.04pt)),
+    (from: 0, from-row: 5, to: 2, c1: (170.49pt, 95.61pt), c2: (154.28pt, 95.31pt)),
+    (from: 0, from-row: 5, to: 3, c1: (168.28pt, 118.38pt), c2: (162.47pt, 119.88pt)),
+  ),
+)

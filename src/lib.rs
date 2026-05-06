@@ -10,6 +10,7 @@ pub mod cli;
 pub mod codegen;
 pub mod diagnostics;
 pub mod ir;
+pub mod layout;
 pub mod parser;
 pub mod runtime;
 pub mod theme;

@@ -14,10 +14,9 @@
 //! Strings are escaped for Typst content markup so backticks, `*`, `#`,
 //! etc. in source values render literally instead of being interpreted.
 //!
-//! The compound-value placeholder (`~~~`) gives empty value cells visible
-//! width so the column doesn't collapse on all-compound objects; on
-//! object-with-scalar rows the wider scalar values dominate the column
-//! and the placeholder is invisible.
+//! Compound (object / array) value cells are emitted empty — `blockcell`'s
+//! `record-graph` draws a small filled dot inside the cell as the outgoing
+//! reference's origin and reserves min cell width when needed.
 
 use serde_json::Value;
 
@@ -140,10 +139,9 @@ fn render_value(value: &Value) -> String {
         Value::Bool(false) => "☒ false".to_string(),
         Value::Number(n) => n.to_string(),
         Value::String(s) => format!("\"{}\"", typst_markup_escape(s)),
-        // Compound — empty cell with a width-preserving placeholder so the
-        // value column stays visible even when every row points elsewhere.
-        // `~` is Typst markup for non-breaking space.
-        Value::Object(_) | Value::Array(_) => "~~~".to_string(),
+        // Compound — empty cell. record-graph fills in the origin dot for
+        // rows with outgoing arrows and reserves a min width for them.
+        Value::Object(_) | Value::Array(_) => String::new(),
     }
 }
 
@@ -187,7 +185,7 @@ mod tests {
     #[test]
     fn nested_object_becomes_child_record() {
         let out = render(None, json!({"addr": {"city": "NYC"}}));
-        assert!(out.contains("(key: [addr], value: [~~~])"));
+        assert!(out.contains("(key: [addr], value: [])"));
         assert!(out.contains("(row: 0, node: (rows: ((key: [city], value: [\"NYC\"]),)"));
     }
 
@@ -202,8 +200,8 @@ mod tests {
     #[test]
     fn empty_compound_emits_no_child() {
         let out = render(None, json!({"empty-arr": [], "empty-obj": {}}));
-        assert!(out.contains("(key: [empty-arr], value: [~~~])"));
-        assert!(out.contains("(key: [empty-obj], value: [~~~])"));
+        assert!(out.contains("(key: [empty-arr], value: [])"));
+        assert!(out.contains("(key: [empty-obj], value: [])"));
         assert!(!out.contains("(row:"));
     }
 

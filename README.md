@@ -7,10 +7,9 @@ renders it through [Typst](https://typst.app/) using the
 [`blockcell`](https://github.com/daleione/blockcell) diagram primitives.
 Cargo crate name and binary command: `typstuml`.
 
-> Status: **M0 / early preview.** Sequence diagrams are the first supported
-> diagram type. State, activity, mindmap, WBS, and JSON are planned next.
-> See `docs/research/puml-typst-cli.md` in the parent `blockcell` repo for the
-> full roadmap.
+> Active development. Sequence and JSON diagrams render today; other
+> diagram types are recognized by the parser but not yet wired up. See
+> the [Features](#features) section for the full status matrix.
 
 ## Why
 
@@ -32,8 +31,6 @@ cargo install --path .
 If you cloned without `--recurse-submodules`, run
 `git submodule update --init` first (`build.rs` will also try to do this
 automatically inside a git checkout).
-
-A pre-built single binary will be published once the M3 milestone ships.
 
 ## Usage
 
@@ -68,22 +65,30 @@ typstuml --emit-typst examples/hello.puml
 | `--include <DIR>`                 | Add a search path for `!include` (repeatable)         |
 | `--compat <strict\|warn\|loose>`  | How strict to be about unsupported PlantUML syntax    |
 
-## What's supported in M0
+## Features
 
-The Sequence diagram coverage in M0 is whatever `blockcell`'s `seq-puml`
-function already supports, since M0 routes the source through it directly:
+Legend: ✅ shipped · 🚧 partial · ⏳ planned
 
-- participant / actor / boundary / control / database / collections / queue / entity
-- messages, self-calls, return arrows
-- `alt` / `else` / `opt` / `loop` / `par` blocks
-- `note over A`, `note over A, B`, multi-line notes
-- `== divider ==`
-- `autonumber` (start / stop / resume)
-- `create` / `destroy`
-- color overrides on participants and arrows
-
-A native Rust parser with golden tests, richer diagnostics, and full
-`skinparam` mapping lands in M1 — see the project roadmap.
+| Diagram                       | Status | Notes                                                                                   |
+| ----------------------------- | :----: | --------------------------------------------------------------------------------------- |
+| Sequence (`@startuml`)        |   ✅   | Lifelines, messages, fragments, notes, `autonumber`, `create` / `destroy` — native parser |
+| JSON (`@startjson`)           |   ✅   | Linked record blocks with dashed reference arrows; `☑ true` / `☒ false` / `␀` markers   |
+| YAML (`@startyaml`)           |   ⏳   | Same data shape as JSON; will reuse the `record-graph` renderer                         |
+| Class                         |   ⏳   | UML class boxes with fields / methods and inheritance / composition arrows              |
+| Activity                      |   ⏳   | Flowcharts / workflows — planned via `blockcell.flow-col`                               |
+| State                         |   ⏳   | UML state machines with transitions — planned via `blockcell.state-chain`               |
+| Use case                      |   ⏳   | Actors + ellipses inside a system boundary                                              |
+| Object                        |   ⏳   | UML object instances with field values                                                  |
+| Component                     |   ⏳   | Components, interfaces, ports                                                           |
+| Deployment                    |   ⏳   | Nodes, artifacts, devices                                                               |
+| Timing                        |   ⏳   | Concurrent lifelines + state transitions over time                                      |
+| MindMap (`@startmindmap`)     |   ⏳   | Radial tree — planned via `blockcell.tree`                                              |
+| WBS (`@startwbs`)             |   ⏳   | Work-breakdown hierarchy                                                                |
+| Gantt (`@startgantt`)         |   ⏳   | Project schedules with date axis                                                        |
+| Salt (`@startsalt`)           |   ⏳   | UI / wireframe mockups                                                                  |
+| Network (`nwdiag`)            |   ⏳   | Network topology                                                                        |
+| Ditaa (`@startditaa`)         |   ⏳   | ASCII-art passthrough                                                                   |
+| Full `skinparam` coverage     |   🚧   | `backgroundColor`, `defaultFontName`, `defaultFontSize` map today; rest pass through    |
 
 ## Layout
 
@@ -101,7 +106,7 @@ TypstUML/
                  `lib.typ` + `src/` into `$OUT_DIR` for `include_dir!`.
   tests/
     fixtures/    Sample .puml inputs
-    golden/      Expected outputs (snapshot tests, M1+)
+    golden/      Expected outputs (snapshot tests)
 ```
 
 ### Updating the vendored `blockcell`

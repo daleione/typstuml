@@ -22,6 +22,7 @@ pub mod json;
 pub mod lexer;
 pub mod preprocessor;
 pub mod sequence;
+pub mod yaml;
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::Document;
@@ -53,10 +54,15 @@ pub fn parse(
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }
+            dispatcher::DiagramKind::Yaml => {
+                let (diagram, mut diags) = yaml::parse(block, compat)?;
+                diagrams.push(diagram);
+                diagnostics.append(&mut diags);
+            }
             other => {
                 let detail = format!(
                     "diagram type {other:?} is not yet supported; \
-                     only Sequence diagrams render today"
+                     Sequence, JSON, and YAML diagrams render today"
                 );
                 if compat == CompatMode::Strict {
                     return Err(Error::Unsupported {

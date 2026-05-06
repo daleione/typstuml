@@ -7,9 +7,9 @@ renders it through [Typst](https://typst.app/) using the
 [`blockcell`](https://github.com/daleione/blockcell) diagram primitives.
 Cargo crate name and binary command: `typstuml`.
 
-> Active development. Sequence and JSON diagrams render today; other
-> diagram types are recognized by the parser but not yet wired up. See
-> the [Features](#features) section for the full status matrix.
+> Active development. Sequence, JSON, and YAML diagrams render today;
+> other diagram types are recognized by the parser but not yet wired up.
+> See the [Features](#features) section for the full status matrix.
 
 ## Why
 
@@ -73,7 +73,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | ----------------------------- | :----: | --------------------------------------------------------------------------------------- |
 | Sequence (`@startuml`)        |   ✅   | Lifelines, messages, fragments, notes, `autonumber`, `create` / `destroy` — native parser |
 | JSON (`@startjson`)           |   ✅   | Linked record blocks with dashed reference arrows; `☑ true` / `☒ false` / `␀` markers   |
-| YAML (`@startyaml`)           |   ⏳   | Same data shape as JSON; will reuse the `record-graph` renderer                         |
+| YAML (`@startyaml`)           |   ✅   | Shares the JSON `record-graph` renderer; flow & block style, anchors / aliases via serde |
 | Class                         |   ⏳   | UML class boxes with fields / methods and inheritance / composition arrows              |
 | Activity                      |   ⏳   | Flowcharts / workflows — planned via `blockcell.flow-col`                               |
 | State                         |   ⏳   | UML state machines with transitions — planned via `blockcell.state-chain`               |

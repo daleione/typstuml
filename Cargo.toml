@@ -29,6 +29,7 @@ include_dir = "0.7"
 thiserror = "2"
 time = { version = "0.3", features = ["std"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+serde_yaml_ng = "0.10"
 
 [dev-dependencies]
 assert_cmd = "2"

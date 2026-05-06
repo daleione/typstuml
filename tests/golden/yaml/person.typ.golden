@@ -1,0 +1,5 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#record-graph(title: [Person record], (rows: ((key: [firstName], value: ["John"]), (key: [lastName], value: ["Smith"]), (key: [isAlive], value: [☑ true]), (key: [age], value: [28]), (key: [address], value: [~~~]), (key: [phoneNumbers], value: [~~~]), (key: [children], value: [~~~]), (key: [spouse], value: [␀])), children: ((row: 4, node: (rows: ((key: [streetAddress], value: ["21 2nd Street"]), (key: [city], value: ["New York"]), (key: [postalCode], value: ["10021-3100"])), children: ())), (row: 5, node: (rows: ((key: [type], value: ["home"]), (key: [number], value: ["212 555-1234"])), children: ())), (row: 5, node: (rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"])), children: ())))))

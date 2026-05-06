@@ -224,6 +224,52 @@ fn renders_svg_for_json_person() {
 }
 
 #[test]
+fn golden_emit_typst_yaml_person() {
+    let actual = emit_typst_path(&fixture_in("yaml", "person.puml"));
+    assert_golden_in("yaml", "person", &actual);
+}
+
+#[test]
+fn renders_svg_for_yaml_person() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("person.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("yaml", "person.puml"))
+        .arg("-o")
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 50,
+        "expected YAML record-graph to emit many <path>s; got {path_count}"
+    );
+    let width = svg_viewbox_width(&svg).expect("viewBox missing");
+    assert!(
+        width > 200.0,
+        "YAML record-graph viewBox width unexpectedly small: {width}"
+    );
+}
+
+#[test]
+fn yaml_strict_rejects_invalid() {
+    let tmp = tempfile::tempdir().unwrap();
+    let bad = tmp.path().join("bad.puml");
+    // Tab indentation is invalid in YAML.
+    std::fs::write(&bad, "@startyaml\nroot:\n\tchild: 1\n@endyaml\n").unwrap();
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("--check")
+        .arg(&bad)
+        .assert()
+        .failure()
+        .stderr(contains("invalid YAML"));
+}
+
+#[test]
 fn json_strict_rejects_invalid() {
     let tmp = tempfile::tempdir().unwrap();
     let bad = tmp.path().join("bad.puml");

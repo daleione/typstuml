@@ -6,7 +6,9 @@
 //! looks like an ordinary file at `/blockcell/lib.typ`.
 
 mod json;
+mod record_graph;
 mod sequence;
+mod yaml;
 
 use crate::diagnostics::{Error, Result};
 use crate::ir::{Diagram, Document};
@@ -42,6 +44,7 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
         match diagram {
             Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
             Diagram::Json(j) => json::emit(&mut out, j),
+            Diagram::Yaml(y) => yaml::emit(&mut out, y),
         }
     }
 

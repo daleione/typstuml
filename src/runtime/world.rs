@@ -20,7 +20,7 @@ use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::Library;
+use typst::{Library, LibraryExt};
 use typst_kit::fonts::{FontSearcher, FontSlot};
 
 /// Vendored `blockcell` sources, baked into the binary at compile time.

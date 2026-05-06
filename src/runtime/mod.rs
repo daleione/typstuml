@@ -120,7 +120,7 @@ fn span_line<W: typst::World>(world: &W, span: typst::syntax::Span) -> Option<us
     let id = span.id()?;
     let source = world.source(id).ok()?;
     let range = source.range(span)?;
-    Some(source.byte_to_line(range.start)? + 1)
+    Some(source.lines().byte_to_line(range.start)? + 1)
 }
 
 fn format_typst_diagnostics<W: typst::World>(
@@ -132,8 +132,9 @@ fn format_typst_diagnostics<W: typst::World>(
         if let Some(id) = diag.span.id() {
             if let Ok(source) = world.source(id) {
                 if let Some(range) = source.range(diag.span) {
-                    let line = source.byte_to_line(range.start).map(|l| l + 1);
-                    let col = source.byte_to_column(range.start).map(|c| c + 1);
+                    let lines = source.lines();
+                    let line = lines.byte_to_line(range.start).map(|l| l + 1);
+                    let col = lines.byte_to_column(range.start).map(|c| c + 1);
                     let path = id.vpath().as_rooted_path().display();
                     if let (Some(l), Some(c)) = (line, col) {
                         out.push_str(&format!("{path}:{l}:{c}: "));

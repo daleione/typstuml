@@ -10,6 +10,7 @@
 //! lives in submodules.
 
 mod bk;
+mod compact;
 mod edge_fix;
 mod simple;
 mod verify;
@@ -46,6 +47,7 @@ impl<'a> Placer<'a> {
 
         verify::do_it(self.vg);
         edge_fix::do_it(self.vg);
+        compact::do_it(self.vg);
 
         if need_transpose {
             self.vg.transpose();

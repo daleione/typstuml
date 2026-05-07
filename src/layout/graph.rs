@@ -38,14 +38,32 @@ impl Orientation {
     }
 }
 
-/// Halo around each `Element`, used as the rank-step and minimum sibling
-/// gap by `simple::assign_y_coordinates` and `BK::first_schedule_x`. In
-/// Typst pt — set to give visually breathing room around 10pt records.
-const NODE_HALO: f64 = 20.;
+/// Gap between adjacent ranks (parallel to the rank-progression axis).
+/// PlantUML/dot defaults to `ranksep ≈ 36pt` at a 14pt body; for our 10pt
+/// body we use a tighter value, since `compact::do_it` further reclaims
+/// any rank-gap that no actual neighbour needs.
+const RANK_GAP_PT: f64 = 12.;
 
-/// Halo around connector dummy nodes. Smaller than `NODE_HALO` so a long
-/// edge passing through several ranks doesn't push them apart.
-const CONNECTOR_HALO: f64 = 10.;
+/// Gap between sibling boxes within the same rank (perpendicular to the
+/// rank-progression axis). Half the rank gap, mirroring dot's
+/// `nodesep ≈ ranksep / 2` ratio.
+const SIBLING_GAP_PT: f64 = 6.;
+
+/// Halo for connector dummies — symmetric and small so a multi-rank edge
+/// doesn't bow neighboring records apart.
+const CONNECTOR_HALO_PT: f64 = SIBLING_GAP_PT;
+
+/// Halo a real box gets, given the rank-progression axis. Halo is added to
+/// `size` and split symmetrically around the box, so the actual gap between
+/// neighbors equals one full halo (see `simple::assign_y_coordinates` and
+/// `BK::first_schedule_x`).
+fn box_halo(orientation: Orientation) -> Point {
+    if orientation.is_left_right() {
+        Point::new(RANK_GAP_PT, SIBLING_GAP_PT)
+    } else {
+        Point::new(SIBLING_GAP_PT, RANK_GAP_PT)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NodeKind {
@@ -68,7 +86,7 @@ impl Element {
                 Point::zero(),
                 size,
                 Point::zero(),
-                Point::splat(NODE_HALO),
+                box_halo(orientation),
             ),
             orientation,
         }
@@ -81,7 +99,7 @@ impl Element {
                 Point::zero(),
                 Point::zero(),
                 Point::zero(),
-                Point::splat(CONNECTOR_HALO),
+                Point::splat(CONNECTOR_HALO_PT),
             ),
             orientation,
         }

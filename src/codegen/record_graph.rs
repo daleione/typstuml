@@ -64,11 +64,15 @@ pub fn emit_record_graph(out: &mut String, title: Option<&str>, root: &Value) {
 
     for (parent_idx, spec) in specs.iter().enumerate() {
         for (row_idx, child_idx) in &spec.children {
-            vg.add_edge(
-                Edge { src_row: *row_idx },
-                handles[parent_idx],
-                handles[*child_idx],
-            );
+            // Hint the perpendicular solver toward the row anchor on the
+            // source and the centre of the target. Both are pre-transpose
+            // (LR-y) lengths, which is what `port_align` consumes.
+            let edge = Edge {
+                src_row: *row_idx,
+                source_perp_offset: Some(geoms[parent_idx].row_centers[*row_idx]),
+                target_perp_offset: Some(geoms[*child_idx].size.y / 2.0),
+            };
+            vg.add_edge(edge, handles[parent_idx], handles[*child_idx]);
         }
     }
 

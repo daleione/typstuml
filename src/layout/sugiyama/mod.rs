@@ -12,6 +12,7 @@
 mod bk;
 mod compact;
 mod edge_fix;
+mod port_align;
 mod simple;
 mod verify;
 
@@ -45,6 +46,8 @@ impl<'a> Placer<'a> {
 
         bk::BK::new(self.vg).do_it();
 
+        verify::do_it(self.vg);
+        port_align::do_it(self.vg);
         verify::do_it(self.vg);
         edge_fix::do_it(self.vg);
         compact::do_it(self.vg);

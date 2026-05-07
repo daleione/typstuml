@@ -9,12 +9,12 @@
     (x: 148.50pt, y: 21.25pt, rows: ((key: [streetAddress], value: ["21 2nd Street"]), (key: [city], value: ["New York"]), (key: [postalCode], value: ["10021-3100"]))),
     (x: 148.50pt, y: 78.25pt, rows: ((key: [0], value: []), (key: [1], value: []))),
     (x: 341.00pt, y: 56.12pt, rows: ((key: [type], value: ["home"]), (key: [number], value: ["212 555-1234"]))),
-    (x: 198.50pt, y: 98.25pt, rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"]))),
+    (x: 341.00pt, y: 98.25pt, rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"]))),
   ),
   edges: (
     (from: 0, from-row: 4, to: 1, c1: (138.50pt, 79.50pt), c2: (138.50pt, 46.75pt)),
     (from: 0, from-row: 5, to: 2, c1: (138.50pt, 96.50pt), c2: (138.50pt, 95.25pt)),
     (from: 2, from-row: 0, to: 3, c1: (208.50pt, 86.75pt), c2: (311.00pt, 73.12pt)),
-    (from: 2, from-row: 1, to: 4, c1: (188.50pt, 103.75pt), c2: (188.50pt, 115.25pt)),
+    (from: 2, from-row: 1, to: 4, c1: (208.50pt, 103.75pt), c2: (311.00pt, 115.25pt)),
   ),
 )

@@ -163,11 +163,19 @@ impl Element {
     }
 }
 
-/// Per-edge metadata. The placer doesn't use it; only the caller does
-/// (e.g. record-graph emit-time, to know which row an edge leaves from).
+/// Per-edge metadata. `src_row` is consumed at emit time; the optional
+/// `*_perp_offset` fields are read by `port_align` to bias child nodes
+/// toward the parent row that references them.
+///
+/// `perp_offset` semantics are orientation-invariant: a length along the
+/// axis perpendicular to rank progression, measured from the box's
+/// top/left edge. It is *not* transposed when the placer flips the
+/// graph — the field is a length, not a coordinate.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Edge {
     pub src_row: usize,
+    pub source_perp_offset: Option<f64>,
+    pub target_perp_offset: Option<f64>,
 }
 
 #[derive(Debug)]

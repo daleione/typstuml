@@ -25,10 +25,7 @@ const PT_PER_OVERFLOW_CHAR: u32 = 4;
 pub fn emit(out: &mut String, seq: &SequenceDiagram) {
     match seq {
         SequenceDiagram::Raw {
-            title,
-            body,
-            hints,
-            ..
+            title, body, hints, ..
         } => {
             if let Some(title) = title {
                 emit_title(out, title);
@@ -146,9 +143,7 @@ fn puml_color_to_typst(raw: &str) -> Option<String> {
     let final_hex = match named {
         Some(h) => h.trim_start_matches('#').to_string(),
         None => {
-            if hex.chars().all(|c| c.is_ascii_hexdigit())
-                && (hex.len() == 3 || hex.len() == 6)
-            {
+            if hex.chars().all(|c| c.is_ascii_hexdigit()) && (hex.len() == 3 || hex.len() == 6) {
                 hex.to_string()
             } else {
                 return None;

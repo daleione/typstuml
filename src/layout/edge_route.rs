@@ -80,18 +80,15 @@ pub fn find_polyline(
 /// segment ended. Tangents at the start, end, and intermediate
 /// waypoints control the smoothness:
 ///
-/// - start / end tangent: horizontal (axis along which records align),
-///   so the curve leaves and enters records cleanly through their
-///   left/right edges.
+/// - start tangent: horizontal, so edges leave origin dots cleanly.
+/// - end tangent: follows the last polyline leg, so arrowheads enter
+///   records in the direction of travel.
 /// - waypoint tangent: bisector of incoming and outgoing segment
 ///   directions, so the corner rounds smoothly.
 ///
 /// `force_max` caps the control-handle length so short segments don't
 /// overshoot.
-pub fn compute_bezier_segments(
-    polyline: &[Point],
-    force_max: f64,
-) -> Vec<(Point, Point, Point)> {
+pub fn compute_bezier_segments(polyline: &[Point], force_max: f64) -> Vec<(Point, Point, Point)> {
     let n = polyline.len();
     if n < 2 {
         return Vec::new();
@@ -111,11 +108,11 @@ pub fn compute_bezier_segments(
 
 fn tangent_at(polyline: &[Point], i: usize) -> Point {
     let n = polyline.len();
-    if i == 0 || i == n - 1 {
-        // Endpoints leave / enter records along the rank axis (horizontal
-        // for LR record graphs). A constant horizontal tangent is the
-        // closest analogue to dot's record-edge handling.
+    if i == 0 {
         return Point::new(1.0, 0.0);
+    }
+    if i == n - 1 {
+        return unit_or(polyline[n - 1].sub(polyline[n - 2]), Point::new(1.0, 0.0));
     }
     let prev = unit_or(polyline[i].sub(polyline[i - 1]), Point::new(1.0, 0.0));
     let next = unit_or(polyline[i + 1].sub(polyline[i]), Point::new(1.0, 0.0));
@@ -148,12 +145,7 @@ fn pad_rect(rect: (Point, Point), pad: f64) -> (Point, Point) {
 /// Skip an obstacle when an endpoint sits inside the padded rectangle —
 /// the edge has to pass through that point regardless, so treating it
 /// as a blocker would only spuriously kill the visibility graph.
-fn endpoint_inside_padded(
-    start: Point,
-    end: Point,
-    rect: (Point, Point),
-    pad: f64,
-) -> bool {
+fn endpoint_inside_padded(start: Point, end: Point, rect: (Point, Point), pad: f64) -> bool {
     let padded = pad_rect(rect, pad);
     point_inside(start, padded) || point_inside(end, padded)
 }
@@ -163,9 +155,7 @@ fn point_inside(p: Point, rect: (Point, Point)) -> bool {
 }
 
 fn blocked_by_any(a: Point, b: Point, padded: &[(Point, Point)]) -> bool {
-    padded
-        .iter()
-        .any(|r| segment_intersects_interior(a, b, *r))
+    padded.iter().any(|r| segment_intersects_interior(a, b, *r))
 }
 
 /// True iff the segment crosses the rectangle's strict interior. A
@@ -297,7 +287,8 @@ mod tests {
 
     #[test]
     fn segments_horizontal_at_endpoints() {
-        // Single-segment polyline → c1, c2 stay on the start/end y.
+        // A horizontal single-segment polyline still keeps c1/c2 on the
+        // start/end y.
         let segs = compute_bezier_segments(&[pt(0.0, 0.0), pt(100.0, 0.0)], 30.0);
         assert_eq!(segs.len(), 1);
         let (c1, c2, end) = segs[0];
@@ -307,14 +298,28 @@ mod tests {
     }
 
     #[test]
+    fn segments_follow_endpoint_direction() {
+        // A diagonal final leg should make the target control handle sit
+        // behind the endpoint on that same diagonal, so the arrowhead can
+        // follow the incoming path tangent.
+        let segs = compute_bezier_segments(&[pt(0.0, 0.0), pt(100.0, 50.0)], 30.0);
+        assert_eq!(segs.len(), 1);
+        let (_, c2, end) = segs[0];
+        let incoming = end.sub(c2);
+        assert!(incoming.x > 0.0 && incoming.y > 0.0, "got {:?}", incoming);
+        assert!(
+            (incoming.y / incoming.x - 0.5).abs() < 1e-6,
+            "got {:?}",
+            incoming
+        );
+    }
+
+    #[test]
     fn segments_smooth_at_corner() {
         // Two-segment polyline with a 90° turn. Tangent at the corner is
         // the bisector, so c2 of segment 0 and c1 of segment 1 are
         // anti-parallel about the corner waypoint.
-        let segs = compute_bezier_segments(
-            &[pt(0.0, 0.0), pt(50.0, 0.0), pt(50.0, 50.0)],
-            30.0,
-        );
+        let segs = compute_bezier_segments(&[pt(0.0, 0.0), pt(50.0, 0.0), pt(50.0, 50.0)], 30.0);
         assert_eq!(segs.len(), 2);
         // c2 of segment 0 sits on the bisector (45°) from waypoint (50,0).
         let (_, c2, _) = segs[0];

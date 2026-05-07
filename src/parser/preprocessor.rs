@@ -242,10 +242,7 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("BAR".to_string(), "baz".to_string());
         // BAR replaced; BARN left alone; bar (lowercase) left alone.
-        assert_eq!(
-            substitute_defines("BAR BARN bar", &defines),
-            "baz BARN bar"
-        );
+        assert_eq!(substitute_defines("BAR BARN bar", &defines), "baz BARN bar");
     }
 
     #[test]

@@ -87,7 +87,8 @@ impl<'a> RankOptimizer<'a> {
             .min()
             .unwrap_or(self.dag.len());
         if highest_next > curr_rank + 1 {
-            self.dag.update_node_rank_level(node, highest_next - 1, None);
+            self.dag
+                .update_node_rank_level(node, highest_next - 1, None);
             return true;
         }
         false
@@ -117,12 +118,7 @@ impl<'a> EdgeCrossOptimizer<'a> {
         Self { dag }
     }
 
-    fn num_crossing(
-        &self,
-        a: NodeHandle,
-        b: NodeHandle,
-        row: &[NodeHandle],
-    ) -> usize {
+    fn num_crossing(&self, a: NodeHandle, b: NodeHandle, row: &[NodeHandle]) -> usize {
         let a_succ = self.dag.successors(a);
         let a_pred = self.dag.predecessors(a);
         let b_succ = self.dag.successors(b);
@@ -142,11 +138,7 @@ impl<'a> EdgeCrossOptimizer<'a> {
         sum
     }
 
-    fn count_crossing_in_rows(
-        &self,
-        first: &[NodeHandle],
-        second: &[NodeHandle],
-    ) -> usize {
+    fn count_crossing_in_rows(&self, first: &[NodeHandle], second: &[NodeHandle]) -> usize {
         let mut sum = 0;
         for i in 0..first.len() {
             for j in i + 1..first.len() {
@@ -162,9 +154,7 @@ impl<'a> EdgeCrossOptimizer<'a> {
             return 0;
         }
         (0..levels - 1)
-            .map(|i| {
-                self.count_crossing_in_rows(self.dag.row(i), self.dag.row(i + 1))
-            })
+            .map(|i| self.count_crossing_in_rows(self.dag.row(i), self.dag.row(i + 1)))
             .sum()
     }
 
@@ -193,10 +183,8 @@ impl<'a> EdgeCrossOptimizer<'a> {
         for i in 0..row.len() - 1 {
             let a = row[i];
             let b = row[i + 1];
-            let ab = self.num_crossing(a, b, &prev_row)
-                + self.num_crossing(a, b, &next_row);
-            let ba = self.num_crossing(b, a, &prev_row)
-                + self.num_crossing(b, a, &next_row);
+            let ab = self.num_crossing(a, b, &prev_row) + self.num_crossing(a, b, &next_row);
+            let ba = self.num_crossing(b, a, &prev_row) + self.num_crossing(b, a, &next_row);
             if ab > ba {
                 row.swap(i, i + 1);
                 changed = true;

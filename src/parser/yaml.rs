@@ -126,9 +126,7 @@ mod tests {
             CompatMode::Warn,
         )
         .unwrap();
-        let Diagram::Yaml(y) = diagram else {
-            panic!()
-        };
+        let Diagram::Yaml(y) = diagram else { panic!() };
         assert_eq!(y.title.as_deref(), Some("People"));
         assert!(y.root.is_array());
         assert_eq!(y.root[0], "Alice");
@@ -141,23 +139,15 @@ mod tests {
             CompatMode::Warn,
         )
         .unwrap();
-        let Diagram::Yaml(y) = diagram else {
-            panic!()
-        };
+        let Diagram::Yaml(y) = diagram else { panic!() };
         assert_eq!(y.root["name"], "Alice");
         assert_eq!(y.root["scores"][2], 3);
     }
 
     #[test]
     fn null_variants_become_json_null() {
-        let (diagram, _) = parse(
-            &block(&["a: ~", "b: null", "c:"]),
-            CompatMode::Warn,
-        )
-        .unwrap();
-        let Diagram::Yaml(y) = diagram else {
-            panic!()
-        };
+        let (diagram, _) = parse(&block(&["a: ~", "b: null", "c:"]), CompatMode::Warn).unwrap();
+        let Diagram::Yaml(y) = diagram else { panic!() };
         assert!(y.root["a"].is_null());
         assert!(y.root["b"].is_null());
         assert!(y.root["c"].is_null());
@@ -166,10 +156,7 @@ mod tests {
     #[test]
     fn syntax_error_maps_to_a_body_line() {
         // Tab indentation is invalid in YAML.
-        let res = parse(
-            &block(&["root:", "\tchild: 1"]),
-            CompatMode::Warn,
-        );
+        let res = parse(&block(&["root:", "\tchild: 1"]), CompatMode::Warn);
         let err = res.unwrap_err();
         match err {
             Error::Parse { line, .. } => assert!((1..=2).contains(&line)),

@@ -78,13 +78,7 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
             let mut targets = Vec::with_capacity(row.len());
             let mut precisions = Vec::with_capacity(row.len());
             for &n in &row {
-                let (t, p) = target_and_precision(
-                    vg,
-                    n,
-                    &centers,
-                    &bk_centers,
-                    &alignments,
-                );
+                let (t, p) = target_and_precision(vg, n, &centers, &bk_centers, &alignments);
                 targets.push(t);
                 precisions.push(p);
             }
@@ -115,8 +109,6 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
     apply_centers(vg, &centers);
     super::simple::align_to_left(vg);
 }
-
-
 
 fn collect_alignments(vg: &VisualGraph) -> Vec<Alignment> {
     let mut out = Vec::new();
@@ -157,9 +149,7 @@ fn target_and_precision(
         let succ = vg.dag.single_succ(n);
         match (pred, succ) {
             (Some(p), Some(s)) => {
-                num += W_CONN
-                    * 0.5
-                    * (centers[p.get_index()] + centers[s.get_index()]);
+                num += W_CONN * 0.5 * (centers[p.get_index()] + centers[s.get_index()]);
                 den += W_CONN;
             }
             (Some(p), None) => {
@@ -268,19 +258,14 @@ fn apply_centers(vg: &mut VisualGraph, centers: &[f64]) {
     }
 }
 
-fn accept(
-    vg: &VisualGraph,
-    centers: &[f64],
-    bk_centers: &[f64],
-    alignments: &[Alignment],
-) -> bool {
+fn accept(vg: &VisualGraph, centers: &[f64], bk_centers: &[f64], alignments: &[Alignment]) -> bool {
     if has_overlap(vg, centers) {
         return false;
     }
     let bk_extent = perp_extent(vg, bk_centers);
     let cand_extent = perp_extent(vg, centers);
-    let budget = bk_extent.max(max_rank_extent(vg, bk_centers)) * EXTENT_BUDGET_MULT
-        + EXTENT_BUDGET_PAD;
+    let budget =
+        bk_extent.max(max_rank_extent(vg, bk_centers)) * EXTENT_BUDGET_MULT + EXTENT_BUDGET_PAD;
     if cand_extent > budget {
         return false;
     }
@@ -326,7 +311,11 @@ fn perp_extent(vg: &VisualGraph, centers: &[f64]) -> f64 {
         lo = lo.min(c - half);
         hi = hi.max(c + half);
     }
-    if lo.is_infinite() { 0.0 } else { hi - lo }
+    if lo.is_infinite() {
+        0.0
+    } else {
+        hi - lo
+    }
 }
 
 fn max_rank_extent(vg: &VisualGraph, centers: &[f64]) -> f64 {

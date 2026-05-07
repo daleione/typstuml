@@ -77,9 +77,7 @@ fn handle_disconnected(vg: &mut VisualGraph) {
     for row_idx in 0..vg.dag.num_levels() {
         let row = vg.dag.row(row_idx).clone();
         for elem in &row {
-            if !vg.dag.successors(*elem).is_empty()
-                || !vg.dag.predecessors(*elem).is_empty()
-            {
+            if !vg.dag.successors(*elem).is_empty() || !vg.dag.predecessors(*elem).is_empty() {
                 continue;
             }
             let (left, right) = movement_range(vg, *elem);

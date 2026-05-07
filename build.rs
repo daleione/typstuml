@@ -107,4 +107,3 @@ fn try_init_submodule(repo_root: &Path) {
         ])
         .status();
 }
-

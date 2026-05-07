@@ -120,10 +120,8 @@ pub fn emit_record_graph(out: &mut String, title: Option<&str>, root: &Value) {
             .filter(|i| *i != from_idx && *i != to_idx)
             .map(|i| record_bboxes[i])
             .collect();
-        let polyline =
-            edge_route::find_polyline(start, end, &obstacles, ROUTE_PADDING_PT);
-        let segments =
-            edge_route::compute_bezier_segments(&polyline, EDGE_FORCE_MAX_PT);
+        let polyline = edge_route::find_polyline(start, end, &obstacles, ROUTE_PADDING_PT);
+        let segments = edge_route::compute_bezier_segments(&polyline, EDGE_FORCE_MAX_PT);
 
         emit_edge(out, from_idx, edge.src_row, to_idx, &segments);
     }
@@ -256,7 +254,10 @@ struct RecordGeom {
 
 fn record_geom(spec: &RecordSpec) -> RecordGeom {
     if spec.rows.is_empty() {
-        return RecordGeom { size: Point::new(1., 1.), row_centers: Vec::new() };
+        return RecordGeom {
+            size: Point::new(1., 1.),
+            row_centers: Vec::new(),
+        };
     }
     let key_w = spec
         .rows
@@ -333,7 +334,10 @@ fn emit_record(out: &mut String, top_left: Point, rows: &[Row]) {
 /// Emit one edge as a multi-segment cubic-bezier path. The painter snaps
 /// the path's first start to the source row anchor and its last end to
 /// the target's left-edge centre, overriding the values we emit here for
-/// those two points; the rest of the path data is consumed verbatim.
+/// those two points. It translates the last control handle by the same
+/// target-endpoint delta, preserving the path-tangent arrowhead that
+/// `compute_bezier_segments` builds in. The rest of the path data is
+/// consumed verbatim.
 ///
 /// A single-segment `path` (the no-obstacle case) renders as a plain
 /// cubic from source to target. Multi-segment paths come from

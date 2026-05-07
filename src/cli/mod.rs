@@ -109,7 +109,10 @@ pub fn run_with(args: Args) -> Result<()> {
     }
 
     if args.check {
-        eprintln!("typstuml: parse OK ({} diagram(s))", document.diagrams.len());
+        eprintln!(
+            "typstuml: parse OK ({} diagram(s))",
+            document.diagrams.len()
+        );
         return Ok(());
     }
 

@@ -122,9 +122,7 @@ mod tests {
             CompatMode::Warn,
         )
         .unwrap();
-        let Diagram::Json(j) = diagram else {
-            panic!()
-        };
+        let Diagram::Json(j) = diagram else { panic!() };
         assert_eq!(j.title.as_deref(), Some("People"));
         assert!(j.root.is_array());
         assert_eq!(j.root[0], "Alice");
@@ -133,10 +131,7 @@ mod tests {
     #[test]
     fn syntax_error_maps_to_original_line() {
         // body line 2 (`,`) is the broken line — but it's at original index 2 too.
-        let res = parse(
-            &block(&["{", "  \"k\": ,", "}"]),
-            CompatMode::Warn,
-        );
+        let res = parse(&block(&["{", "  \"k\": ,", "}"]), CompatMode::Warn);
         let err = res.unwrap_err();
         match err {
             Error::Parse { line, .. } => assert_eq!(line, 2),

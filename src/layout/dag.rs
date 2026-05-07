@@ -172,12 +172,7 @@ impl DAG {
         self.nodes.is_empty()
     }
 
-    fn is_reachable_inner(
-        &self,
-        from: NodeHandle,
-        to: NodeHandle,
-        visited: &mut [bool],
-    ) -> bool {
+    fn is_reachable_inner(&self, from: NodeHandle, to: NodeHandle, visited: &mut [bool]) -> bool {
         if from == to {
             return true;
         }
@@ -208,8 +203,7 @@ impl DAG {
         let mut visited = vec![false; self.nodes.len()];
         // Worklist entry: (node, is_post_visit). Pre-visits push the node
         // back as a post-visit and then push children for pre-visit.
-        let mut worklist: Vec<(NodeHandle, bool)> =
-            self.iter().map(|n| (n, false)).collect();
+        let mut worklist: Vec<(NodeHandle, bool)> = self.iter().map(|n| (n, false)).collect();
 
         while let Some((current, post)) = worklist.pop() {
             if post {
@@ -250,27 +244,14 @@ impl DAG {
     }
 
     pub fn is_first_in_row(&self, elem: NodeHandle, level: usize) -> bool {
-        self.ranks
-            .get(level)
-            .and_then(|r| r.first())
-            .copied()
-            == Some(elem)
+        self.ranks.get(level).and_then(|r| r.first()).copied() == Some(elem)
     }
 
     pub fn is_last_in_row(&self, elem: NodeHandle, level: usize) -> bool {
-        self.ranks
-            .get(level)
-            .and_then(|r| r.last())
-            .copied()
-            == Some(elem)
+        self.ranks.get(level).and_then(|r| r.last()).copied() == Some(elem)
     }
 
-    fn add_element_to_rank(
-        &mut self,
-        elem: NodeHandle,
-        level: usize,
-        prepend: bool,
-    ) {
+    fn add_element_to_rank(&mut self, elem: NodeHandle, level: usize, prepend: bool) {
         while self.ranks.len() < level + 1 {
             self.ranks.push(Vec::new());
         }

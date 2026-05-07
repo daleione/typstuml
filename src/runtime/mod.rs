@@ -16,7 +16,7 @@ mod world;
 
 use std::path::PathBuf;
 
-use typst::diag::{SourceDiagnostic, Severity};
+use typst::diag::{Severity, SourceDiagnostic};
 use typst::ecow::EcoVec;
 
 use crate::diagnostics::{Diagnostic, Error, Level, Result};
@@ -70,9 +70,7 @@ pub fn render(typst_source: String, root: Option<PathBuf>, format: Format) -> Re
         .map_err(|errors| Error::TypstCompile(format_typst_diagnostics(&world, &errors)))?;
 
     let bytes = match format {
-        Format::Svg => {
-            typst_svg::svg_merged(&document, typst::layout::Abs::pt(2.0)).into_bytes()
-        }
+        Format::Svg => typst_svg::svg_merged(&document, typst::layout::Abs::pt(2.0)).into_bytes(),
         Format::Pdf => typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default())
             .map_err(|errors| Error::TypstCompile(format_typst_diagnostics(&world, &errors)))?,
         Format::Png => render_png(&document)?,

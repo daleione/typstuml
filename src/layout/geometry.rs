@@ -213,20 +213,17 @@ pub fn do_boxes_intersect(p1: (Point, Point), p2: (Point, Point)) -> bool {
     overlap_x && overlap_y
 }
 
-pub fn segment_rect_intersection(
-    seg: (Point, Point),
-    rect: (Point, Point),
-) -> bool {
+pub fn segment_rect_intersection(seg: (Point, Point), rect: (Point, Point)) -> bool {
     debug_assert!(rect.0.x <= rect.1.x);
     debug_assert!(rect.0.y <= rect.1.y);
 
     if seg.0.x == seg.1.x {
         return seg.1.x >= rect.0.x && seg.1.x <= rect.1.x;
     }
-    let xs_outside = (seg.0.x < rect.0.x && seg.1.x < rect.0.x)
-        || (seg.0.x > rect.1.x && seg.1.x > rect.1.x);
-    let ys_outside = (seg.0.y < rect.0.y && seg.1.y < rect.0.y)
-        || (seg.0.y > rect.1.y && seg.1.y > rect.1.y);
+    let xs_outside =
+        (seg.0.x < rect.0.x && seg.1.x < rect.0.x) || (seg.0.x > rect.1.x && seg.1.x > rect.1.x);
+    let ys_outside =
+        (seg.0.y < rect.0.y && seg.1.y < rect.0.y) || (seg.0.y > rect.1.y && seg.1.y > rect.1.y);
     if xs_outside || ys_outside {
         return false;
     }
@@ -267,12 +264,7 @@ fn interpolate(v0: Point, v1: Point, w: f64) -> Point {
 /// centered at `loc`? Returns the intersection plus a control-point pulled
 /// outward by `force` along the edge direction — the format the bezier
 /// router consumes.
-pub fn box_edge_intersection(
-    loc: Point,
-    size: Point,
-    from: Point,
-    force: f64,
-) -> (Point, Point) {
+pub fn box_edge_intersection(loc: Point, size: Point, from: Point, force: f64) -> (Point, Point) {
     let mut loc = loc;
     let mut size = size;
 
@@ -293,7 +285,11 @@ pub fn box_edge_intersection(
     let half_y = size.y / 2.;
 
     if dx == 0. {
-        let y = if dy > 0. { loc.y - half_y } else { loc.y + half_y };
+        let y = if dy > 0. {
+            loc.y - half_y
+        } else {
+            loc.y + half_y
+        };
         return segment_toward(Point::new(loc.x, y), from, force);
     }
 
@@ -301,12 +297,20 @@ pub fn box_edge_intersection(
     let gain_y = half_x * slope;
 
     if gain_y.abs() < half_y {
-        let (bx, gy) = if dx > 0. { (-half_x, -gain_y) } else { (half_x, gain_y) };
+        let (bx, gy) = if dx > 0. {
+            (-half_x, -gain_y)
+        } else {
+            (half_x, gain_y)
+        };
         return segment_toward(Point::new(loc.x + bx, loc.y + gy), from, force);
     }
 
     let gain_x = half_y / slope;
-    let (by, gx) = if dy > 0. { (-half_y, -gain_x) } else { (half_y, gain_x) };
+    let (by, gx) = if dy > 0. {
+        (-half_y, -gain_x)
+    } else {
+        (half_y, gain_x)
+    };
     segment_toward(Point::new(loc.x + gx, loc.y + by), from, force)
 }
 

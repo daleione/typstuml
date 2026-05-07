@@ -176,9 +176,8 @@ impl<'a> Scheduler<'a> {
         if v.is_empty() {
             return false;
         }
-        v.iter().all(|n| {
-            self.is_next_avail_in_row(*n, self.vg.dag.level(*n))
-        })
+        v.iter()
+            .all(|n| self.is_next_avail_in_row(*n, self.vg.dag.level(*n)))
     }
 }
 
@@ -224,8 +223,7 @@ impl<'a> BK<'a> {
                     Some(p) => p,
                     None => continue,
                 };
-                let both_connector =
-                    self.vg.is_connector(*elem) && self.vg.is_connector(*succ);
+                let both_connector = self.vg.is_connector(*elem) && self.vg.is_connector(*succ);
                 if both_connector {
                     strong.push((i0, i1));
                 } else {
@@ -260,7 +258,11 @@ impl<'a> BK<'a> {
                 }
                 buf.push(self.vg.pos(*pred).center().x);
             }
-            res.push(if buf.is_empty() { 0. } else { weighted_median(&buf) });
+            res.push(if buf.is_empty() {
+                0.
+            } else {
+                weighted_median(&buf)
+            });
         }
         res
     }

@@ -13,9 +13,7 @@
 use std::mem::swap;
 
 use crate::layout::dag::{NodeHandle, NodeIterator, DAG};
-use crate::layout::geometry::{
-    box_edge_intersection, passthrough_control_point, Point, Position,
-};
+use crate::layout::geometry::{box_edge_intersection, passthrough_control_point, Point, Position};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Orientation {
@@ -82,12 +80,7 @@ impl Element {
     pub fn new_box(size: Point, orientation: Orientation) -> Element {
         Element {
             kind: NodeKind::Box,
-            pos: Position::new(
-                Point::zero(),
-                size,
-                Point::zero(),
-                box_halo(orientation),
-            ),
+            pos: Position::new(Point::zero(), size, Point::zero(), box_halo(orientation)),
             orientation,
         }
     }
@@ -149,12 +142,7 @@ impl Element {
 
     /// Bezier control point for an edge passing through this connector,
     /// coming from `from` and heading to `to`.
-    pub fn passthrough_control(
-        &self,
-        from: Point,
-        to: Point,
-        force: f64,
-    ) -> (Point, Point) {
+    pub fn passthrough_control(&self, from: Point, to: Point, force: f64) -> (Point, Point) {
         debug_assert!(
             self.is_connector(),
             "passthrough only defined for connectors"

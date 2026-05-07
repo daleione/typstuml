@@ -87,11 +87,7 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         if t.starts_with("[*]") || t.starts_with("state ") {
             return DiagramKind::State;
         }
-        if t == "start"
-            || t == "stop"
-            || t == "end"
-            || t.starts_with(':')
-            || t.starts_with("if (")
+        if t == "start" || t == "stop" || t == "end" || t.starts_with(':') || t.starts_with("if (")
         {
             return DiagramKind::Activity;
         }

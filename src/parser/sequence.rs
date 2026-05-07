@@ -409,7 +409,9 @@ fn is_skip_directive(line: &str) -> bool {
         "box ",
         "end box",
     ];
-    HEADS.iter().any(|h| line == h.trim() || line.starts_with(h))
+    HEADS
+        .iter()
+        .any(|h| line == h.trim() || line.starts_with(h))
 }
 
 fn strip_prefix_keyword<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
@@ -514,7 +516,9 @@ fn parse_alias(rest: &str) -> Option<(String, String)> {
     let first = parts.next()?;
     let tail = parts.next().unwrap_or("").trim_start();
     if let Some(after_as) = strip_prefix_keyword(tail, "as").map(str::trim) {
-        let display = strip_leading_quoted(after_as).map(|(q, _)| q).unwrap_or_else(|| after_as.to_string());
+        let display = strip_leading_quoted(after_as)
+            .map(|(q, _)| q)
+            .unwrap_or_else(|| after_as.to_string());
         return Some((first.to_string(), display));
     }
     Some((first.to_string(), rest.to_string()))
@@ -571,9 +575,7 @@ fn parse_fragment_start(line: &str) -> Option<(FragmentKind, Option<String>)> {
 fn strip_color_prefixes(s: &str) -> &str {
     let mut s = s.trim_start();
     while let Some(rest) = s.strip_prefix('#') {
-        let end = rest
-            .find(char::is_whitespace)
-            .unwrap_or(rest.len());
+        let end = rest.find(char::is_whitespace).unwrap_or(rest.len());
         let after = &rest[end..];
         if after.is_empty() {
             return rest[end..].trim_start();
@@ -638,10 +640,7 @@ fn parse_note_side(position: NotePosition, rest: &str, line_no: usize) -> NotePa
     // `note left of X : t`, `note right : t`, etc. We keep target list empty
     // when none was given — codegen serializes back to `note left/right` and
     // lets seq-puml resolve `__last__`.
-    let rest = rest
-        .strip_prefix("of")
-        .map(str::trim_start)
-        .unwrap_or(rest);
+    let rest = rest.strip_prefix("of").map(str::trim_start).unwrap_or(rest);
     let (targets, label) = match rest.split_once(':') {
         Some((t, l)) => (t.trim(), Some(l.trim().to_string())),
         None => (rest.trim(), None),
@@ -803,7 +802,11 @@ mod tests {
         assert_eq!(s.steps.len(), 1);
         match &s.steps[0] {
             Step::Message {
-                from, to, arrow, label, ..
+                from,
+                to,
+                arrow,
+                label,
+                ..
             } => {
                 assert_eq!(from, "A");
                 assert_eq!(to, "B");
@@ -852,9 +855,7 @@ mod tests {
         ]);
         assert_eq!(s.steps.len(), 1);
         match &s.steps[0] {
-            Step::Fragment {
-                kind, branches, ..
-            } => {
+            Step::Fragment { kind, branches, .. } => {
                 assert_eq!(*kind, FragmentKind::Alt);
                 assert_eq!(branches.len(), 2);
                 // First branch has 2 steps: a message and a nested loop fragment.
@@ -942,4 +943,3 @@ mod tests {
         assert!(res.is_err());
     }
 }
-

@@ -91,10 +91,7 @@ fn align_sibling_leaves(vg: &mut VisualGraph) {
             // Skip if any member has descendants — moving them rightward
             // without re-running compact for descendants risks creating
             // overlaps further down the tree.
-            if members
-                .iter()
-                .any(|m| !vg.dag.successors(*m).is_empty())
-            {
+            if members.iter().any(|m| !vg.dag.successors(*m).is_empty()) {
                 continue;
             }
             let max_top = members
@@ -115,11 +112,7 @@ fn align_sibling_leaves(vg: &mut VisualGraph) {
 /// land any of them on top of a non-group node? Same-group siblings
 /// share the rank-axis after alignment but have distinct perpendicular
 /// positions, so they never collide with each other.
-fn alignment_is_safe(
-    vg: &VisualGraph,
-    members: &[NodeHandle],
-    target_top: f64,
-) -> bool {
+fn alignment_is_safe(vg: &VisualGraph, members: &[NodeHandle], target_top: f64) -> bool {
     for &m in members {
         let bbox = vg.pos(m).bbox(true);
         let size_y = bbox.1.y - bbox.0.y;

@@ -15,6 +15,7 @@
 
 pub mod curve;
 pub mod dag;
+pub mod edge_route;
 pub mod geometry;
 pub mod graph;
 pub mod sugiyama;

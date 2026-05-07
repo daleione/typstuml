@@ -24,6 +24,7 @@
 
 use serde_json::Value;
 
+use crate::layout::edge_route;
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
 
@@ -51,6 +52,12 @@ const VALUE_MIN_PT: f64 = 4.0 * ARROW_DOT_PT;
 /// and target — short hops should not over-sweep, long hops should still
 /// flare enough to leave the box edge cleanly.
 const EDGE_FORCE_MAX_PT: f64 = 30.0;
+/// Margin the obstacle-aware router keeps between routed polylines and
+/// any non-source / non-target record. Small enough that edges grazing
+/// just past a record edge still route as a single bezier (no false
+/// positives), large enough to keep visibility-graph corners outside
+/// the visible record edge.
+const ROUTE_PADDING_PT: f64 = 1.0;
 
 pub fn emit_record_graph(out: &mut String, title: Option<&str>, root: &Value) {
     let specs = flatten(root);
@@ -93,14 +100,32 @@ pub fn emit_record_graph(out: &mut String, title: Option<&str>, root: &Value) {
     }
     out.push_str("  ),\n");
 
+    // Pre-compute every record's visible bbox so the obstacle-aware
+    // router can avoid them during edge routing.
+    let record_bboxes: Vec<(Point, Point)> = (0..specs.len())
+        .map(|i| (top_lefts[i], top_lefts[i].add(geoms[i].size)))
+        .collect();
+
     out.push_str("  edges: (\n");
-    for (edge, path) in vg.iter_edges() {
-        let from_idx = path[0].get_index();
-        let to_idx = path[path.len() - 1].get_index();
+    for (edge, edge_path) in vg.iter_edges() {
+        let from_idx = edge_path[0].get_index();
+        let to_idx = edge_path[edge_path.len() - 1].get_index();
         let start = source_anchor(&geoms[from_idx], top_lefts[from_idx], edge.src_row);
         let end = target_anchor(&geoms[to_idx], top_lefts[to_idx]);
-        let (c1, c2) = bezier_controls(start, end);
-        emit_edge(out, from_idx, edge.src_row, to_idx, c1, c2);
+
+        // Obstacles: every other record. Padding keeps the routed
+        // polyline a small margin clear of record edges so it doesn't
+        // graze a corner visually.
+        let obstacles: Vec<(Point, Point)> = (0..specs.len())
+            .filter(|i| *i != from_idx && *i != to_idx)
+            .map(|i| record_bboxes[i])
+            .collect();
+        let polyline =
+            edge_route::find_polyline(start, end, &obstacles, ROUTE_PADDING_PT);
+        let segments =
+            edge_route::compute_bezier_segments(&polyline, EDGE_FORCE_MAX_PT);
+
+        emit_edge(out, from_idx, edge.src_row, to_idx, &segments);
     }
     out.push_str("  ),\n");
 
@@ -276,20 +301,6 @@ fn target_anchor(g: &RecordGeom, top_left: Point) -> Point {
     Point::new(top_left.x, top_left.y + g.size.y / 2.)
 }
 
-/// Bezier control points for a single cubic from `start` to `end`. The
-/// graph is laid out left-to-right, so we pull horizontally — control
-/// handles always exit / enter parallel to the box edges. The pull is
-/// capped at `EDGE_FORCE_MAX_PT` and at half the horizontal gap, so short
-/// edges don't overshoot into a hump and long edges still leave their
-/// boxes cleanly.
-fn bezier_controls(start: Point, end: Point) -> (Point, Point) {
-    let force = EDGE_FORCE_MAX_PT.min((end.x - start.x).abs() * 0.5);
-    (
-        Point::new(start.x + force, start.y),
-        Point::new(end.x - force, end.y),
-    )
-}
-
 fn emit_record(out: &mut String, top_left: Point, rows: &[Row]) {
     out.push_str(&format!(
         "    (x: {:.2}pt, y: {:.2}pt, rows: (",
@@ -319,22 +330,41 @@ fn emit_record(out: &mut String, top_left: Point, rows: &[Row]) {
     out.push_str(")),\n");
 }
 
-/// Emit one edge with `from` / `from-row` / `to` indices plus the bezier
-/// control points. The painter re-snaps endpoints to its own measured
-/// geometry; we deliberately compute `c1` / `c2` against the same
-/// row anchors, so curve and snapped endpoints stay aligned.
+/// Emit one edge as a multi-segment cubic-bezier path. The painter snaps
+/// the path's first start to the source row anchor and its last end to
+/// the target's left-edge centre, overriding the values we emit here for
+/// those two points; the rest of the path data is consumed verbatim.
+///
+/// A single-segment `path` (the no-obstacle case) renders as a plain
+/// cubic from source to target. Multi-segment paths come from
+/// `edge_route::find_polyline` when an obstacle blocks the straight
+/// line — the painter draws the segments as one continuous stroke and
+/// puts the arrowhead on the last segment.
 fn emit_edge(
     out: &mut String,
     from_idx: usize,
     from_row: usize,
     to_idx: usize,
-    c1: Point,
-    c2: Point,
+    segments: &[(Point, Point, Point)],
 ) {
     out.push_str(&format!(
-        "    (from: {from_idx}, from-row: {from_row}, to: {to_idx}, c1: ({:.2}pt, {:.2}pt), c2: ({:.2}pt, {:.2}pt)),\n",
-        c1.x, c1.y, c2.x, c2.y,
+        "    (from: {from_idx}, from-row: {from_row}, to: {to_idx}, path: ("
     ));
+    for (i, (c1, c2, end)) in segments.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(&format!(
+            "(c1: ({:.2}pt, {:.2}pt), c2: ({:.2}pt, {:.2}pt), end: ({:.2}pt, {:.2}pt))",
+            c1.x, c1.y, c2.x, c2.y, end.x, end.y,
+        ));
+    }
+    if segments.len() == 1 {
+        // Trailing comma so single-segment paths emit as a 1-tuple
+        // rather than a parenthesised expression.
+        out.push(',');
+    }
+    out.push_str(")),\n");
 }
 
 fn typst_markup_escape(s: &str) -> String {

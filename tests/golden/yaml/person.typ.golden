@@ -12,9 +12,9 @@
     (x: 341.00pt, y: 98.25pt, rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"]))),
   ),
   edges: (
-    (from: 0, from-row: 4, to: 1, c1: (138.50pt, 79.50pt), c2: (138.50pt, 46.75pt)),
-    (from: 0, from-row: 5, to: 2, c1: (138.50pt, 96.50pt), c2: (138.50pt, 95.25pt)),
-    (from: 2, from-row: 0, to: 3, c1: (208.50pt, 86.75pt), c2: (311.00pt, 73.12pt)),
-    (from: 2, from-row: 1, to: 4, c1: (208.50pt, 103.75pt), c2: (311.00pt, 115.25pt)),
+    (from: 0, from-row: 4, to: 1, path: ((c1: (143.85pt, 79.50pt), c2: (133.15pt, 46.75pt), end: (148.50pt, 46.75pt)),)),
+    (from: 0, from-row: 5, to: 2, path: ((c1: (136.52pt, 96.50pt), c2: (140.48pt, 95.25pt), end: (148.50pt, 95.25pt)),)),
+    (from: 2, from-row: 0, to: 3, path: ((c1: (208.50pt, 86.75pt), c2: (311.00pt, 73.12pt), end: (341.00pt, 73.12pt)),)),
+    (from: 2, from-row: 1, to: 4, path: ((c1: (208.50pt, 103.75pt), c2: (311.00pt, 115.25pt), end: (341.00pt, 115.25pt)),)),
   ),
 )

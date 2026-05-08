@@ -9,11 +9,12 @@
 //! Public surface:
 //! - [`graph::VisualGraph`]: build a graph, call `layout()`, read positions
 //!   and edges.
-//! - [`edge_route`]: obstacle-aware polyline + bezier helpers used by
-//!   record-graph codegen.
+//! - [`pathplan`]: port of dot's `pathplan` library — constraint polygon
+//!   construction, Lee-Preparata shortest path, B-spline routing — used by
+//!   record-graph codegen for obstacle-aware edge routes.
 
 pub mod dag;
-pub mod edge_route;
 pub mod geometry;
 pub mod graph;
+pub mod pathplan;
 pub mod sugiyama;

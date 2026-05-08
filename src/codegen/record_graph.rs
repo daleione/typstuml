@@ -24,9 +24,9 @@
 
 use serde_json::Value;
 
-use crate::layout::edge_route;
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
+use crate::layout::pathplan;
 
 /// Document body font size — set by the prelude `#set text(size: 10pt)`
 /// the codegen emits. All other measurements are derived from it.
@@ -107,27 +107,52 @@ pub fn emit_record_graph(out: &mut String, title: Option<&str>, root: &Value) {
         .collect();
 
     out.push_str("  edges: (\n");
+    let route_opts = pathplan::RouteOpts {
+        obstacle_padding: ROUTE_PADDING_PT,
+        src_tangent: Point::new(1.0, 0.0),
+        dst_tangent: Point::new(1.0, 0.0),
+    };
     for (edge, edge_path) in vg.iter_edges() {
         let from_idx = edge_path[0].get_index();
         let to_idx = edge_path[edge_path.len() - 1].get_index();
         let start = source_anchor(&geoms[from_idx], top_lefts[from_idx], edge.src_row);
         let end = target_anchor(&geoms[to_idx], top_lefts[to_idx]);
 
-        // Obstacles: every other record. Padding keeps the routed
-        // polyline a small margin clear of record edges so it doesn't
-        // graze a corner visually.
-        let obstacles: Vec<(Point, Point)> = (0..specs.len())
+        // Obstacles: every other record. The constraint polygon's bays
+        // wrap around each one so `splineisinside` rejects any cubic that
+        // would cross a record's interior.
+        let obstacles: Vec<pathplan::Box> = (0..specs.len())
             .filter(|i| *i != from_idx && *i != to_idx)
-            .map(|i| record_bboxes[i])
+            .map(|i| pathplan::Box::new(record_bboxes[i].0, record_bboxes[i].1))
             .collect();
-        let polyline = edge_route::find_polyline(start, end, &obstacles, ROUTE_PADDING_PT);
-        let segments = edge_route::compute_bezier_segments(&polyline, EDGE_FORCE_MAX_PT);
+        let segments = match pathplan::route_edge(start, end, &obstacles, route_opts) {
+            Ok(cubics) => cubics
+                .into_iter()
+                .map(|c| c.into_painter_segment())
+                .collect(),
+            // Fallback when the homogeneous-dodge channel can't contain the
+            // endpoints (mixed-side obstacles, etc.). One straight cubic
+            // matches the previous router's degenerate output.
+            Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
+        };
 
         emit_edge(out, from_idx, edge.src_row, to_idx, &segments);
     }
     out.push_str("  ),\n");
 
     out.push_str(")\n");
+}
+
+/// Single straight cubic between `start` and `end` with horizontal
+/// tangents. Used when `pathplan::route_edge` rejects the input — the
+/// painter still gets a valid path, equivalent to the legacy router's
+/// "no obstacles" output.
+fn straight_fallback(start: Point, end: Point, force_max: f64) -> Vec<(Point, Point, Point)> {
+    let dist = start.distance_to(end);
+    let force = (dist * 0.4).min(force_max);
+    let c1 = start.add(Point::new(force, 0.0));
+    let c2 = end.sub(Point::new(force, 0.0));
+    vec![(c1, c2, end)]
 }
 
 /// One record we want shown — flattened from a JSON node.
@@ -335,15 +360,14 @@ fn emit_record(out: &mut String, top_left: Point, rows: &[Row]) {
 /// the path's first start to the source row anchor and its last end to
 /// the target's left-edge centre, overriding the values we emit here for
 /// those two points. It translates the last control handle by the same
-/// target-endpoint delta, preserving the path-tangent arrowhead that
-/// `compute_bezier_segments` builds in. The rest of the path data is
-/// consumed verbatim.
+/// target-endpoint delta, preserving the path tangent into the arrowhead.
+/// The rest of the path data is consumed verbatim.
 ///
 /// A single-segment `path` (the no-obstacle case) renders as a plain
 /// cubic from source to target. Multi-segment paths come from
-/// `edge_route::find_polyline` when an obstacle blocks the straight
-/// line — the painter draws the segments as one continuous stroke and
-/// puts the arrowhead on the last segment.
+/// `pathplan::route_edge` when the constraint polygon's bays force the
+/// spline to detour around an obstacle — the painter draws the segments
+/// as one continuous stroke and puts the arrowhead on the last segment.
 fn emit_edge(
     out: &mut String,
     from_idx: usize,

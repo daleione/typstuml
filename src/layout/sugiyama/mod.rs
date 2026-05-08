@@ -81,14 +81,14 @@ impl<'a> RankOptimizer<'a> {
             return false;
         }
         let curr_rank = self.dag.level(node);
-        let highest_next = fwds
+        let nearest_succ_level = fwds
             .iter()
             .map(|n| self.dag.level(*n))
             .min()
             .unwrap_or(self.dag.len());
-        if highest_next > curr_rank + 1 {
+        if nearest_succ_level > curr_rank + 1 {
             self.dag
-                .update_node_rank_level(node, highest_next - 1, None);
+                .update_node_rank_level(node, nearest_succ_level - 1, None);
             return true;
         }
         false
@@ -242,7 +242,8 @@ impl<'a> EdgeCrossOptimizer<'a> {
             let (up, down) = match i % 4 {
                 0 => (true, true),
                 1 => (true, false),
-                _ => (false, true),
+                2 | 3 => (false, true),
+                _ => unreachable!(),
             };
             self.swap_crossed_edges(up, down);
             let new_cnt = self.count_crossed_edges();

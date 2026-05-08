@@ -48,11 +48,6 @@ impl Point {
     pub fn transpose(&self) -> Point {
         Point::new(self.y, self.x)
     }
-
-    pub fn rotate(&self, angle: f64) -> Point {
-        let (s, c) = (angle.sin(), angle.cos());
-        Point::new(self.x * c - self.y * s, self.x * s + self.y * c)
-    }
 }
 
 impl std::fmt::Display for Point {
@@ -123,23 +118,14 @@ impl Position {
         self.right(with_halo) - self.center().x
     }
 
-    pub fn in_x_range(&self, range: (f64, f64), with_halo: bool) -> bool {
-        self.left(with_halo) >= range.0 && self.right(with_halo) <= range.1
-    }
-
     pub fn set_size(&mut self, size: Point) {
         self.size = size;
     }
 
     pub fn set_new_center_point(&mut self, center: Point) {
         self.center = center;
-        debug_assert!(center.x.abs() < self.size.x);
-        debug_assert!(center.y.abs() < self.size.y);
-    }
-
-    pub fn move_to(&mut self, p: Point) {
-        let delta = p.sub(self.center());
-        self.middle = self.middle.add(delta);
+        debug_assert!(center.x.abs() <= self.size.x / 2.);
+        debug_assert!(center.y.abs() <= self.size.y / 2.);
     }
 
     pub fn translate(&mut self, d: Point) {
@@ -162,10 +148,6 @@ impl Position {
         self.middle.x = x - self.center.x;
     }
 
-    pub fn set_y(&mut self, y: f64) {
-        self.middle.y = y - self.center.y;
-    }
-
     pub fn transpose(&mut self) {
         self.middle = self.middle.transpose();
         self.size = self.size.transpose();
@@ -179,7 +161,7 @@ impl Position {
 // bezier router (vector math, box-edge intersection, passthrough control
 // point).
 
-pub fn weighted_median(vec: &[f64]) -> f64 {
+pub fn median(vec: &[f64]) -> f64 {
     assert!(!vec.is_empty(), "array can't be empty");
     let mut vec = vec.to_vec();
     vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -195,21 +177,13 @@ pub fn in_range(range: (f64, f64), x: f64) -> bool {
     x >= range.0 && x <= range.1
 }
 
-fn approx_eq(x: f64, y: f64) -> bool {
-    let abs_diff = (x - y).abs();
-    if abs_diff < f64::EPSILON {
-        return true;
-    }
-    abs_diff / x.abs().max(y.abs()).max(f64::EPSILON) < f64::EPSILON
-}
-
-fn le_approx(x: f64, y: f64) -> bool {
-    x < y || approx_eq(x, y)
-}
-
+/// Closed-rectangle overlap: boxes whose edges just touch are treated as
+/// intersecting. The placer keeps a small EPSILON gap between rank
+/// neighbours, so this only matters as a tightness check, not as a routine
+/// false-positive trigger.
 pub fn do_boxes_intersect(p1: (Point, Point), p2: (Point, Point)) -> bool {
-    let overlap_x = le_approx(p2.0.x, p1.1.x) && le_approx(p1.0.x, p2.1.x);
-    let overlap_y = le_approx(p2.0.y, p1.1.y) && le_approx(p1.0.y, p2.1.y);
+    let overlap_x = p2.0.x <= p1.1.x && p1.0.x <= p2.1.x;
+    let overlap_y = p2.0.y <= p1.1.y && p1.0.y <= p2.1.y;
     overlap_x && overlap_y
 }
 
@@ -237,111 +211,3 @@ pub fn segment_rect_intersection(seg: (Point, Point), rect: (Point, Point)) -> b
     !((y0 < rect.0.y && y1 < rect.0.y) || (y0 > rect.1.y && y1 > rect.1.y))
 }
 
-// ---------------------------------------------------------------------------
-// Edge routing geometry.
-
-fn normalize_scale(v: Point, s: f64) -> Point {
-    let len = v.length();
-    debug_assert!(len > 0., "can't normalize the zero vector");
-    v.scale(s / len)
-}
-
-/// A segment of length `s` aimed from `from` toward `to`. If they coincide,
-/// fall back to a unit horizontal vector to avoid NaN.
-fn segment_toward(from: Point, to: Point, s: f64) -> (Point, Point) {
-    if from == to {
-        return (from, Point::new(from.x + s, from.y));
-    }
-    let dir = normalize_scale(to.sub(from), s);
-    (from, dir.add(from))
-}
-
-fn interpolate(v0: Point, v1: Point, w: f64) -> Point {
-    v0.scale(w).add(v1.scale(1. - w))
-}
-
-/// Where does an edge coming from `from` intersect a box of size `size`
-/// centered at `loc`? Returns the intersection plus a control-point pulled
-/// outward by `force` along the edge direction — the format the bezier
-/// router consumes.
-pub fn box_edge_intersection(loc: Point, size: Point, from: Point, force: f64) -> (Point, Point) {
-    let mut loc = loc;
-    let mut size = size;
-
-    // If the source clearly lies past one half of the box, focus on the
-    // closer half so the connection lands on the visible side rather than
-    // the far edge.
-    if from.x > loc.x + size.x / 2. {
-        size.x /= 2.;
-        loc.x += size.x / 2.;
-    } else if from.x < loc.x - size.x / 2. {
-        size.x /= 2.;
-        loc.x -= size.x / 2.;
-    }
-
-    let dx = loc.x - from.x;
-    let dy = loc.y - from.y;
-    let half_x = size.x / 2.;
-    let half_y = size.y / 2.;
-
-    if dx == 0. {
-        let y = if dy > 0. {
-            loc.y - half_y
-        } else {
-            loc.y + half_y
-        };
-        return segment_toward(Point::new(loc.x, y), from, force);
-    }
-
-    let slope = dy / dx;
-    let gain_y = half_x * slope;
-
-    if gain_y.abs() < half_y {
-        let (bx, gy) = if dx > 0. {
-            (-half_x, -gain_y)
-        } else {
-            (half_x, gain_y)
-        };
-        return segment_toward(Point::new(loc.x + bx, loc.y + gy), from, force);
-    }
-
-    let gain_x = half_y / slope;
-    let (by, gx) = if dy > 0. {
-        (-half_y, -gain_x)
-    } else {
-        (half_y, gain_x)
-    };
-    segment_toward(Point::new(loc.x + gx, loc.y + by), from, force)
-}
-
-/// Bezier control-point for an edge passing through an invisible connector
-/// node at `center`, coming from `from` and heading to `to`.
-pub fn passthrough_control_point(
-    center: Point,
-    from: Point,
-    to: Point,
-    force: f64,
-) -> (Point, Point) {
-    let ar = center.sub(from);
-    let rb = to.sub(center);
-    let a_out = normalize_scale(ar.neg(), force);
-    let b_out = normalize_scale(rb.neg(), force);
-
-    // Self-loop case: the two outgoing tangents cancel. Twist 90° to keep
-    // the curve away from the source.
-    if a_out.add(b_out).length() < 1. {
-        let edge = a_out.rotate(90_f64.to_radians());
-        return (center, edge.add(center));
-    }
-
-    // Mix the two tangents in inverse proportion to segment length, so a
-    // close-by source dominates and the curve doesn't overshoot.
-    let mut a_ratio = ar.length() / (ar.length() + rb.length());
-    if center.x == to.x || center.y == to.y {
-        a_ratio = 1.;
-    } else if center.x == from.x || center.y == from.y {
-        a_ratio = 0.;
-    }
-    let res = interpolate(a_out, b_out, 1. - a_ratio);
-    (center, res.add(center))
-}

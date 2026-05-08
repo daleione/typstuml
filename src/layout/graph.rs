@@ -13,7 +13,7 @@
 use std::mem::swap;
 
 use crate::layout::dag::{NodeHandle, NodeIterator, DAG};
-use crate::layout::geometry::{box_edge_intersection, passthrough_control_point, Point, Position};
+use crate::layout::geometry::{Point, Position};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Orientation {
@@ -110,10 +110,6 @@ impl Element {
         &mut self.pos
     }
 
-    pub fn move_to(&mut self, to: Point) {
-        self.pos.move_to(to);
-    }
-
     pub fn transpose(&mut self) {
         self.orientation = self.orientation.flip();
         self.pos.transpose();
@@ -132,22 +128,6 @@ impl Element {
             Orientation::LeftToRight => Point::new(size.x / 2., 0.),
         };
         self.pos.set_new_center_point(center);
-    }
-
-    /// Where an edge coming from `from` lands on this node, plus the
-    /// outbound bezier control point. Used by `curve::generate_curve`.
-    pub fn connector_location(&self, from: Point, force: f64) -> (Point, Point) {
-        box_edge_intersection(self.pos.center(), self.pos.size(false), from, force)
-    }
-
-    /// Bezier control point for an edge passing through this connector,
-    /// coming from `from` and heading to `to`.
-    pub fn passthrough_control(&self, from: Point, to: Point, force: f64) -> (Point, Point) {
-        debug_assert!(
-            self.is_connector(),
-            "passthrough only defined for connectors"
-        );
-        passthrough_control_point(self.pos.center(), from, to, force)
     }
 }
 

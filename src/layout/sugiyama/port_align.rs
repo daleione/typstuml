@@ -71,13 +71,13 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
     for _ in 0..MAX_ITERS {
         let mut max_move: f64 = 0.0;
         for r in 0..vg.dag.num_levels() {
-            let row = vg.dag.row(r).clone();
+            let row = vg.dag.row(r);
             if row.is_empty() {
                 continue;
             }
             let mut targets = Vec::with_capacity(row.len());
             let mut precisions = Vec::with_capacity(row.len());
-            for &n in &row {
+            for &n in row {
                 let (t, p) = target_and_precision(vg, n, &centers, &bk_centers, &alignments);
                 targets.push(t);
                 precisions.push(p);

@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use super::simple;
 use crate::layout::dag::NodeHandle;
-use crate::layout::geometry::weighted_median;
+use crate::layout::geometry::median;
 use crate::layout::graph::VisualGraph;
 
 #[derive(Debug, Clone, Copy)]
@@ -261,7 +261,7 @@ impl<'a> BK<'a> {
             res.push(if buf.is_empty() {
                 0.
             } else {
-                weighted_median(&buf)
+                median(&buf)
             });
         }
         res

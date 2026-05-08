@@ -9,7 +9,6 @@ pub struct DAG {
     nodes: Vec<Node>,
     ranks: RankType,
     levels: Vec<usize>,
-    validate: bool,
 }
 
 #[derive(Copy, Clone, Default, PartialEq, PartialOrd, Eq, Ord, Hash, Debug)]
@@ -79,7 +78,6 @@ impl DAG {
             nodes: Vec::new(),
             ranks: Vec::new(),
             levels: Vec::new(),
-            validate: true,
         }
     }
 
@@ -119,7 +117,7 @@ impl DAG {
         self.nodes.push(Node::new());
         self.levels.push(0);
         let node = NodeHandle::new(self.nodes.len() - 1);
-        self.add_element_to_rank(node, 0, false);
+        self.add_element_to_rank(node, 0);
         node
     }
 
@@ -146,9 +144,6 @@ impl DAG {
     }
 
     pub fn verify(&self) {
-        if !self.validate {
-            return;
-        }
         for node in &self.nodes {
             for edge in &node.successors {
                 assert!(edge.idx < self.nodes.len());
@@ -185,7 +180,6 @@ impl DAG {
                 return true;
             }
         }
-        visited[from.idx] = false;
         false
     }
 
@@ -243,23 +237,11 @@ impl DAG {
         &mut self.ranks
     }
 
-    pub fn is_first_in_row(&self, elem: NodeHandle, level: usize) -> bool {
-        self.ranks.get(level).and_then(|r| r.first()).copied() == Some(elem)
-    }
-
-    pub fn is_last_in_row(&self, elem: NodeHandle, level: usize) -> bool {
-        self.ranks.get(level).and_then(|r| r.last()).copied() == Some(elem)
-    }
-
-    fn add_element_to_rank(&mut self, elem: NodeHandle, level: usize, prepend: bool) {
+    fn add_element_to_rank(&mut self, elem: NodeHandle, level: usize) {
         while self.ranks.len() < level + 1 {
             self.ranks.push(Vec::new());
         }
-        if prepend {
-            self.ranks[level].insert(0, elem);
-        } else {
-            self.ranks[level].push(elem);
-        }
+        self.ranks[level].push(elem);
         self.levels[elem.get_index()] = level;
     }
 
@@ -269,7 +251,7 @@ impl DAG {
         let levels = self.compute_levels(&order);
         self.ranks.clear();
         for (i, level) in levels.iter().enumerate() {
-            self.add_element_to_rank(NodeHandle::from(i), *level, false);
+            self.add_element_to_rank(NodeHandle::from(i), *level);
         }
     }
 

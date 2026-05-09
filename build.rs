@@ -13,7 +13,8 @@
 //!                           (vendor/blockcell/src/records.typ)
 //!   #seq-puml(...)        — sequence diagrams
 //!                           (vendor/blockcell/src/seq-puml.typ)
-//!   #tree(...) / #node[…] — WBS diagrams (and, future, mind maps)
+//!   #tree(...) / #node[…] — WBS diagrams
+//!   #mindmap(...)         — mind-map diagrams
 //!                           (vendor/blockcell/src/tree.typ)
 //! ```
 //!
@@ -52,7 +53,7 @@ const STAGED_LIB_TYP: &str = "\
 // Slim re-export for TypstUML. See build.rs for the full rationale.
 #import \"src/records.typ\": record-layout
 #import \"src/seq-puml.typ\": seq-puml
-#import \"src/tree.typ\": tree, node
+#import \"src/tree.typ\": tree, node, mindmap
 ";
 
 fn main() {

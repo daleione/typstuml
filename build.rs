@@ -5,23 +5,26 @@
 //!
 //! ## What the codegen emits, and what blockcell symbols that touches
 //!
-//! `src/codegen/record_graph.rs` and `src/codegen/sequence.rs` together
-//! emit exactly two blockcell calls:
+//! `src/codegen/record_graph.rs`, `src/codegen/sequence.rs`, and
+//! `src/codegen/wbs.rs` together emit exactly three blockcell calls:
 //!
 //! ```text
 //!   #record-layout(...)   — JSON / YAML record diagrams
 //!                           (vendor/blockcell/src/records.typ)
 //!   #seq-puml(...)        — sequence diagrams
 //!                           (vendor/blockcell/src/seq-puml.typ)
+//!   #tree(...) / #node[…] — WBS diagrams (and, future, mind maps)
+//!                           (vendor/blockcell/src/tree.typ)
 //! ```
 //!
 //! `record-layout` only depends on private helpers inside `records.typ`.
 //! `seq-puml` pulls in `seq.typ` and `palettes.typ` transitively, and
 //! both `seq.typ` and `records.typ` further reach into
-//! `internal/metrics.typ`. Every other blockcell symbol is unreached by
-//! codegen, so we stage just those files plus a slim `lib.typ` that
-//! re-exports the two entry points — saves embedding ~2000 lines of
-//! Typst source that would otherwise be parsed on every render.
+//! `internal/metrics.typ`. `tree.typ` only needs `palettes.typ`. Every
+//! other blockcell symbol is unreached by codegen, so we stage just those
+//! files plus a slim `lib.typ` that re-exports the entry points — saves
+//! embedding the rest of the upstream library that would otherwise be
+//! parsed on every render.
 //!
 //! `vendor/blockcell` itself is a git submodule and stays unchanged —
 //! the slimming happens only inside `$OUT_DIR/blockcell`.
@@ -35,6 +38,7 @@ const STAGED_SRC_FILES: &[&str] = &[
     "records.typ",
     "seq-puml.typ",
     "seq.typ",
+    "tree.typ",
     "palettes.typ",
     "internal/metrics.typ",
 ];
@@ -48,6 +52,7 @@ const STAGED_LIB_TYP: &str = "\
 // Slim re-export for TypstUML. See build.rs for the full rationale.
 #import \"src/records.typ\": record-layout
 #import \"src/seq-puml.typ\": seq-puml
+#import \"src/tree.typ\": tree, node
 ";
 
 fn main() {

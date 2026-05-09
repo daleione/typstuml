@@ -1,0 +1,10 @@
+@startwbs
+* Project plan
+** [#FFD580] Discovery
+*** Research
+*** Interviews
+** [#A8DADC] Build
+*** API
+*** Frontend
+** [#F4A6A6] Launch
+@endwbs

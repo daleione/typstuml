@@ -8,6 +8,7 @@
 mod json;
 mod record_graph;
 mod sequence;
+mod wbs;
 mod yaml;
 
 use crate::diagnostics::{Error, Result};
@@ -45,6 +46,7 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
             Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
             Diagram::Json(j) => json::emit(&mut out, j),
             Diagram::Yaml(y) => yaml::emit(&mut out, y),
+            Diagram::Wbs(w) => wbs::emit(&mut out, w),
         }
     }
 

@@ -11,9 +11,9 @@
 //!   -> diagram-specific AST -> normalized IR
 //! ```
 //!
-//! Sequence diagrams have a native parser that produces a [`StructuredSequence`].
-//! Other diagram types are recognized by the dispatcher but don't have parsers
-//! yet — `--compat strict` rejects them, otherwise we emit a warning and skip.
+//! Sequence, JSON, YAML, and WBS diagrams have native parsers. Other diagram
+//! types are recognized by the dispatcher but don't have parsers yet —
+//! `--compat strict` rejects them, otherwise we emit a warning and skip.
 //!
 //! [`StructuredSequence`]: crate::ir::StructuredSequence
 
@@ -22,6 +22,7 @@ pub mod json;
 pub mod lexer;
 pub mod preprocessor;
 pub mod sequence;
+pub mod wbs;
 pub mod yaml;
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
@@ -59,10 +60,15 @@ pub fn parse(
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }
+            dispatcher::DiagramKind::Wbs => {
+                let (diagram, mut diags) = wbs::parse(block, compat)?;
+                diagrams.push(diagram);
+                diagnostics.append(&mut diags);
+            }
             other => {
                 let detail = format!(
                     "diagram type {other:?} is not yet supported; \
-                     Sequence, JSON, and YAML diagrams render today"
+                     Sequence, JSON, YAML, and WBS diagrams render today"
                 );
                 if compat == CompatMode::Strict {
                     return Err(Error::Unsupported {

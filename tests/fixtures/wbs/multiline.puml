@@ -1,0 +1,9 @@
+@startwbs
+* :Migration program
+Q3 → Q4 2026;
+** :Schema cutover
+zero-downtime
+required;
+** Backfill
+** Validation
+@endwbs

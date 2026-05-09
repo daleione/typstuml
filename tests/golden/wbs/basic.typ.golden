@@ -1,0 +1,19 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Engineering org*]
+
+#align(center, tree(
+  node[CTO],
+  tree(
+    node[Platform],
+    node[Storage],
+    node[Compute],
+  ),
+  tree(
+    node[Product],
+    node[Web],
+    node[Mobile],
+  ),
+))

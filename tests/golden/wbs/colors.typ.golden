@@ -1,0 +1,18 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, tree(
+  node[Project plan],
+  tree(
+    node(fill: rgb("#FFD580"))[Discovery],
+    node[Research],
+    node[Interviews],
+  ),
+  tree(
+    node(fill: rgb("#A8DADC"))[Build],
+    node[API],
+    node[Frontend],
+  ),
+  node(fill: rgb("#F4A6A6"))[Launch],
+))

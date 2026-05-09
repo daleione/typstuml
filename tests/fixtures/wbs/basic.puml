@@ -1,0 +1,11 @@
+@startwbs
+title Engineering org
+
+* CTO
+** Platform
+*** Storage
+*** Compute
+** Product
+*** Web
+*** Mobile
+@endwbs

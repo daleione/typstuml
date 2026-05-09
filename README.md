@@ -7,7 +7,7 @@ renders it through [Typst](https://typst.app/) using the
 [`blockcell`](https://github.com/daleione/blockcell) diagram primitives.
 Cargo crate name and binary command: `typstuml`.
 
-> Active development. Sequence, JSON, and YAML diagrams render today;
+> Active development. Sequence, JSON, YAML, and WBS diagrams render today;
 > other diagram types are recognized by the parser but not yet wired up.
 > See the [Features](#features) section for the full status matrix.
 
@@ -83,7 +83,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | Deployment                    |   ⏳   | Nodes, artifacts, devices                                                               |
 | Timing                        |   ⏳   | Concurrent lifelines + state transitions over time                                      |
 | MindMap (`@startmindmap`)     |   ⏳   | Radial tree — planned via `blockcell.tree`                                              |
-| WBS (`@startwbs`)             |   ⏳   | Work-breakdown hierarchy                                                                |
+| WBS (`@startwbs`)             |   ✅   | Work-breakdown hierarchy                                                                |
 | Gantt (`@startgantt`)         |   ⏳   | Project schedules with date axis                                                        |
 | Salt (`@startsalt`)           |   ⏳   | UI / wireframe mockups                                                                  |
 | Network (`nwdiag`)            |   ⏳   | Network topology                                                                        |

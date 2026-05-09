@@ -297,3 +297,77 @@ fn unsupported_diagram_in_strict_mode_fails() {
         .assert()
         .failure();
 }
+
+#[test]
+fn golden_emit_typst_wbs_basic() {
+    let actual = emit_typst_path(&fixture_in("wbs", "basic.puml"));
+    assert_golden_in("wbs", "basic", &actual);
+}
+
+#[test]
+fn golden_emit_typst_wbs_colors() {
+    let actual = emit_typst_path(&fixture_in("wbs", "colors.puml"));
+    assert_golden_in("wbs", "colors", &actual);
+}
+
+#[test]
+fn golden_emit_typst_wbs_multiline() {
+    let actual = emit_typst_path(&fixture_in("wbs", "multiline.puml"));
+    assert_golden_in("wbs", "multiline", &actual);
+}
+
+#[test]
+fn renders_svg_for_wbs_basic() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("wbs-basic.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("wbs", "basic.puml"))
+        .arg("-o")
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    // 7 nodes (root + 2 children + 4 leaves) → many <path>s for borders +
+    // connectors. Use a low floor to stay tolerant of painter changes.
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 20,
+        "WBS render expected many <path>s, got {path_count}"
+    );
+    let width = svg_viewbox_width(&svg).expect("viewBox missing");
+    assert!(width > 200.0, "WBS viewBox unexpectedly small: {width}");
+}
+
+#[test]
+fn renders_svg_for_wbs_multiline() {
+    // Multi-line labels should not crash the painter.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("wbs-multi.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("wbs", "multiline.puml"))
+        .arg("-o")
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
+fn wbs_strict_rejects_orphan_child() {
+    let tmp = tempfile::tempdir().unwrap();
+    let bad = tmp.path().join("bad.puml");
+    // depth-3 marker before any root — must fail strict.
+    std::fs::write(&bad, "@startwbs\n*** orphan\n@endwbs\n").unwrap();
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("--check")
+        .arg("--compat")
+        .arg("strict")
+        .arg(&bad)
+        .assert()
+        .failure();
+}

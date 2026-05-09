@@ -24,7 +24,8 @@ pub enum Diagram {
     Json(JsonDiagram),
     Yaml(YamlDiagram),
     Wbs(WbsDiagram),
-    // Future: State(StateDiagram), Activity(...), MindMap(TreeDiagram), ...
+    MindMap(MindMapDiagram),
+    // Future: State(StateDiagram), Activity(...), ...
 }
 
 #[derive(Clone, Debug)]
@@ -49,11 +50,22 @@ pub struct YamlDiagram {
 /// Work-Breakdown-Structure diagram (`@startwbs`). The IR is a single rooted
 /// tree of [`TreeNode`]s; codegen flattens it into a nested
 /// `tree(node[…], …)` Typst expression rendered by `blockcell`'s
-/// `tree.typ` painter. Mind maps will reuse [`TreeNode`] when they land —
-/// they only differ from WBS in the active set of [`NodeSide`] values and
-/// the chosen painter entry point.
+/// `tree.typ` painter. Mind maps reuse [`TreeNode`] — they differ from WBS
+/// only in the active [`NodeSide`] values and the chosen painter entry
+/// point ([`MindMapDiagram`] uses `mindmap`).
 #[derive(Clone, Debug)]
 pub struct WbsDiagram {
+    pub name: Option<String>,
+    pub title: Option<String>,
+    pub root: TreeNode,
+}
+
+/// Mind-map diagram (`@startmindmap`). Same `TreeNode` shape as WBS; codegen
+/// classifies each first-level child by its [`NodeSide`] and emits a
+/// `mindmap(root, lefts: (...), rights: (...))` call. Deeper levels stay in
+/// the chosen direction via `tree.typ`'s direction-state inheritance.
+#[derive(Clone, Debug)]
+pub struct MindMapDiagram {
     pub name: Option<String>,
     pub title: Option<String>,
     pub root: TreeNode,

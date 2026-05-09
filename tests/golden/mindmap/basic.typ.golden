@@ -1,0 +1,22 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, mindmap(
+  node[Operating system],
+  lefts: (
+    tree(direction: "left",
+      node[Long term],
+      node[Vision],
+      node[Roadmap],
+    ),
+  ),
+  rights: (
+    tree(direction: "right",
+      node[Engineering],
+      node[Backend],
+      node[Frontend],
+    ),
+    node[Marketing],
+  ),
+))

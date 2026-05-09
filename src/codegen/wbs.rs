@@ -1,134 +1,27 @@
 //! WBS diagram codegen.
 //!
-//! Flattens a [`WbsDiagram`]'s [`TreeNode`] tree into a single nested
-//! `tree(node[…], …)` Typst expression, which `vendor/blockcell/src/tree.typ`
-//! lays out top-down with elbow connectors. v1 ignores [`NodeSide`] (so all
-//! children stack horizontally below their parent) and [`NodeShape::Line`]
-//! (rendered as a default `node`) — both fields stay in the IR for the M2
-//! direction-aware painter and the M3 underline-shape extension.
-//!
-//! Color spec parsing here is deliberately narrow: only `#hex` / `#named`
-//! forms are recognized, and unknown names degrade silently to the painter's
-//! default fill. The shared color-spec parser (roadmap P0.3) will replace
-//! this with a fuller mapping.
+//! Flattens a [`WbsDiagram`]'s tree into a single `tree(node[…], …)` Typst
+//! expression rendered top-down by `vendor/blockcell/src/tree.typ`. v1
+//! ignores `NodeSide` (children stack horizontally below their parent);
+//! `NodeShape::Line` maps to `node(shape: "underline")`. The recursive
+//! emission and decoration plumbing live in [`super::tree_emit`].
 
-use crate::ir::{NodeShape, TreeNode, WbsDiagram};
+use crate::codegen::tree_emit::{emit_subtree, emit_title};
+use crate::ir::WbsDiagram;
 
 pub fn emit(out: &mut String, wbs: &WbsDiagram) {
     if let Some(title) = &wbs.title {
-        out.push_str("#align(center)[*");
-        out.push_str(&typst_markup_escape(title));
-        out.push_str("*]\n\n");
+        emit_title(out, title);
     }
     out.push_str("#align(center, ");
     emit_subtree(out, &wbs.root, 0);
     out.push_str(")\n");
 }
 
-fn emit_subtree(out: &mut String, node: &TreeNode, indent: usize) {
-    if node.children.is_empty() {
-        emit_node_call(out, node);
-        return;
-    }
-    out.push_str("tree(\n");
-    indent_spaces(out, indent + 1);
-    emit_node_call(out, node);
-    out.push_str(",\n");
-    for child in &node.children {
-        indent_spaces(out, indent + 1);
-        emit_subtree(out, child, indent + 1);
-        out.push_str(",\n");
-    }
-    indent_spaces(out, indent);
-    out.push(')');
-}
-
-fn emit_node_call(out: &mut String, node: &TreeNode) {
-    let fill_arg = node.fill.as_deref().and_then(typst_color);
-
-    match (&fill_arg, node.shape) {
-        (None, NodeShape::Box | NodeShape::Line) => {
-            out.push_str("node");
-        }
-        (Some(fill), NodeShape::Box | NodeShape::Line) => {
-            out.push_str("node(fill: ");
-            out.push_str(fill);
-            out.push(')');
-        }
-    }
-
-    out.push('[');
-    emit_label_body(out, node);
-    out.push(']');
-}
-
-fn emit_label_body(out: &mut String, node: &TreeNode) {
-    let lines: Vec<&str> = if node.label.is_empty() {
-        // Empty label: prefer the node's id so the user still sees something.
-        // Falls back to a single space so the painter has a non-empty body.
-        match node.id.as_deref() {
-            Some(id) if !id.is_empty() => vec![id],
-            _ => vec![" "],
-        }
-    } else {
-        node.label.iter().map(String::as_str).collect()
-    };
-    for (i, line) in lines.iter().enumerate() {
-        if i > 0 {
-            // Hard line break in Typst markup: backslash followed by newline.
-            out.push_str(" \\\n");
-        }
-        out.push_str(&typst_markup_escape(line));
-    }
-}
-
-fn indent_spaces(out: &mut String, level: usize) {
-    for _ in 0..level {
-        out.push_str("  ");
-    }
-}
-
-/// Translate a PlantUML `#color` spec to a Typst color expression. Returns
-/// `None` for forms we can't safely lower; the caller falls back to the
-/// painter's default fill instead of emitting something Typst would reject.
-fn typst_color(spec: &str) -> Option<String> {
-    let s = spec.strip_prefix('#')?;
-    if s.is_empty() {
-        return None;
-    }
-    let is_hex = matches!(s.len(), 3 | 4 | 6 | 8) && s.chars().all(|c| c.is_ascii_hexdigit());
-    if is_hex {
-        return Some(format!("rgb(\"#{s}\")"));
-    }
-    // Tiny built-in mapping — Typst only provides a small set of named
-    // colors out of the box; anything unrecognised drops to default.
-    let lower = s.to_ascii_lowercase();
-    match lower.as_str() {
-        "black" | "white" | "gray" | "silver" | "red" | "maroon" | "yellow" | "olive" | "lime"
-        | "green" | "aqua" | "teal" | "blue" | "navy" | "fuchsia" | "purple" => Some(lower),
-        _ => None,
-    }
-}
-
-fn typst_markup_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' => {
-                out.push('\\');
-                out.push(c);
-            }
-            _ => out.push(c),
-        }
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{NodeSide, TreeNode};
+    use crate::ir::{NodeShape, NodeSide, TreeNode};
 
     fn n(label: &str, children: Vec<TreeNode>) -> TreeNode {
         TreeNode {
@@ -183,15 +76,15 @@ mod tests {
     }
 
     #[test]
-    fn unknown_named_color_falls_back_to_default_fill() {
-        let mut root = n("Root", vec![]);
-        root.fill = Some("#NotAColor".into());
+    fn line_shape_maps_to_underline() {
+        let mut root = n("Bare", vec![]);
+        root.shape = NodeShape::Line;
         let s = render(&WbsDiagram {
             name: None,
             title: None,
             root,
         });
-        assert!(!s.contains("fill:"), "should drop unknown color, got: {s}");
+        assert!(s.contains("shape: \"underline\""), "got: {s}");
     }
 
     #[test]

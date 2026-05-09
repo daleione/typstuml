@@ -6,8 +6,10 @@
 //! looks like an ordinary file at `/blockcell/lib.typ`.
 
 mod json;
+mod mindmap;
 mod record_graph;
 mod sequence;
+mod tree_emit;
 mod wbs;
 mod yaml;
 
@@ -47,6 +49,7 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
             Diagram::Json(j) => json::emit(&mut out, j),
             Diagram::Yaml(y) => yaml::emit(&mut out, y),
             Diagram::Wbs(w) => wbs::emit(&mut out, w),
+            Diagram::MindMap(m) => mindmap::emit(&mut out, m),
         }
     }
 

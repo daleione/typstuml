@@ -27,17 +27,17 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
          #import \"/blockcell/lib.typ\": *\n\n",
     );
 
-    if let Some(tpl_path) = &theme.typst_template {
+    if let Some(tpl_path) = &theme.preamble {
         let content = std::fs::read_to_string(tpl_path).map_err(|e| Error::Io {
             path: tpl_path.clone(),
             source: e,
         })?;
-        out.push_str("// --- user template ---\n");
+        out.push_str("// --- user preamble ---\n");
         out.push_str(&content);
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        out.push_str("// --- end user template ---\n\n");
+        out.push_str("// --- end user preamble ---\n\n");
     }
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {

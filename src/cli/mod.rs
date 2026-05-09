@@ -1,78 +1,180 @@
 //! CLI entry point — argument parsing and orchestration.
 //!
-//! Mirrors the surface defined in design doc §9. The `clap::ValueEnum` impls
-//! for [`crate::diagnostics::CompatMode`] and [`crate::runtime::Format`]
-//! live in this module so the library types stay free of CLI-framework
-//! coupling.
+//! Surface (A-plan, subcommand-based):
+//!
+//! ```text
+//! typstuml [GLOBAL] <input> [output]              # implicit `compile`
+//! typstuml [GLOBAL] compile  <input> [output]
+//! typstuml [GLOBAL] check    <input>
+//! typstuml [GLOBAL] emit     <input> [output]
+//! typstuml [GLOBAL] diagrams
+//! ```
+//!
+//! `<input>` may be `-` to read from stdin. `<output>` may be `-` or omitted
+//! to write to stdout. Output format is inferred from the output extension
+//! and falls back to `--format`, then `svg`.
+//!
+//! `clap::ValueEnum` impls for [`crate::diagnostics::CompatMode`] and
+//! [`crate::runtime::Format`] live in this module so the library types stay
+//! free of CLI-framework coupling.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use clap::builder::PossibleValue;
-use clap::{Parser, ValueEnum};
+use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
 
 use crate::diagnostics::{CompatMode, Error, Result};
 use crate::parser;
 use crate::runtime::{self, Format};
 use crate::theme::Theme;
 
+/// Top-level CLI definition.
+///
+/// Global options (`--include`, `--compat`, `-q`, `-v`, `--color`) propagate
+/// to every subcommand via `global = true`. The implicit `compile` form is
+/// implemented by flattening [`CompileArgs`] at the top level: when no
+/// subcommand is given, the flattened args drive `compile`.
 #[derive(Parser, Debug)]
 #[command(
     name = "typstuml",
     version,
     about = "TypstUML — render PlantUML diagrams to SVG / PDF / PNG via Typst",
     long_about = None,
+    arg_required_else_help = true,
+    args_conflicts_with_subcommands = true,
 )]
 pub struct Args {
-    /// Input file. Use `-` for stdin.
-    #[arg(value_name = "INPUT")]
-    pub input: PathBuf,
+    /// Additional search path for `!include`. Repeatable.
+    #[arg(short = 'I', long, value_name = "DIR", global = true)]
+    pub include: Vec<PathBuf>,
 
-    /// Output file. Mutually exclusive with `--stdout` / `--check` / `--emit-typst`.
-    #[arg(short = 'o', long, value_name = "PATH")]
+    /// How strict to be about unsupported PlantUML syntax.
+    ///
+    /// `strict` errors on any unsupported construct; `warn` (default) logs
+    /// and skips it; `loose` silently ignores it.
+    #[arg(long, value_enum, default_value_t = CompatMode::Warn, global = true)]
+    pub compat: CompatMode,
+
+    /// Suppress informational stderr output (warnings still shown).
+    #[arg(short = 'q', long, global = true, conflicts_with = "verbose")]
+    pub quiet: bool,
+
+    /// Verbose stderr output.
+    #[arg(short = 'v', long, global = true)]
+    pub verbose: bool,
+
+    /// Implicit-compile positional args used when no subcommand is given.
+    #[command(flatten)]
+    pub compile: CompileArgs,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum Command {
+    /// Render a PlantUML file to SVG / PDF / PNG (default action).
+    Compile(CompileArgs),
+
+    /// Parse only — exit non-zero on parse errors.
+    Check(CheckArgs),
+
+    /// Emit the generated Typst source instead of rendering.
+    Emit(EmitArgs),
+
+    /// List supported diagram types.
+    Diagrams,
+}
+
+/// Args shared by the implicit top-level form and the explicit `compile`
+/// subcommand. All fields are optional so both forms parse cleanly.
+#[derive(ClapArgs, Debug, Default, Clone)]
+pub struct CompileArgs {
+    /// Input file. Use `-` to read from stdin.
+    #[arg(value_name = "INPUT")]
+    pub input: Option<PathBuf>,
+
+    /// Output file. Use `-` or omit to write to stdout.
+    #[arg(value_name = "OUTPUT")]
     pub output: Option<PathBuf>,
 
-    /// Output format. If omitted, inferred from `--output`'s extension; if
+    /// Output format. If omitted, inferred from `<output>`'s extension; if
     /// neither is given, defaults to `svg`.
     #[arg(short = 'f', long, value_enum)]
     pub format: Option<Format>,
 
-    /// Theme name. Currently a passthrough — full `skinparam` / `!theme`
-    /// mapping is parsed off the source, not from this flag.
-    #[arg(short = 't', long)]
-    pub theme: Option<String>,
+    /// Custom Typst preamble injected before each diagram (advanced).
+    #[arg(long, value_name = "FILE", hide = true)]
+    pub preamble: Option<PathBuf>,
+}
 
-    /// Custom Typst preamble injected before each diagram.
-    #[arg(long, value_name = "FILE")]
-    pub typst_template: Option<PathBuf>,
+#[derive(ClapArgs, Debug, Clone)]
+pub struct CheckArgs {
+    /// Input file. Use `-` to read from stdin.
+    #[arg(value_name = "INPUT")]
+    pub input: PathBuf,
+}
 
-    /// Write rendered output to stdout instead of a file.
-    #[arg(long)]
-    pub stdout: bool,
+#[derive(ClapArgs, Debug, Clone)]
+pub struct EmitArgs {
+    /// Input file. Use `-` to read from stdin.
+    #[arg(value_name = "INPUT")]
+    pub input: PathBuf,
 
-    /// Parse only — no rendering. Exit non-zero on parse errors.
-    #[arg(long)]
-    pub check: bool,
+    /// Output file. Use `-` or omit to write to stdout.
+    #[arg(value_name = "OUTPUT")]
+    pub output: Option<PathBuf>,
 
-    /// Emit the generated Typst source instead of rendering.
-    #[arg(long)]
-    pub emit_typst: bool,
+    /// Custom Typst preamble injected before each diagram (advanced).
+    #[arg(long, value_name = "FILE", hide = true)]
+    pub preamble: Option<PathBuf>,
+}
 
-    /// Additional search path for `!include`. Repeatable.
-    #[arg(long, value_name = "DIR")]
+/// Verbosity bucket derived from `-q` / `-v`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum Verbosity {
+    Quiet,
+    #[default]
+    Normal,
+    Verbose,
+}
+
+/// Per-invocation context shared by every subcommand.
+#[derive(Clone, Debug)]
+pub struct GlobalCtx {
     pub include: Vec<PathBuf>,
-
-    /// How strict to be about unsupported PlantUML syntax.
-    #[arg(long, value_enum, default_value_t = CompatMode::Warn)]
     pub compat: CompatMode,
+    pub verbosity: Verbosity,
+}
 
-    /// (not yet implemented) Watch the input file for changes and re-render.
-    #[arg(long)]
-    pub watch: bool,
+impl GlobalCtx {
+    fn from_args(args: &Args) -> Self {
+        let verbosity = if args.quiet {
+            Verbosity::Quiet
+        } else if args.verbose {
+            Verbosity::Verbose
+        } else {
+            Verbosity::Normal
+        };
+        Self {
+            include: args.include.clone(),
+            compat: args.compat,
+            verbosity,
+        }
+    }
 
-    /// (not yet implemented) Emit machine-readable JSON diagnostics.
-    #[arg(long)]
-    pub json: bool,
+    fn print_warning(&self, msg: &impl std::fmt::Display) {
+        if self.verbosity != Verbosity::Quiet {
+            eprintln!("{msg}");
+        }
+    }
+
+    fn print_info(&self, msg: &str) {
+        if self.verbosity == Verbosity::Verbose {
+            eprintln!("{msg}");
+        }
+    }
 }
 
 /// Top-level entry — parses argv and drives the pipeline.
@@ -81,58 +183,111 @@ pub fn run() -> Result<()> {
 }
 
 pub fn run_with(args: Args) -> Result<()> {
-    if args.watch {
-        eprintln!("typstuml: --watch is not yet implemented; ignoring");
-    }
-    if args.json {
-        eprintln!("typstuml: --json is not yet implemented; ignoring");
-    }
+    let global = GlobalCtx::from_args(&args);
+    let command = args
+        .command
+        .clone()
+        .unwrap_or_else(|| Command::Compile(args.compile.clone()));
 
-    let source_text = read_input(&args.input)?;
-    let source_dir = if args.input == Path::new("-") {
+    match command {
+        Command::Compile(c) => run_compile(c, &global),
+        Command::Check(c) => run_check(c, &global),
+        Command::Emit(c) => run_emit(c, &global),
+        Command::Diagrams => {
+            print_diagrams();
+            Ok(())
+        }
+    }
+}
+
+// -- Subcommand implementations --------------------------------------------
+
+fn run_compile(args: CompileArgs, global: &GlobalCtx) -> Result<()> {
+    let input = args
+        .input
+        .as_deref()
+        .ok_or_else(|| Error::Cli("missing INPUT (use `-` for stdin)".into()))?;
+    let (document, source_dir) = parse_input(input, global)?;
+
+    let theme = Theme {
+        preamble: args.preamble.clone(),
+    };
+    let typst_source = crate::codegen::emit(&document, &theme)?;
+
+    let format = resolve_format(args.format, args.output.as_deref());
+    let rendered = runtime::render(typst_source, source_dir, format)?;
+    for w in &rendered.warnings {
+        global.print_warning(w);
+    }
+    write_output(args.output.as_deref(), &rendered.bytes)
+}
+
+fn run_check(args: CheckArgs, global: &GlobalCtx) -> Result<()> {
+    let (document, _) = parse_input(&args.input, global)?;
+    if global.verbosity != Verbosity::Quiet {
+        eprintln!(
+            "typstuml: parse OK ({} diagram(s))",
+            document.diagrams.len()
+        );
+    }
+    Ok(())
+}
+
+fn run_emit(args: EmitArgs, global: &GlobalCtx) -> Result<()> {
+    let (document, _) = parse_input(&args.input, global)?;
+    let theme = Theme {
+        preamble: args.preamble.clone(),
+    };
+    let typst_source = crate::codegen::emit(&document, &theme)?;
+    write_output(args.output.as_deref(), typst_source.as_bytes())
+}
+
+fn print_diagrams() {
+    // Listed in pipeline order: native renderers first, then dispatcher-only
+    // (parsed but not yet rendered) types. Mirrors `parser::dispatcher`.
+    println!("Supported diagram types:");
+    println!("  sequence  — @startuml / @enduml (lifeline grid)");
+    println!("  json      — @startjson / @endjson");
+    println!("  yaml      — @startyaml / @endyaml");
+    println!("  wbs       — @startwbs / @endwbs");
+    println!("  mindmap   — @startmindmap / @endmindmap");
+    println!();
+    println!("Recognized but not yet rendered (run with --compat warn|loose):");
+    println!("  class, component, use case, deployment, state, activity,");
+    println!("  gantt, timing, salt, network, er, ditaa");
+}
+
+// -- Pipeline helpers ------------------------------------------------------
+
+fn parse_input(
+    input: &Path,
+    global: &GlobalCtx,
+) -> Result<(crate::ir::Document, Option<PathBuf>)> {
+    let source_text = read_input(input)?;
+    let source_dir = if input == Path::new("-") {
         None
     } else {
-        args.input.parent().map(Path::to_path_buf)
+        input.parent().map(Path::to_path_buf)
     };
 
     let config = parser::Config {
-        include_paths: args.include.clone(),
+        include_paths: global.include.clone(),
         source_dir: source_dir.clone(),
     };
-    let (document, diagnostics) = parser::parse(&source_text, args.compat, &config)?;
+    let (document, diagnostics) = parser::parse(&source_text, global.compat, &config)?;
     for diag in &diagnostics {
-        eprintln!("{diag}");
+        global.print_warning(diag);
     }
 
     if document.diagrams.is_empty() {
         return Err(Error::Cli("no supported diagrams found in input".into()));
     }
-
-    if args.check {
-        eprintln!(
-            "typstuml: parse OK ({} diagram(s))",
-            document.diagrams.len()
-        );
-        return Ok(());
-    }
-
-    let theme = Theme {
-        name: args.theme.clone(),
-        typst_template: args.typst_template.clone(),
-    };
-    let typst_source = crate::codegen::emit(&document, &theme)?;
-
-    if args.emit_typst {
-        write_output(&args, typst_source.into_bytes())?;
-        return Ok(());
-    }
-
-    let format = resolve_format(&args);
-    let rendered = runtime::render(typst_source, source_dir, format)?;
-    for w in &rendered.warnings {
-        eprintln!("{w}");
-    }
-    write_output(&args, rendered.bytes)
+    global.print_info(&format!(
+        "typstuml: parsed {} diagram(s) from {}",
+        document.diagrams.len(),
+        display_path(input),
+    ));
+    Ok((document, source_dir))
 }
 
 fn read_input(path: &Path) -> Result<String> {
@@ -153,35 +308,47 @@ fn read_input(path: &Path) -> Result<String> {
     }
 }
 
-fn write_output(args: &Args, bytes: Vec<u8>) -> Result<()> {
-    if args.stdout {
-        std::io::stdout().write_all(&bytes).map_err(|e| Error::Io {
-            path: PathBuf::from("<stdout>"),
+/// Write `bytes` to the resolved sink: `None` or `Some("-")` → stdout;
+/// anything else → file.
+fn write_output(path: Option<&Path>, bytes: &[u8]) -> Result<()> {
+    match path {
+        None => write_stdout(bytes),
+        Some(p) if p == Path::new("-") => write_stdout(bytes),
+        Some(p) => std::fs::write(p, bytes).map_err(|e| Error::Io {
+            path: p.to_path_buf(),
             source: e,
-        })?;
-        return Ok(());
+        }),
     }
-    let out = args
-        .output
-        .as_ref()
-        .ok_or_else(|| Error::Cli("missing --output (or pass --stdout)".into()))?;
-    std::fs::write(out, &bytes).map_err(|e| Error::Io {
-        path: out.clone(),
+}
+
+fn write_stdout(bytes: &[u8]) -> Result<()> {
+    std::io::stdout().write_all(bytes).map_err(|e| Error::Io {
+        path: PathBuf::from("<stdout>"),
         source: e,
     })
 }
 
-fn resolve_format(args: &Args) -> Format {
-    if let Some(f) = args.format {
+/// Pick the output format. Explicit `--format` wins; otherwise infer from
+/// the output path extension; otherwise default to SVG.
+fn resolve_format(explicit: Option<Format>, output: Option<&Path>) -> Format {
+    if let Some(f) = explicit {
         return f;
     }
-    args.output
-        .as_deref()
+    output
+        .filter(|p| *p != Path::new("-"))
         .and_then(Format::infer_from_path)
         .unwrap_or(Format::Svg)
 }
 
-// -- CLI value-enum impls for library types ----------------------------------
+fn display_path(p: &Path) -> String {
+    if p == Path::new("-") {
+        "<stdin>".into()
+    } else {
+        p.display().to_string()
+    }
+}
+
+// -- CLI value-enum impls for library types ---------------------------------
 //
 // Keeping these here means `diagnostics::CompatMode` and `runtime::Format`
 // don't need to know about clap. Orphan rules are satisfied because both
@@ -214,3 +381,4 @@ impl ValueEnum for Format {
         })
     }
 }
+

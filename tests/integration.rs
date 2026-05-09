@@ -9,7 +9,7 @@
 //! diagram into a ~100pt column. Asserting a sensible minimum width here
 //! makes that failure mode regress loudly instead of silently.
 //!
-//! Golden snapshots for `--emit-typst` live under `tests/golden/sequence/`.
+//! Golden snapshots for the `emit` subcommand live under `tests/golden/sequence/`.
 //! Re-generate them with `UPDATE_GOLDEN=1 cargo test`.
 
 use assert_cmd::Command;
@@ -44,7 +44,7 @@ fn svg_viewbox_width(svg: &str) -> Option<f64> {
 fn check_succeeds_on_hello() {
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--check")
+        .arg("check")
         .arg(fixture("hello.puml"))
         .assert()
         .success()
@@ -55,8 +55,7 @@ fn check_succeeds_on_hello() {
 fn emit_typst_includes_seq_puml_call() {
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--emit-typst")
-        .arg("--stdout")
+        .arg("emit")
         .arg(fixture("hello.puml"))
         .assert()
         .success()
@@ -70,7 +69,6 @@ fn renders_svg_for_hello_with_real_columns() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture("hello.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -90,7 +88,6 @@ fn renders_svg_for_auth_flow_with_real_columns() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture("auth-flow.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -105,15 +102,14 @@ fn renders_svg_for_auth_flow_with_real_columns() {
 fn emit_typst(fixture_name: &str) -> String {
     let output = Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--emit-typst")
-        .arg("--stdout")
+        .arg("emit")
         .arg(fixture(fixture_name))
         .assert()
         .success()
         .get_output()
         .stdout
         .clone();
-    String::from_utf8(output).expect("emit-typst output is UTF-8")
+    String::from_utf8(output).expect("emit output is UTF-8")
 }
 
 fn assert_golden(name: &str, actual: &str) {
@@ -141,15 +137,14 @@ fn assert_golden_in(subdir: &str, name: &str, actual: &str) {
 fn emit_typst_path(path: &std::path::Path) -> String {
     let output = Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--emit-typst")
-        .arg("--stdout")
+        .arg("emit")
         .arg(path)
         .assert()
         .success()
         .get_output()
         .stdout
         .clone();
-    String::from_utf8(output).expect("emit-typst output is UTF-8")
+    String::from_utf8(output).expect("emit output is UTF-8")
 }
 
 #[test]
@@ -174,7 +169,6 @@ fn skinparam_drives_page_fill_in_svg() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture("styled.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -202,7 +196,6 @@ fn renders_svg_for_json_person() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture_in("json", "person.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -236,7 +229,6 @@ fn renders_svg_for_yaml_person() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture_in("yaml", "person.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -262,7 +254,7 @@ fn yaml_strict_rejects_invalid() {
     std::fs::write(&bad, "@startyaml\nroot:\n\tchild: 1\n@endyaml\n").unwrap();
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--check")
+        .arg("check")
         .arg(&bad)
         .assert()
         .failure()
@@ -276,7 +268,7 @@ fn json_strict_rejects_invalid() {
     std::fs::write(&bad, "@startjson\n{\n  \"k\":,\n}\n@endjson\n").unwrap();
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--check")
+        .arg("check")
         .arg(&bad)
         .assert()
         .failure()
@@ -290,9 +282,9 @@ fn unsupported_diagram_in_strict_mode_fails() {
     std::fs::write(&salt, "@startsalt\n{\n  Login |\n  Cancel\n}\n@endsalt\n").unwrap();
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--check")
         .arg("--compat")
         .arg("strict")
+        .arg("check")
         .arg(&salt)
         .assert()
         .failure();
@@ -323,7 +315,6 @@ fn renders_svg_for_wbs_basic() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture_in("wbs", "basic.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -348,7 +339,6 @@ fn renders_svg_for_wbs_multiline() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture_in("wbs", "multiline.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -381,7 +371,6 @@ fn renders_svg_for_mindmap_basic() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture_in("mindmap", "basic.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -405,7 +394,6 @@ fn renders_svg_for_mindmap_colors() {
     Command::cargo_bin("typstuml")
         .unwrap()
         .arg(fixture_in("mindmap", "colors.puml"))
-        .arg("-o")
         .arg(&out)
         .assert()
         .success();
@@ -420,9 +408,9 @@ fn mindmap_strict_rejects_orphan_child() {
     std::fs::write(&bad, "@startmindmap\n+++ orphan\n@endmindmap\n").unwrap();
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--check")
         .arg("--compat")
         .arg("strict")
+        .arg("check")
         .arg(&bad)
         .assert()
         .failure();
@@ -436,9 +424,9 @@ fn wbs_strict_rejects_orphan_child() {
     std::fs::write(&bad, "@startwbs\n*** orphan\n@endwbs\n").unwrap();
     Command::cargo_bin("typstuml")
         .unwrap()
-        .arg("--check")
         .arg("--compat")
         .arg("strict")
+        .arg("check")
         .arg(&bad)
         .assert()
         .failure();

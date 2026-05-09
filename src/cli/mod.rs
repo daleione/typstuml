@@ -83,6 +83,9 @@ pub enum Command {
     /// Emit the generated Typst source instead of rendering.
     Emit(EmitArgs),
 
+    /// Re-render whenever the input or any included file changes.
+    Watch(WatchArgs),
+
     /// List supported diagram types.
     Diagrams,
 }
@@ -125,6 +128,27 @@ pub struct EmitArgs {
     /// Output file. Use `-` or omit to write to stdout.
     #[arg(value_name = "OUTPUT")]
     pub output: Option<PathBuf>,
+
+    /// Custom Typst preamble injected before each diagram (advanced).
+    #[arg(long, value_name = "FILE", hide = true)]
+    pub preamble: Option<PathBuf>,
+}
+
+#[derive(ClapArgs, Debug, Clone)]
+pub struct WatchArgs {
+    /// Input file. Stdin (`-`) is not supported in watch mode.
+    #[arg(value_name = "INPUT")]
+    pub input: PathBuf,
+
+    /// Output file. Required — watch always writes to a real file so
+    /// external viewers can pick up the change.
+    #[arg(value_name = "OUTPUT")]
+    pub output: PathBuf,
+
+    /// Output format. If omitted, inferred from `<output>`'s extension; if
+    /// neither is given, defaults to `svg`.
+    #[arg(short = 'f', long, value_enum)]
+    pub format: Option<Format>,
 
     /// Custom Typst preamble injected before each diagram (advanced).
     #[arg(long, value_name = "FILE", hide = true)]
@@ -193,6 +217,7 @@ pub fn run_with(args: Args) -> Result<()> {
         Command::Compile(c) => run_compile(c, &global),
         Command::Check(c) => run_check(c, &global),
         Command::Emit(c) => run_emit(c, &global),
+        Command::Watch(c) => run_watch(c, &global),
         Command::Diagrams => {
             print_diagrams();
             Ok(())
@@ -207,15 +232,15 @@ fn run_compile(args: CompileArgs, global: &GlobalCtx) -> Result<()> {
         .input
         .as_deref()
         .ok_or_else(|| Error::Cli("missing INPUT (use `-` for stdin)".into()))?;
-    let (document, source_dir) = parse_input(input, global)?;
+    let parsed = parse_input(input, global)?;
 
     let theme = Theme {
         preamble: args.preamble.clone(),
     };
-    let typst_source = crate::codegen::emit(&document, &theme)?;
+    let typst_source = crate::codegen::emit(&parsed.document, &theme)?;
 
     let format = resolve_format(args.format, args.output.as_deref());
-    let rendered = runtime::render(typst_source, source_dir, format)?;
+    let rendered = runtime::render(typst_source, parsed.source_dir, format)?;
     for w in &rendered.warnings {
         global.print_warning(w);
     }
@@ -223,23 +248,211 @@ fn run_compile(args: CompileArgs, global: &GlobalCtx) -> Result<()> {
 }
 
 fn run_check(args: CheckArgs, global: &GlobalCtx) -> Result<()> {
-    let (document, _) = parse_input(&args.input, global)?;
+    let parsed = parse_input(&args.input, global)?;
     if global.verbosity != Verbosity::Quiet {
         eprintln!(
             "typstuml: parse OK ({} diagram(s))",
-            document.diagrams.len()
+            parsed.document.diagrams.len()
         );
     }
     Ok(())
 }
 
 fn run_emit(args: EmitArgs, global: &GlobalCtx) -> Result<()> {
-    let (document, _) = parse_input(&args.input, global)?;
+    let parsed = parse_input(&args.input, global)?;
     let theme = Theme {
         preamble: args.preamble.clone(),
     };
-    let typst_source = crate::codegen::emit(&document, &theme)?;
+    let typst_source = crate::codegen::emit(&parsed.document, &theme)?;
     write_output(args.output.as_deref(), typst_source.as_bytes())
+}
+
+/// Render once — used by both the initial pass and every change-triggered
+/// re-render in watch mode. Returns the canonical include set so the
+/// watcher can subscribe to include-side changes.
+fn render_compile(
+    input: &Path,
+    output: &Path,
+    format: Option<Format>,
+    preamble: Option<&Path>,
+    global: &GlobalCtx,
+) -> Result<Vec<PathBuf>> {
+    let parsed = parse_input(input, global)?;
+    let theme = Theme {
+        preamble: preamble.map(Path::to_path_buf),
+    };
+    let typst_source = crate::codegen::emit(&parsed.document, &theme)?;
+    let fmt = resolve_format(format, Some(output));
+    let rendered = runtime::render(typst_source, parsed.source_dir, fmt)?;
+    for w in &rendered.warnings {
+        global.print_warning(w);
+    }
+    write_output(Some(output), &rendered.bytes)?;
+    Ok(parsed.includes)
+}
+
+fn run_watch(args: WatchArgs, global: &GlobalCtx) -> Result<()> {
+    use notify::EventKind;
+    use notify_debouncer_full::new_debouncer;
+    use std::collections::HashSet;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    if args.input == Path::new("-") {
+        return Err(Error::Cli(
+            "watch mode requires a real input file (stdin not supported)".into(),
+        ));
+    }
+    let input_canon = canonicalize(&args.input)?;
+
+    // Initial render. Non-fatal: a parse error here just means we wait for
+    // the user to fix and save.
+    let render = || {
+        render_compile(
+            &args.input,
+            &args.output,
+            args.format,
+            args.preamble.as_deref(),
+            global,
+        )
+    };
+    let mut tracked: HashSet<PathBuf> = HashSet::new();
+    tracked.insert(input_canon.clone());
+    match render() {
+        Ok(includes) => {
+            report_rendered(&args.output, None);
+            tracked.extend(includes.into_iter());
+        }
+        Err(e) => report_error(&e),
+    }
+
+    let (tx, rx) = mpsc::channel();
+    let mut debouncer = new_debouncer(Duration::from_millis(150), None, move |res| {
+        let _ = tx.send(res);
+    })
+    .map_err(|e| Error::Cli(format!("watcher init failed: {e}")))?;
+
+    // We subscribe to the *parent directories* of every tracked file rather
+    // than the files themselves. On macOS (and most editors elsewhere)
+    // saves are implemented via temp-file + rename, which the inode-level
+    // single-file watcher misses but a directory watcher catches.
+    let mut watched_dirs: HashSet<PathBuf> = HashSet::new();
+    sync_watched_dirs(&mut debouncer, &mut watched_dirs, &tracked)?;
+
+    eprintln!(
+        "typstuml: watching {} → {} (Ctrl-C to stop)",
+        args.input.display(),
+        args.output.display()
+    );
+
+    for batch in rx {
+        let events = match batch {
+            Ok(events) => events,
+            Err(errs) => {
+                for e in errs {
+                    eprintln!("typstuml: watcher error: {e}");
+                }
+                continue;
+            }
+        };
+
+        // Filter to events that mention a path we actually care about.
+        // The directory watcher fires for unrelated siblings too.
+        let touched = events.iter().any(|ev| {
+            // Skip access-only events — we only care about content changes.
+            !matches!(ev.event.kind, EventKind::Access(_))
+                && ev.event.paths.iter().any(|p| {
+                    let resolved = p.canonicalize().unwrap_or_else(|_| p.clone());
+                    tracked.contains(&resolved) || tracked.contains(p)
+                })
+        });
+        if !touched {
+            continue;
+        }
+
+        let started = Instant::now();
+        match render() {
+            Ok(includes) => {
+                report_rendered(&args.output, Some(started.elapsed()));
+                let mut next: HashSet<PathBuf> = HashSet::new();
+                next.insert(input_canon.clone());
+                next.extend(includes.into_iter());
+                if next != tracked {
+                    tracked = next;
+                    if let Err(e) = sync_watched_dirs(&mut debouncer, &mut watched_dirs, &tracked) {
+                        report_error(&e);
+                    }
+                }
+            }
+            Err(e) => report_error(&e),
+        }
+    }
+    Ok(())
+}
+
+/// Bring the watcher's directory subscription in sync with `tracked` by
+/// adding any missing parent dirs and unwatching ones no longer needed.
+fn sync_watched_dirs(
+    debouncer: &mut notify_debouncer_full::Debouncer<
+        notify::RecommendedWatcher,
+        notify_debouncer_full::RecommendedCache,
+    >,
+    currently_watched: &mut std::collections::HashSet<PathBuf>,
+    tracked: &std::collections::HashSet<PathBuf>,
+) -> Result<()> {
+    use notify::RecursiveMode;
+    use std::collections::HashSet;
+
+    let want: HashSet<PathBuf> = tracked
+        .iter()
+        .filter_map(|p| p.parent().map(Path::to_path_buf))
+        .collect();
+
+    for dir in want.difference(currently_watched) {
+        debouncer
+            .watch(dir, RecursiveMode::NonRecursive)
+            .map_err(|e| Error::Cli(format!("watch {}: {e}", dir.display())))?;
+    }
+    for dir in currently_watched.difference(&want) {
+        let _ = debouncer.unwatch(dir);
+    }
+    *currently_watched = want;
+    Ok(())
+}
+
+fn report_rendered(output: &Path, elapsed: Option<std::time::Duration>) {
+    let stamp = current_time_short();
+    match elapsed {
+        Some(dt) => eprintln!(
+            "[{stamp}] typstuml: rendered {} in {} ms",
+            output.display(),
+            dt.as_millis()
+        ),
+        None => eprintln!("[{stamp}] typstuml: rendered {}", output.display()),
+    }
+}
+
+fn report_error(err: &Error) {
+    let stamp = current_time_short();
+    eprintln!("[{stamp}] typstuml: error: {err}");
+}
+
+fn current_time_short() -> String {
+    use time::OffsetDateTime;
+    let now = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
+    format!(
+        "{:02}:{:02}:{:02}",
+        now.hour(),
+        now.minute(),
+        now.second()
+    )
+}
+
+fn canonicalize(p: &Path) -> Result<PathBuf> {
+    p.canonicalize().map_err(|e| Error::Io {
+        path: p.to_path_buf(),
+        source: e,
+    })
 }
 
 fn print_diagrams() {
@@ -259,10 +472,16 @@ fn print_diagrams() {
 
 // -- Pipeline helpers ------------------------------------------------------
 
-fn parse_input(
-    input: &Path,
-    global: &GlobalCtx,
-) -> Result<(crate::ir::Document, Option<PathBuf>)> {
+/// Result of `parse_input`: the document plus the bookkeeping that
+/// downstream code (codegen, watch) needs.
+struct Parsed {
+    document: crate::ir::Document,
+    source_dir: Option<PathBuf>,
+    /// Canonical paths of every `!include`d file; empty when input is stdin.
+    includes: Vec<PathBuf>,
+}
+
+fn parse_input(input: &Path, global: &GlobalCtx) -> Result<Parsed> {
     let source_text = read_input(input)?;
     let source_dir = if input == Path::new("-") {
         None
@@ -274,20 +493,24 @@ fn parse_input(
         include_paths: global.include.clone(),
         source_dir: source_dir.clone(),
     };
-    let (document, diagnostics) = parser::parse(&source_text, global.compat, &config)?;
-    for diag in &diagnostics {
+    let parsed = parser::parse(&source_text, global.compat, &config)?;
+    for diag in &parsed.diagnostics {
         global.print_warning(diag);
     }
 
-    if document.diagrams.is_empty() {
+    if parsed.document.diagrams.is_empty() {
         return Err(Error::Cli("no supported diagrams found in input".into()));
     }
     global.print_info(&format!(
         "typstuml: parsed {} diagram(s) from {}",
-        document.diagrams.len(),
+        parsed.document.diagrams.len(),
         display_path(input),
     ));
-    Ok((document, source_dir))
+    Ok(Parsed {
+        document: parsed.document,
+        source_dir,
+        includes: parsed.includes,
+    })
 }
 
 fn read_input(path: &Path) -> Result<String> {

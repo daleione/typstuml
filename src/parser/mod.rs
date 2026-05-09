@@ -27,18 +27,26 @@ pub mod sequence;
 pub mod wbs;
 pub mod yaml;
 
+use std::path::PathBuf;
+
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::Document;
 
 pub use preprocessor::Config;
 
+/// Result of a top-level parse. `includes` is the canonical-path list of
+/// every file pulled in by `!include`, used by `watch` mode to subscribe to
+/// include-side changes.
+#[derive(Debug)]
+pub struct ParseOutput {
+    pub document: Document,
+    pub diagnostics: Vec<Diagnostic>,
+    pub includes: Vec<PathBuf>,
+}
+
 /// Top-level parser entry point. Threads the preprocessor config through,
 /// extracts blocks, and dispatches to per-diagram parsers.
-pub fn parse(
-    source: &str,
-    compat: CompatMode,
-    config: &Config,
-) -> Result<(Document, Vec<Diagnostic>)> {
+pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseOutput> {
     let pre = preprocessor::run_with(source, compat, config)?;
     let blocks = lexer::extract_uml_blocks(&pre.text);
     let mut diagnostics = pre.diagnostics;
@@ -92,5 +100,9 @@ pub fn parse(
         }
     }
 
-    Ok((Document { diagrams }, diagnostics))
+    Ok(ParseOutput {
+        document: Document { diagrams },
+        diagnostics,
+        includes: pre.includes,
+    })
 }

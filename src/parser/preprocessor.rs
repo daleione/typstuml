@@ -19,6 +19,9 @@ use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 pub struct Preprocessed {
     pub text: String,
     pub diagnostics: Vec<Diagnostic>,
+    /// Canonicalized paths of every file pulled in via `!include`. Used by
+    /// `watch` mode to subscribe to include-side changes.
+    pub includes: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -37,6 +40,7 @@ pub fn run_with(source: &str, compat: CompatMode, config: &Config) -> Result<Pre
     Ok(Preprocessed {
         text,
         diagnostics: state.diagnostics,
+        includes: state.includes,
     })
 }
 
@@ -45,6 +49,8 @@ struct State {
     defines: HashMap<String, String>,
     in_progress: HashSet<PathBuf>,
     diagnostics: Vec<Diagnostic>,
+    /// Canonical include paths, in the order they were first resolved.
+    includes: Vec<PathBuf>,
 }
 
 fn run_inner(
@@ -142,6 +148,9 @@ fn handle_include(
             line: line_no,
             message: format!("circular !include: {}", resolved.display()),
         });
+    }
+    if !state.includes.contains(&canonical) {
+        state.includes.push(canonical.clone());
     }
 
     let content = std::fs::read_to_string(&resolved).map_err(|e| Error::Io {

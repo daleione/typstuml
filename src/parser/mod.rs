@@ -18,6 +18,7 @@
 //!
 //! [`StructuredSequence`]: crate::ir::StructuredSequence
 
+pub mod class;
 pub mod dispatcher;
 pub mod json;
 pub mod lexer;
@@ -77,6 +78,11 @@ pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseO
             }
             dispatcher::DiagramKind::MindMap => {
                 let (diagram, mut diags) = mindmap::parse(block, compat)?;
+                diagrams.push(diagram);
+                diagnostics.append(&mut diags);
+            }
+            dispatcher::DiagramKind::Class => {
+                let (diagram, mut diags) = class::parse(block, compat)?;
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }

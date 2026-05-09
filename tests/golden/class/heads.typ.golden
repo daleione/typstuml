@@ -1,0 +1,23 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Arrow head and body styles*]
+
+#class-layout(
+  classes: (
+    (x: 50.75pt, y: 36.00pt, kind: "class", name: [A], fields: (), methods: ()),
+    (x: 3.00pt, y: 6.00pt, kind: "class", name: [B], fields: (), methods: ()),
+    (x: 50.75pt, y: 6.00pt, kind: "class", name: [C], fields: (), methods: ()),
+    (x: 12.55pt, y: 66.00pt, kind: "class", name: [D], fields: (), methods: ()),
+    (x: 50.75pt, y: 66.00pt, kind: "class", name: [E], fields: (), methods: ()),
+    (x: 88.95pt, y: 66.00pt, kind: "class", name: [F], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 1, to: 0, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (19.10pt, 45.88pt), c2: (66.85pt, 14.12pt), end: (66.85pt, 36.00pt)),)),
+    (from: 2, to: 0, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (66.85pt, 29.33pt), c2: (66.85pt, 30.67pt), end: (66.85pt, 36.00pt)),)),
+    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", path: ((c1: (66.85pt, 71.80pt), c2: (28.65pt, 48.20pt), end: (28.65pt, 66.00pt)),)),
+    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (66.85pt, 59.33pt), c2: (66.85pt, 60.67pt), end: (66.85pt, 66.00pt)),)),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (66.85pt, 71.80pt), c2: (105.05pt, 48.20pt), end: (105.05pt, 66.00pt)),)),
+  ),
+)

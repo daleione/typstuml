@@ -5,6 +5,7 @@
 //! embedded virtual filesystem (`runtime::world`); from the Typst side it
 //! looks like an ordinary file at `/blockcell/lib.typ`.
 
+mod class;
 mod json;
 mod mindmap;
 mod record_graph;
@@ -50,6 +51,7 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
             Diagram::Yaml(y) => yaml::emit(&mut out, y),
             Diagram::Wbs(w) => wbs::emit(&mut out, w),
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
+            Diagram::Class(c) => class::emit(&mut out, c),
         }
     }
 

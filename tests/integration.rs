@@ -417,6 +417,77 @@ fn mindmap_strict_rejects_orphan_child() {
 }
 
 #[test]
+fn golden_emit_typst_class_basic() {
+    let actual = emit_typst_path(&fixture_in("class", "basic.puml"));
+    assert_golden_in("class", "basic", &actual);
+}
+
+#[test]
+fn golden_emit_typst_class_with_members() {
+    let actual = emit_typst_path(&fixture_in("class", "with-members.puml"));
+    assert_golden_in("class", "with-members", &actual);
+}
+
+#[test]
+fn golden_emit_typst_class_heads() {
+    let actual = emit_typst_path(&fixture_in("class", "heads.puml"));
+    assert_golden_in("class", "heads", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_basic() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-basic.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "basic.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 30,
+        "class diagram expected many <path>s; got {path_count}"
+    );
+    let width = svg_viewbox_width(&svg).expect("viewBox missing");
+    // Three classes (Animal/Dog/Cat) stacked TB → at least one column +
+    // one row of labels. Tighter floor than wider record-graph fixtures.
+    assert!(width > 150.0, "class viewBox unexpectedly small: {width}");
+}
+
+#[test]
+fn renders_svg_for_class_with_members() {
+    // Members + modifiers + interface stereotype. Smoke test.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-members.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "with-members.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
+fn class_strict_rejects_unknown_syntax() {
+    let tmp = tempfile::tempdir().unwrap();
+    let bad = tmp.path().join("bad.puml");
+    std::fs::write(&bad, "@startuml\nclass A\nfrobnicate the foozle\n@enduml\n").unwrap();
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("--compat")
+        .arg("strict")
+        .arg("check")
+        .arg(&bad)
+        .assert()
+        .failure();
+}
+
+#[test]
 fn wbs_strict_rejects_orphan_child() {
     let tmp = tempfile::tempdir().unwrap();
     let bad = tmp.path().join("bad.puml");

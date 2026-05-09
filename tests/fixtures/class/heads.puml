@@ -1,0 +1,16 @@
+@startuml
+title Arrow head and body styles
+
+class A
+class B
+class C
+class D
+class E
+class F
+
+A --|> B
+A ..|> C
+A o-- D
+A *-- E
+A --> F
+@enduml

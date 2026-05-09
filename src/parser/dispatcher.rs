@@ -97,7 +97,20 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         if t.starts_with('{') {
             return DiagramKind::Json;
         }
-        if t.starts_with("class ") || t.starts_with("interface ") || t.starts_with("abstract ") {
+        const CLASS_HEADS: &[&str] = &[
+            "class ",
+            "interface ",
+            "abstract ",
+            "enum ",
+            "annotation ",
+            "struct ",
+            "exception ",
+            "protocol ",
+            "entity ",
+            "package ",
+            "namespace ",
+        ];
+        if CLASS_HEADS.iter().any(|h| t.starts_with(h)) {
             return DiagramKind::Class;
         }
         if t.starts_with('[') {

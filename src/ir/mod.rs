@@ -25,6 +25,7 @@ pub enum Diagram {
     Yaml(YamlDiagram),
     Wbs(WbsDiagram),
     MindMap(MindMapDiagram),
+    Class(ClassDiagram),
     // Future: State(StateDiagram), Activity(...), ...
 }
 
@@ -315,4 +316,227 @@ pub struct Skinparam {
     pub key: String,
     pub value: String,
     pub line: usize,
+}
+
+/// Class diagram (`@startuml` with `class` / `interface` / `abstract` /
+/// `enum` / `package` / `namespace` declarations). Field naming
+/// (`Entity`/`Relation`/`Container`) is deliberately neutral — the same
+/// shape will host object and component diagrams once they land.
+///
+/// `containers` is M0-empty; the field exists so M1 (cluster-aware
+/// Sugiyama) can wire `package { … }` / `namespace { … }` parsing without
+/// an IR migration.
+#[derive(Clone, Debug, Default)]
+pub struct ClassDiagram {
+    pub name: Option<String>,
+    pub title: Option<String>,
+    pub entities: Vec<Entity>,
+    pub relations: Vec<Relation>,
+    pub containers: Vec<Container>,
+    pub skinparams: Vec<Skinparam>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Entity {
+    pub kind: EntityKind,
+    /// Canonical id used by relations — alias if `class A as Foo`, else
+    /// `display`.
+    pub id: String,
+    pub display: String,
+    /// Generic parameters as written between `<` and `>` (e.g. `T, U`).
+    pub generic: Option<String>,
+    /// `<<...>>` text without the angle brackets.
+    pub stereotype: Option<String>,
+    pub fields: Vec<Member>,
+    pub methods: Vec<Member>,
+    /// Raw color spec (`#LightBlue`, `#ABC`). Codegen normalizes.
+    pub fill: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum EntityKind {
+    Class,
+    Interface,
+    Abstract,
+    Enum,
+    Annotation,
+    Struct,
+    Exception,
+    Protocol,
+    EntityShape,
+    Circle,
+    Diamond,
+}
+
+impl EntityKind {
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::Class => "class",
+            Self::Interface => "interface",
+            Self::Abstract => "abstract",
+            Self::Enum => "enum",
+            Self::Annotation => "annotation",
+            Self::Struct => "struct",
+            Self::Exception => "exception",
+            Self::Protocol => "protocol",
+            Self::EntityShape => "entity",
+            Self::Circle => "circle",
+            Self::Diamond => "diamond",
+        }
+    }
+
+    pub fn from_keyword(kw: &str) -> Option<Self> {
+        Some(match kw {
+            "class" => Self::Class,
+            "interface" => Self::Interface,
+            "abstract" => Self::Abstract,
+            "enum" => Self::Enum,
+            "annotation" => Self::Annotation,
+            "struct" => Self::Struct,
+            "exception" => Self::Exception,
+            "protocol" => Self::Protocol,
+            "entity" => Self::EntityShape,
+            "circle" => Self::Circle,
+            "diamond" => Self::Diamond,
+            _ => return None,
+        })
+    }
+
+    /// Single-letter glyph for the stereotype circle (`C` / `I` / `A` / `E`).
+    /// `None` for shapes that don't get a marker (circle / diamond).
+    pub fn marker_letter(self) -> Option<char> {
+        Some(match self {
+            Self::Class | Self::Struct | Self::Exception => 'C',
+            Self::Interface | Self::Protocol => 'I',
+            Self::Abstract => 'A',
+            Self::Enum => 'E',
+            Self::Annotation => '@',
+            Self::EntityShape => 'E',
+            Self::Circle | Self::Diamond => return None,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Member {
+    pub visibility: Visibility,
+    pub is_static: bool,
+    pub is_abstract: bool,
+    /// Body after stripping the leading visibility character and any
+    /// `{static}` / `{abstract}` modifier — e.g. `getName(): String`.
+    /// Codegen renders verbatim with markup escaping.
+    pub body: String,
+    pub line: usize,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Visibility {
+    Public,
+    Private,
+    Protected,
+    Package,
+    None,
+}
+
+impl Visibility {
+    /// Single-glyph prefix used by codegen (matches PlantUML's default).
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Self::Public => "+",
+            Self::Private => "-",
+            Self::Protected => "#",
+            Self::Package => "~",
+            Self::None => "",
+        }
+    }
+
+    pub fn from_char(c: char) -> Option<Self> {
+        Some(match c {
+            '+' => Self::Public,
+            '-' => Self::Private,
+            '#' => Self::Protected,
+            '~' => Self::Package,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Relation {
+    pub from: String,
+    pub to: String,
+    /// Decoration on the `from` side of the link (e.g. the `<|` in `<|--`).
+    pub head_from: ArrowHead,
+    /// Decoration on the `to` side (the `|>` in `--|>`).
+    pub head_to: ArrowHead,
+    pub line_style: LineStyle,
+    /// User-supplied direction hint (`-up->`, `-left->`); codegen may use
+    /// it to bias Sugiyama orientation but isn't required to honour it.
+    pub direction: Option<Direction>,
+    pub label: Option<String>,
+    pub mult_from: Option<String>,
+    pub mult_to: Option<String>,
+    pub role_from: Option<String>,
+    pub role_to: Option<String>,
+    pub stereotype: Option<String>,
+    pub color: Option<String>,
+    pub line: usize,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ArrowHead {
+    None,
+    /// `<|` / `|>` — generalization (extends).
+    TriangleOpen,
+    /// `<` / `>` — directed association.
+    ArrowOpen,
+    /// `o` — aggregation.
+    DiamondOpen,
+    /// `*` — composition.
+    DiamondFilled,
+    /// `x` — non-navigable.
+    Cross,
+    /// `+` — private internal.
+    Plus,
+    /// `(0` / `0)` / `(0)` — middle circle / lollipop variants. M2.
+    CircleConnect,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum LineStyle {
+    Solid,
+    Dashed,
+    Dotted,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+/// Container for `package { }` / `namespace { }` / `together { }` etc.
+/// M0 codegen ignores this; M1 cluster-aware Sugiyama consumes it.
+#[derive(Clone, Debug)]
+pub struct Container {
+    pub kind: ContainerKind,
+    pub label: String,
+    pub stereotype: Option<String>,
+    pub children_entities: Vec<String>,
+    pub children_containers: Vec<usize>,
+    pub line: usize,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ContainerKind {
+    Package,
+    Namespace,
+    Folder,
+    Frame,
+    Cloud,
+    Node,
+    Together,
 }

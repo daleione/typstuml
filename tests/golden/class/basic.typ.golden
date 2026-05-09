@@ -1,0 +1,17 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Basic class diagram*]
+
+#class-layout(
+  classes: (
+    (x: 53.25pt, y: 6.00pt, kind: "class", name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 3.00pt, y: 90.00pt, kind: "class", name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 103.50pt, y: 90.00pt, kind: "class", name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (100.50pt, 100.96pt), c2: (50.25pt, 67.04pt), end: (50.25pt, 90.00pt)),)),
+    (from: 0, to: 2, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (100.50pt, 100.96pt), c2: (150.75pt, 67.04pt), end: (150.75pt, 90.00pt)),)),
+  ),
+)

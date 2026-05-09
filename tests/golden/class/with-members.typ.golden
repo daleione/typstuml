@@ -1,0 +1,17 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Members and modifiers*]
+
+#class-layout(
+  classes: (
+    (x: 3.00pt, y: 6.00pt, kind: "abstract", name: [Shape], fields: ((vis: "#", body: [color: String]),), methods: ((vis: "+", body: [area(): double], abstract: true), (vis: "+", body: [count(): int], static: true))),
+    (x: 104.00pt, y: 90.00pt, kind: "class", name: [Circle], fields: ((vis: "-", body: [radius: double]),), methods: ((vis: "+", body: [area(): double]),)),
+    (x: 109.00pt, y: 6.00pt, kind: "interface", name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (53.00pt, 100.60pt), c2: (154.00pt, 67.40pt), end: (154.00pt, 90.00pt)),)),
+    (from: 2, to: 1, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (154.00pt, 73.33pt), c2: (154.00pt, 76.67pt), end: (154.00pt, 90.00pt)),)),
+  ),
+)

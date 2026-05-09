@@ -5,8 +5,9 @@
 //!
 //! ## What the codegen emits, and what blockcell symbols that touches
 //!
-//! `src/codegen/record_graph.rs`, `src/codegen/sequence.rs`, and
-//! `src/codegen/wbs.rs` together emit exactly three blockcell calls:
+//! `src/codegen/record_graph.rs`, `src/codegen/sequence.rs`,
+//! `src/codegen/wbs.rs`, and `src/codegen/class.rs` together emit these
+//! blockcell calls:
 //!
 //! ```text
 //!   #record-layout(...)   — JSON / YAML record diagrams
@@ -16,6 +17,8 @@
 //!   #tree(...) / #node[…] — WBS diagrams
 //!   #mindmap(...)         — mind-map diagrams
 //!                           (vendor/blockcell/src/tree.typ)
+//!   #class-layout(...)    — class diagrams
+//!                           (vendor/blockcell/src/class.typ)
 //! ```
 //!
 //! `record-layout` only depends on private helpers inside `records.typ`.
@@ -40,6 +43,7 @@ const STAGED_SRC_FILES: &[&str] = &[
     "seq-puml.typ",
     "seq.typ",
     "tree.typ",
+    "class.typ",
     "palettes.typ",
     "internal/metrics.typ",
 ];
@@ -54,6 +58,7 @@ const STAGED_LIB_TYP: &str = "\
 #import \"src/records.typ\": record-layout
 #import \"src/seq-puml.typ\": seq-puml
 #import \"src/tree.typ\": tree, node, mindmap
+#import \"src/class.typ\": class-layout
 ";
 
 fn main() {

@@ -1,0 +1,22 @@
+@startuml
+title Basic class diagram
+
+class Animal {
+  + name: String
+  + age: int
+  + speak(): void
+}
+
+class Dog {
+  + breed: String
+  + speak(): void
+}
+
+class Cat {
+  + indoor: bool
+  + speak(): void
+}
+
+Dog --|> Animal
+Cat --|> Animal
+@enduml

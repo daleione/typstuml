@@ -1,0 +1,21 @@
+@startuml
+title Members and modifiers
+
+abstract class Shape {
+  # color: String
+  + {abstract} area(): double
+  + {static} count(): int
+}
+
+class Circle {
+  - radius: double
+  + area(): double
+}
+
+interface Drawable <<Behavior>> {
+  + draw(): void
+}
+
+Circle --|> Shape
+Circle ..|> Drawable
+@enduml

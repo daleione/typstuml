@@ -356,6 +356,38 @@ impl<'a> Parser<'a> {
         };
         let rest = rest.trim();
 
+        // `note over A, B [: body]` — note spans multiple entities; auto-
+        // create a dashed dependency edge from the note to each target.
+        if let Some((targets, inline_body)) = parse_note_over_decl(rest) {
+            let id = format!("__note_{line_no}");
+            let body = match inline_body {
+                Some(b) => b,
+                None => self.collect_note_body(),
+            };
+            self.push_note(id.clone(), body, line_no);
+            for target in targets {
+                self.commit_relation(Relation {
+                    from: id.clone(),
+                    to: target,
+                    from_port: None,
+                    to_port: None,
+                    head_from: ArrowHead::None,
+                    head_to: ArrowHead::None,
+                    line_style: LineStyle::Dashed,
+                    direction: None,
+                    label: None,
+                    mult_from: None,
+                    mult_to: None,
+                    role_from: None,
+                    role_to: None,
+                    stereotype: None,
+                    color: None,
+                    line: line_no,
+                });
+            }
+            return Ok(true);
+        }
+
         // Anchored: `note <side> of <target> [: body]`.
         if let Some((side, target, inline_body)) = parse_anchored_note_decl(rest) {
             let id = format!("__note_{line_no}");
@@ -774,6 +806,39 @@ fn pop_trailing_generic(rest: &mut String) -> Option<String> {
     let inner = trimmed[start + 1..trimmed.len() - 1].to_string();
     *rest = trimmed[..start].to_string();
     Some(inner)
+}
+
+/// Parse `over A[, B[, C…]] [: body]` from a `note` directive. Returns
+/// `(targets, inline_body)`. Empty inline body means the body is on
+/// subsequent lines (terminated by `end note`).
+fn parse_note_over_decl(rest: &str) -> Option<(Vec<String>, Option<String>)> {
+    let after_over = strip_prefix_keyword(rest, "over")?.trim();
+    if after_over.is_empty() {
+        return None;
+    }
+    let (targets_part, body) = match after_over.find(':') {
+        Some(idx) => (
+            after_over[..idx].trim(),
+            Some(after_over[idx + 1..].trim().to_string()),
+        ),
+        None => (after_over.trim(), None),
+    };
+    let targets: Vec<String> = targets_part
+        .split(',')
+        .map(|s| {
+            let s = s.trim();
+            if let Some((quoted, _)) = strip_leading_quoted(s) {
+                quoted
+            } else {
+                s.split_whitespace().next().unwrap_or("").to_string()
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+    if targets.is_empty() {
+        return None;
+    }
+    Some((targets, body))
 }
 
 /// Parse `<side> of <target> [: body]` from the body of a `note`
@@ -1665,6 +1730,25 @@ mod tests {
         let (_d, diags) = parse(&block(&["frobnicate"]), CompatMode::Warn).unwrap();
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].level, Level::Warning);
+    }
+
+    #[test]
+    fn parses_note_over_two_targets() {
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "note over A, B : shared invariant",
+        ]);
+        let note = c.entities.iter().find(|e| e.kind == EntityKind::Note).unwrap();
+        assert_eq!(note.body.as_deref(), Some("shared invariant"));
+        // Two auto-relations, one for each target.
+        assert_eq!(c.relations.len(), 2);
+        assert!(c.relations.iter().any(|r| r.to == "A"));
+        assert!(c.relations.iter().any(|r| r.to == "B"));
+        for r in &c.relations {
+            assert_eq!(r.line_style, LineStyle::Dashed);
+            assert_eq!(r.from, note.id);
+        }
     }
 
     #[test]

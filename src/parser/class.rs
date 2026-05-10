@@ -85,6 +85,19 @@ impl<'a> Parser<'a> {
             if is_skip_directive(raw) {
                 continue;
             }
+            // `!theme <name>` — captured as a synthetic skinparam so
+            // codegen can expand it into the theme's preset values.
+            if let Some(rest) = raw.strip_prefix("!theme") {
+                let name = rest.trim().split_whitespace().next().unwrap_or("");
+                if !name.is_empty() {
+                    self.diag.skinparams.push(Skinparam {
+                        key: "theme".to_string(),
+                        value: name.to_string(),
+                        line: line_no,
+                    });
+                }
+                continue;
+            }
             if let Some(rest) = strip_prefix_keyword(raw, "skinparam") {
                 self.handle_skinparam(rest, line_no);
                 continue;
@@ -590,12 +603,14 @@ fn is_skip_directive(line: &str) -> bool {
     // `hide …` / `show …` are intentionally NOT in this list — they're
     // dispatched via `try_parse_hide_show` and may flip flags on the
     // diagram.
+    // `!theme` is intentionally NOT in this list — `try_parse_theme`
+    // handles it and stores a synthetic skinparam so codegen can expand
+    // the theme name into preset color overrides.
     const HEADS: &[&str] = &[
         "@startuml",
         "@enduml",
         "header ",
         "footer ",
-        "!theme",
         "!pragma",
         "!define",
         "!include",

@@ -105,7 +105,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | YAML (`@startyaml`)           |   ✅   | Shares the JSON `record-graph` renderer; flow & block style, anchors / aliases via serde |
 | MindMap (`@startmindmap`)     |   ✅   | Left/right fan-out via `blockcell.mindmap`                                              |
 | WBS (`@startwbs`)             |   ✅   | Work-breakdown hierarchy                                                                |
-| Class                         |   🚧   | M0: 3-compartment cards, stereotype circle, 7 head shapes; no `package` / orthogonal edges yet |
+| Class                         |   🚧   | M0+: 3-compartment cards, stereotype circle, 7 head shapes, dog-eared notes, multiplicity / role labels; no `package` / orthogonal edges yet |
 | `skinparam` coverage          |   🚧   | `backgroundColor`, `defaultFontName`, `defaultFontSize` map today; rest pass through    |
 | Object                        |   ⏳   | UML object instances with field values                                                  |
 | Component                     |   ⏳   | Components, interfaces, ports                                                           |

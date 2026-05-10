@@ -349,6 +349,9 @@ pub struct Entity {
     pub stereotype: Option<String>,
     pub fields: Vec<Member>,
     pub methods: Vec<Member>,
+    /// Free-text body. Set only for [`EntityKind::Note`]; renderers use
+    /// it instead of `fields` / `methods`. May contain `\n`.
+    pub body: Option<String>,
     /// Raw color spec (`#LightBlue`, `#ABC`). Codegen normalizes.
     pub fill: Option<String>,
     pub line: usize,
@@ -367,6 +370,10 @@ pub enum EntityKind {
     EntityShape,
     Circle,
     Diamond,
+    /// Free-text annotation rendered as a yellow dog-eared sticky note.
+    /// Created from PlantUML `note` syntax; participates in layout like
+    /// any other entity.
+    Note,
 }
 
 impl EntityKind {
@@ -383,6 +390,7 @@ impl EntityKind {
             Self::EntityShape => "entity",
             Self::Circle => "circle",
             Self::Diamond => "diamond",
+            Self::Note => "note",
         }
     }
 
@@ -399,12 +407,13 @@ impl EntityKind {
             "entity" => Self::EntityShape,
             "circle" => Self::Circle,
             "diamond" => Self::Diamond,
+            "note" => Self::Note,
             _ => return None,
         })
     }
 
     /// Single-letter glyph for the stereotype circle (`C` / `I` / `A` / `E`).
-    /// `None` for shapes that don't get a marker (circle / diamond).
+    /// `None` for shapes that don't get a marker (circle / diamond / note).
     pub fn marker_letter(self) -> Option<char> {
         Some(match self {
             Self::Class | Self::Struct | Self::Exception => 'C',
@@ -413,7 +422,7 @@ impl EntityKind {
             Self::Enum => 'E',
             Self::Annotation => '@',
             Self::EntityShape => 'E',
-            Self::Circle | Self::Diamond => return None,
+            Self::Circle | Self::Diamond | Self::Note => return None,
         })
     }
 }

@@ -435,6 +435,34 @@ fn golden_emit_typst_class_heads() {
 }
 
 #[test]
+fn golden_emit_typst_class_notes() {
+    let actual = emit_typst_path(&fixture_in("class", "notes.puml"));
+    assert_golden_in("class", "notes", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_notes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-notes.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "notes.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    // Notes draw a polygon with a dog-ear cut + a fold-triangle. Even a
+    // single note adds at least two extra <path> elements over the same
+    // diagram without notes.
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 20,
+        "notes diagram expected many <path>s; got {path_count}"
+    );
+}
+
+#[test]
 fn renders_svg_for_class_basic() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-basic.svg");

@@ -13,8 +13,12 @@
 //!   style (solid `--` / dashed `..`), explicit direction
 //!   (`-up->` / `-left->`), label, multiplicity, role, and stereotype.
 //!
+//! - Notes: `note left of Foo : body`, `note as Foo … end note`,
+//!   `note "body" as Foo`, multi-line bodies. Anchored notes auto-create
+//!   a dashed dependency relation between the note and its target.
+//!
 //! Out-of-M0 (warned and skipped):
-//!   `package`, `namespace`, `together`, `note`, lollipop interfaces,
+//!   `package`, `namespace`, `together`, lollipop interfaces,
 //!   association classes, `hide` / `show` filters, sprites, URL, link
 //!   color, and the bulk of `skinparam` keys other than the small subset
 //!   `codegen/class.rs::emit_skinparam_preamble` recognises.
@@ -88,6 +92,13 @@ impl<'a> Parser<'a> {
                     continue;
                 }
                 self.handle_block_member(raw, line_no)?;
+                continue;
+            }
+
+            // `note left of Foo : …`, `note "body" as N`, `note as N` …
+            // `end note`. Handled before entity-decl so a literal `note`
+            // can't be misread as a class keyword.
+            if self.try_parse_note(raw, line_no)? {
                 continue;
             }
 
@@ -179,6 +190,7 @@ impl<'a> Parser<'a> {
                     stereotype: None,
                     fields: Vec::new(),
                     methods: Vec::new(),
+                    body: None,
                     fill: None,
                     line: line_no,
                 };
@@ -242,12 +254,105 @@ impl<'a> Parser<'a> {
                     stereotype: None,
                     fields: Vec::new(),
                     methods: Vec::new(),
+                    body: None,
                     fill: None,
                     line: rel.line,
                 });
             }
         }
         self.diag.relations.push(rel);
+    }
+
+    /// Try to parse `raw` as a note declaration. Returns `Ok(true)` iff
+    /// the line was consumed (possibly along with subsequent body lines
+    /// up to `end note`). Returns `Ok(false)` if `raw` is not a `note`
+    /// directive — the caller falls through to other parsers.
+    fn try_parse_note(&mut self, raw: &str, line_no: usize) -> Result<bool> {
+        let Some(rest) = strip_prefix_keyword(raw, "note") else {
+            return Ok(false);
+        };
+        let rest = rest.trim();
+
+        // Anchored: `note <side> of <target> [: body]`.
+        if let Some((side, target, inline_body)) = parse_anchored_note_decl(rest) {
+            let id = format!("__note_{line_no}");
+            let body = match inline_body {
+                Some(b) => b,
+                None => self.collect_note_body(),
+            };
+            self.push_note(id.clone(), body, line_no);
+            self.commit_relation(Relation {
+                from: id,
+                to: target,
+                head_from: ArrowHead::None,
+                head_to: ArrowHead::None,
+                line_style: LineStyle::Dashed,
+                direction: Some(side_to_direction(side)),
+                label: None,
+                mult_from: None,
+                mult_to: None,
+                role_from: None,
+                role_to: None,
+                stereotype: None,
+                color: None,
+                line: line_no,
+            });
+            return Ok(true);
+        }
+
+        // Quoted standalone: `note "body" [as id]`.
+        if let Some((body, id)) = parse_quoted_note_decl(rest) {
+            let id = id.unwrap_or_else(|| format!("__note_{line_no}"));
+            self.push_note(id, body, line_no);
+            return Ok(true);
+        }
+
+        // Freestanding multi-line: `note as id` ... `end note`, or a bare
+        // alias (`note id`).
+        if let Some(id) = parse_freestanding_note_decl(rest) {
+            let body = self.collect_note_body();
+            self.push_note(id, body, line_no);
+            return Ok(true);
+        }
+
+        // `note` keyword recognized but the rest didn't match any known
+        // form. Warn and consume so we don't mis-parse the remainder.
+        self.unsupported(raw, line_no)?;
+        Ok(true)
+    }
+
+    fn collect_note_body(&mut self) -> String {
+        let mut lines = Vec::new();
+        while self.pos < self.lines.len() {
+            let line = &self.lines[self.pos];
+            self.pos += 1;
+            let trimmed = line.text.trim();
+            if trimmed.eq_ignore_ascii_case("end note")
+                || trimmed.eq_ignore_ascii_case("endnote")
+            {
+                return lines.join("\n");
+            }
+            // Source-side indentation is structural, not rendered. Trim it
+            // so users can indent the body for readability without that
+            // indentation showing up in the painted note.
+            lines.push(trimmed.to_string());
+        }
+        lines.join("\n")
+    }
+
+    fn push_note(&mut self, id: String, body: String, line_no: usize) {
+        self.diag.entities.push(Entity {
+            kind: EntityKind::Note,
+            id: id.clone(),
+            display: id,
+            generic: None,
+            stereotype: None,
+            fields: Vec::new(),
+            methods: Vec::new(),
+            body: Some(body),
+            fill: None,
+            line: line_no,
+        });
     }
 
     fn handle_skinparam(&mut self, rest: &str, line_no: usize) {
@@ -400,6 +505,7 @@ fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityAction> {
             stereotype,
             fields: Vec::new(),
             methods: Vec::new(),
+            body: None,
             fill,
             line: line_no,
         },
@@ -473,6 +579,93 @@ fn pop_trailing_generic(rest: &mut String) -> Option<String> {
     let inner = trimmed[start + 1..trimmed.len() - 1].to_string();
     *rest = trimmed[..start].to_string();
     Some(inner)
+}
+
+/// Parse `<side> of <target> [: body]` from the body of a `note`
+/// directive. Returns `(side_keyword, target_id, optional_inline_body)`.
+fn parse_anchored_note_decl(rest: &str) -> Option<(&'static str, String, Option<String>)> {
+    const SIDES: &[&str] = &["left", "right", "top", "bottom", "above", "below"];
+    for side in SIDES {
+        let after_side = match strip_prefix_keyword(rest, side) {
+            Some(s) => s.trim_start(),
+            None => continue,
+        };
+        let after_of = match strip_prefix_keyword(after_side, "of") {
+            Some(s) => s.trim_start(),
+            None => continue,
+        };
+        let (target_part, body) = match after_of.find(':') {
+            Some(idx) => (
+                after_of[..idx].trim(),
+                Some(after_of[idx + 1..].trim().to_string()),
+            ),
+            None => (after_of.trim(), None),
+        };
+        if target_part.is_empty() {
+            return None;
+        }
+        // Target may be quoted ("Foo Bar") or a bare identifier.
+        let target = if let Some((quoted, _)) = strip_leading_quoted(target_part) {
+            quoted
+        } else {
+            target_part
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_string()
+        };
+        if target.is_empty() {
+            return None;
+        }
+        return Some((side, target, body));
+    }
+    None
+}
+
+/// Parse `"body" [as id]` — a standalone single-line note.
+fn parse_quoted_note_decl(rest: &str) -> Option<(String, Option<String>)> {
+    let (body, after) = strip_leading_quoted(rest.trim())?;
+    let after = after.trim_start();
+    if after.is_empty() {
+        return Some((body, None));
+    }
+    let after_as = strip_prefix_keyword(after, "as")?.trim_start();
+    let id = after_as.split_whitespace().next()?.to_string();
+    if id.is_empty() {
+        return None;
+    }
+    Some((body, Some(id)))
+}
+
+/// Parse `as id` or a bare `id` — a freestanding note whose body
+/// follows on subsequent lines until `end note`.
+fn parse_freestanding_note_decl(rest: &str) -> Option<String> {
+    let rest = rest.trim();
+    if rest.is_empty() {
+        return None;
+    }
+    if let Some(after_as) = strip_prefix_keyword(rest, "as") {
+        let id = after_as.trim_start().split_whitespace().next()?.to_string();
+        if id.is_empty() {
+            return None;
+        }
+        return Some(id);
+    }
+    let id = rest.split_whitespace().next()?.to_string();
+    if id.is_empty() {
+        return None;
+    }
+    Some(id)
+}
+
+fn side_to_direction(side: &str) -> Direction {
+    match side {
+        "left" => Direction::Left,
+        "right" => Direction::Right,
+        "top" | "above" => Direction::Up,
+        "bottom" | "below" => Direction::Down,
+        _ => Direction::Right,
+    }
 }
 
 /// Parse `Name as alias`, `"Display Name" as alias`, or a bare name.
@@ -1160,5 +1353,74 @@ mod tests {
         let (_d, diags) = parse(&block(&["frobnicate"]), CompatMode::Warn).unwrap();
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].level, Level::Warning);
+    }
+
+    #[test]
+    fn parses_anchored_note_inline() {
+        let c = parse_ok(&["class Foo", "note left of Foo : just a hint"]);
+        // Entities: Foo + the auto-generated note.
+        assert_eq!(c.entities.len(), 2);
+        let note = c.entities.iter().find(|e| e.kind == EntityKind::Note).unwrap();
+        assert_eq!(note.body.as_deref(), Some("just a hint"));
+        // Auto-generated id starts with `__note_`.
+        assert!(note.id.starts_with("__note_"));
+        // Auto-relation: dashed, no heads, direction Left.
+        assert_eq!(c.relations.len(), 1);
+        let r = &c.relations[0];
+        assert_eq!(r.from, note.id);
+        assert_eq!(r.to, "Foo");
+        assert_eq!(r.line_style, LineStyle::Dashed);
+        assert_eq!(r.head_from, ArrowHead::None);
+        assert_eq!(r.head_to, ArrowHead::None);
+        assert_eq!(r.direction, Some(Direction::Left));
+    }
+
+    #[test]
+    fn parses_anchored_note_multiline() {
+        let c = parse_ok(&[
+            "class Foo",
+            "note right of Foo",
+            "  first line",
+            "  second line",
+            "end note",
+        ]);
+        let note = c.entities.iter().find(|e| e.kind == EntityKind::Note).unwrap();
+        let body = note.body.as_deref().unwrap();
+        assert!(body.contains("first line"));
+        assert!(body.contains("second line"));
+        assert_eq!(c.relations[0].direction, Some(Direction::Right));
+    }
+
+    #[test]
+    fn parses_quoted_note_with_alias() {
+        let c = parse_ok(&[
+            "class Foo",
+            "note \"hello world\" as N1",
+            "N1 .. Foo",
+        ]);
+        let note = c.entities.iter().find(|e| e.id == "N1").unwrap();
+        assert_eq!(note.kind, EntityKind::Note);
+        assert_eq!(note.body.as_deref(), Some("hello world"));
+        // User-written N1 .. Foo should produce one relation; no auto-rel.
+        assert_eq!(c.relations.len(), 1);
+        let r = &c.relations[0];
+        assert_eq!(r.from, "N1");
+        assert_eq!(r.to, "Foo");
+        assert_eq!(r.line_style, LineStyle::Dashed);
+    }
+
+    #[test]
+    fn parses_freestanding_note_block() {
+        let c = parse_ok(&[
+            "note as N1",
+            "  body line",
+            "end note",
+        ]);
+        let note = &c.entities[0];
+        assert_eq!(note.kind, EntityKind::Note);
+        assert_eq!(note.id, "N1");
+        assert_eq!(note.body.as_deref().unwrap().trim(), "body line");
+        // No auto relation for freestanding form.
+        assert!(c.relations.is_empty());
     }
 }

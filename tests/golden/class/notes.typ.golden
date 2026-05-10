@@ -1,0 +1,17 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#class-layout(
+  classes: (
+    (x: 15.25pt, y: 48.00pt, kind: "class", name: [Foo], fields: ((vis: "+", body: [name: String]),), methods: ((vis: "+", body: [render(): void]),)),
+    (x: 11.25pt, y: 114.00pt, kind: "note", body: [single-line hint]),
+    (x: 3.00pt, y: 6.00pt, kind: "note", body: [multi-line note \ with two paragraphs]),
+    (x: 133.50pt, y: 6.00pt, kind: "note", body: [free-floating note]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", path: ((c1: (65.25pt, 107.33pt), c2: (65.25pt, 108.67pt), end: (65.25pt, 114.00pt)),)),
+    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", path: ((c1: (65.25pt, 41.33pt), c2: (65.25pt, 42.67pt), end: (65.25pt, 48.00pt)),)),
+    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", label: [refers to], path: ((c1: (193.00pt, 53.68pt), c2: (156.67pt, 31.53pt), end: (127.50pt, 37.00pt)), (c1: (113.69pt, 39.59pt), c2: (65.25pt, 33.95pt), end: (65.25pt, 48.00pt)))),
+  ),
+)

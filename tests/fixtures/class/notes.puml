@@ -1,0 +1,16 @@
+@startuml
+class Foo {
+  + name: String
+  + render(): void
+}
+
+note left of Foo : single-line hint
+
+note right of Foo
+  multi-line note
+  with two paragraphs
+end note
+
+note "free-floating note" as N1
+N1 .. Foo : refers to
+@enduml

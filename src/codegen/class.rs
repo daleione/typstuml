@@ -22,8 +22,8 @@
 use std::fmt::Write as _;
 
 use crate::ir::{
-    ArrowHead, ClassDiagram, Direction as IrDirection, Entity, LineStyle, Member, Relation,
-    Skinparam, Visibility,
+    ArrowHead, ClassDiagram, Direction as IrDirection, Entity, EntityKind, LineStyle, Member,
+    Relation, Skinparam, Visibility,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
@@ -201,6 +201,9 @@ struct ClassGeom {
 }
 
 fn class_geom(entity: &Entity) -> ClassGeom {
+    if entity.kind == EntityKind::Note {
+        return note_geom(entity);
+    }
     let name_w = name_width_pt(entity);
     let field_w = entity
         .fields
@@ -222,6 +225,27 @@ fn class_geom(entity: &Entity) -> ClassGeom {
     let methods_h = entity.methods.len() as f64 * row_h;
     let total_h = name_h + fields_h + methods_h;
 
+    ClassGeom {
+        size: Point::new(total_w, total_h),
+        mid_x: total_w / 2.0,
+    }
+}
+
+/// Width allowance for the dog-ear fold drawn at the top-right of a
+/// note. Codegen has to reserve this in the bbox so the painter's fold
+/// triangle doesn't push edge endpoints into the body text.
+const NOTE_DOG_EAR_PT: f64 = 8.0;
+
+fn note_geom(entity: &Entity) -> ClassGeom {
+    let body = entity.body.as_deref().unwrap_or("");
+    let line_widths: Vec<f64> = if body.is_empty() {
+        vec![0.0]
+    } else {
+        body.lines().map(|l| text_width_pt(l, BODY_EM)).collect()
+    };
+    let max_w = line_widths.iter().cloned().fold(0.0, f64::max);
+    let total_w = max_w + 2.0 * PAD_X_PT + NOTE_DOG_EAR_PT;
+    let total_h = (line_widths.len() as f64) * LINE_HEIGHT_PT + 2.0 * PAD_Y_PT;
     ClassGeom {
         size: Point::new(total_w, total_h),
         mid_x: total_w / 2.0,
@@ -281,6 +305,9 @@ fn top_anchor(g: &ClassGeom, top_left: Point) -> Point {
 }
 
 fn emit_class(out: &mut String, top_left: Point, entity: &Entity) {
+    if entity.kind == EntityKind::Note {
+        return emit_note(out, top_left, entity);
+    }
     out.push_str(&format!(
         "    (x: {:.2}pt, y: {:.2}pt, kind: \"{}\", name: [",
         top_left.x,
@@ -332,6 +359,27 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity) {
     out.push(')');
 
     out.push_str("),\n");
+}
+
+fn emit_note(out: &mut String, top_left: Point, entity: &Entity) {
+    let body = entity.body.as_deref().unwrap_or("");
+    out.push_str(&format!(
+        "    (x: {:.2}pt, y: {:.2}pt, kind: \"note\", body: [",
+        top_left.x, top_left.y,
+    ));
+    if body.is_empty() {
+        // Empty body — leave the content slot blank.
+    } else {
+        // Multi-line body. Use Typst hard-break ` \ ` between lines so a
+        // single content slot renders the multi-line note.
+        for (i, line) in body.lines().enumerate() {
+            if i > 0 {
+                out.push_str(" \\ ");
+            }
+            out.push_str(&typst_markup_escape(line));
+        }
+    }
+    out.push_str("]),\n");
 }
 
 fn emit_member(out: &mut String, m: &Member) {
@@ -571,6 +619,7 @@ mod tests {
             stereotype: None,
             fields: Vec::new(),
             methods: Vec::new(),
+            body: None,
             fill: None,
             line: 0,
         }

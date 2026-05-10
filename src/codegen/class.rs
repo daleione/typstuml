@@ -562,6 +562,12 @@ fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Poi
         out.push_str(&typst_markup_escape(label));
         out.push(']');
     }
+    if let Some(c) = &oe.relation.color {
+        if let Some(typst_color) = puml_color_to_typst(c) {
+            out.push_str(", color: ");
+            out.push_str(&typst_color);
+        }
+    }
     // After orientation swap, `mult-from` / `role-from` corresponds to the
     // new source of the edge — which is the IR's `to` side iff we swapped.
     let (mult_src, mult_dst, role_src, role_dst) = if oe.swapped {

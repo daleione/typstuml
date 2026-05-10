@@ -1095,7 +1095,7 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<Relation> {
     let (from_id, mult_from, role_from) = parse_endpoint_left(left)?;
     let (to_id, mult_to, role_to) = parse_endpoint_right(right)?;
 
-    let (head_from, head_to, line_style, direction) = decode_arrow(arrow);
+    let (head_from, head_to, line_style, direction, color) = decode_arrow(arrow);
 
     Some(Relation {
         from: from_id,
@@ -1110,7 +1110,7 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<Relation> {
         role_from,
         role_to,
         stereotype: None,
-        color: None,
+        color,
         line: line_no,
     })
 }
@@ -1207,15 +1207,33 @@ fn unquote(s: &str) -> String {
 
 /// Decompose an arrow token (e.g. `-up->`, `<|..`, `*--`, `<|--`) into
 /// its head decorations, line style, and direction hint.
-fn decode_arrow(arrow: &str) -> (ArrowHead, ArrowHead, LineStyle, Option<Direction>) {
-    // Strip `[…]` color/style annotations.
+fn decode_arrow(
+    arrow: &str,
+) -> (ArrowHead, ArrowHead, LineStyle, Option<Direction>, Option<String>) {
+    // Strip `[…]` color/style annotations; capture the first `#…`
+    // color found inside any such annotation. PlantUML accepts forms
+    // like `[#red]`, `[#abcdef]`, `[#red,bold]`, `[bold,#red]` —
+    // we split on `,` and take whichever token starts with `#`.
     let mut s = String::new();
+    let mut color: Option<String> = None;
     let bytes = arrow.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'[' {
+            let start = i + 1;
             while i < bytes.len() && bytes[i] != b']' {
                 i += 1;
+            }
+            let inner = std::str::from_utf8(&bytes[start..i]).unwrap_or("");
+            if color.is_none() {
+                for tok in inner.split(',').map(str::trim) {
+                    if let Some(rest) = tok.strip_prefix('#') {
+                        if !rest.is_empty() {
+                            color = Some(format!("#{rest}"));
+                            break;
+                        }
+                    }
+                }
             }
             if i < bytes.len() {
                 i += 1;
@@ -1278,6 +1296,7 @@ fn decode_arrow(arrow: &str) -> (ArrowHead, ArrowHead, LineStyle, Option<Directi
         decode_head(head_right, false),
         line_style,
         direction,
+        color,
     )
 }
 
@@ -1584,6 +1603,28 @@ mod tests {
         assert_eq!(t.kind, ContainerKind::Together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn parses_edge_inline_color() {
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "A -[#red]-> B",
+        ]);
+        let r = &c.relations[0];
+        assert_eq!(r.color.as_deref(), Some("#red"));
+    }
+
+    #[test]
+    fn parses_edge_color_with_extra_modifier() {
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "A -[#abcdef,bold]-> B",
+        ]);
+        let r = &c.relations[0];
+        assert_eq!(r.color.as_deref(), Some("#abcdef"));
     }
 
     #[test]

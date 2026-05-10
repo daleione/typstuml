@@ -4,14 +4,12 @@
 
 #class-layout(
   classes: (
-    (x: 35.00pt, y: 6.00pt, kind: "lollipop", name: [Trainable]),
-    (x: 12.60pt, y: 46.00pt, kind: "lollipop", name: [Drawable]),
-    (x: 62.60pt, y: 46.00pt, kind: "class", name: [Dog], fields: (), methods: ()),
-    (x: 3.00pt, y: 86.00pt, kind: "class", name: [Square], fields: (), methods: ()),
+    (x: 9.10pt, y: 6.00pt, kind: "class", name: [Component], fields: (), methods: ()),
+    (x: 3.00pt, y: 36.00pt, kind: "lollipop", name: [Provided]),
+    (x: 53.00pt, y: 36.00pt, kind: "lollipop", name: [Required]),
   ),
   edges: (
-    (from: 0, to: 2, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (59.75pt, 36.00pt), c2: (59.75pt, 38.00pt), end: (59.75pt, 40.00pt)), (c1: (68.13pt, 40.00pt), c2: (76.52pt, 40.00pt), end: (84.90pt, 40.00pt)), (c1: (84.90pt, 42.00pt), c2: (84.90pt, 44.00pt), end: (84.90pt, 46.00pt)))),
-    (from: 1, to: 3, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (34.60pt, 78.00pt), c2: (34.60pt, 82.00pt), end: (34.60pt, 86.00pt)),)),
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", path: ((c1: (59.75pt, 36.00pt), c2: (59.75pt, 38.00pt), end: (59.75pt, 40.00pt)), (c1: (51.37pt, 40.00pt), c2: (42.98pt, 40.00pt), end: (34.60pt, 40.00pt)), (c1: (34.60pt, 42.00pt), c2: (34.60pt, 44.00pt), end: (34.60pt, 46.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", path: ((c1: (50.00pt, 26.00pt), c2: (50.00pt, 28.00pt), end: (50.00pt, 30.00pt)), (c1: (41.67pt, 30.00pt), c2: (33.33pt, 30.00pt), end: (25.00pt, 30.00pt)), (c1: (25.00pt, 32.00pt), c2: (25.00pt, 34.00pt), end: (25.00pt, 36.00pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", path: ((c1: (50.00pt, 26.00pt), c2: (50.00pt, 28.00pt), end: (50.00pt, 30.00pt)), (c1: (58.33pt, 30.00pt), c2: (66.67pt, 30.00pt), end: (75.00pt, 30.00pt)), (c1: (75.00pt, 32.00pt), c2: (75.00pt, 34.00pt), end: (75.00pt, 36.00pt)))),
   ),
 )

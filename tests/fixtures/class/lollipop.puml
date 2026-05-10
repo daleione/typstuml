@@ -1,12 +1,8 @@
 @startuml
-() Trainable
-() Drawable
+class Component
+() "Provided" as P
+() "Required" as R
 
-class Dog
-class Square
-
-Dog ..|> Trainable
-Square ..|> Drawable
-
-(Trainable) -- (Drawable)
+Component -- P
+Component -- R
 @enduml

@@ -11,7 +11,7 @@
     (x: 103.50pt, y: 90.00pt, kind: "class", name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (100.50pt, 100.96pt), c2: (50.25pt, 67.04pt), end: (50.25pt, 90.00pt)),)),
-    (from: 0, to: 2, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (100.50pt, 100.96pt), c2: (150.75pt, 67.04pt), end: (150.75pt, 90.00pt)),)),
+    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (100.50pt, 80.00pt), c2: (100.50pt, 82.00pt), end: (100.50pt, 84.00pt)), (c1: (83.75pt, 84.00pt), c2: (67.00pt, 84.00pt), end: (50.25pt, 84.00pt)), (c1: (50.25pt, 86.00pt), c2: (50.25pt, 88.00pt), end: (50.25pt, 90.00pt)))),
+    (from: 0, to: 2, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (100.50pt, 80.00pt), c2: (100.50pt, 82.00pt), end: (100.50pt, 84.00pt)), (c1: (117.25pt, 84.00pt), c2: (134.00pt, 84.00pt), end: (150.75pt, 84.00pt)), (c1: (150.75pt, 86.00pt), c2: (150.75pt, 88.00pt), end: (150.75pt, 90.00pt)))),
   ),
 )

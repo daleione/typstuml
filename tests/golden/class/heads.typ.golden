@@ -14,10 +14,10 @@
     (x: 88.95pt, y: 66.00pt, kind: "class", name: [F], fields: (), methods: ()),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (19.10pt, 45.88pt), c2: (66.85pt, 14.12pt), end: (66.85pt, 36.00pt)),)),
-    (from: 2, to: 0, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (66.85pt, 29.33pt), c2: (66.85pt, 30.67pt), end: (66.85pt, 36.00pt)),)),
-    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", path: ((c1: (66.85pt, 71.80pt), c2: (28.65pt, 48.20pt), end: (28.65pt, 66.00pt)),)),
-    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (66.85pt, 59.33pt), c2: (66.85pt, 60.67pt), end: (66.85pt, 66.00pt)),)),
-    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (66.85pt, 71.80pt), c2: (105.05pt, 48.20pt), end: (105.05pt, 66.00pt)),)),
+    (from: 1, to: 0, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (19.10pt, 26.00pt), c2: (19.10pt, 28.00pt), end: (19.10pt, 30.00pt)), (c1: (35.02pt, 30.00pt), c2: (50.93pt, 30.00pt), end: (66.85pt, 30.00pt)), (c1: (66.85pt, 32.00pt), c2: (66.85pt, 34.00pt), end: (66.85pt, 36.00pt)))),
+    (from: 2, to: 0, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (66.85pt, 28.00pt), c2: (66.85pt, 32.00pt), end: (66.85pt, 36.00pt)),)),
+    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", path: ((c1: (66.85pt, 56.00pt), c2: (66.85pt, 58.00pt), end: (66.85pt, 60.00pt)), (c1: (54.12pt, 60.00pt), c2: (41.38pt, 60.00pt), end: (28.65pt, 60.00pt)), (c1: (28.65pt, 62.00pt), c2: (28.65pt, 64.00pt), end: (28.65pt, 66.00pt)))),
+    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (66.85pt, 58.00pt), c2: (66.85pt, 62.00pt), end: (66.85pt, 66.00pt)),)),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (66.85pt, 56.00pt), c2: (66.85pt, 58.00pt), end: (66.85pt, 60.00pt)), (c1: (79.58pt, 60.00pt), c2: (92.32pt, 60.00pt), end: (105.05pt, 60.00pt)), (c1: (105.05pt, 62.00pt), c2: (105.05pt, 64.00pt), end: (105.05pt, 66.00pt)))),
   ),
 )

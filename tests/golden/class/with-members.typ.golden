@@ -11,7 +11,7 @@
     (x: 109.00pt, y: 6.00pt, kind: "interface", name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (53.00pt, 100.60pt), c2: (154.00pt, 67.40pt), end: (154.00pt, 90.00pt)),)),
-    (from: 2, to: 1, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (154.00pt, 73.33pt), c2: (154.00pt, 76.67pt), end: (154.00pt, 90.00pt)),)),
+    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", path: ((c1: (53.00pt, 80.00pt), c2: (53.00pt, 82.00pt), end: (53.00pt, 84.00pt)), (c1: (86.67pt, 84.00pt), c2: (120.33pt, 84.00pt), end: (154.00pt, 84.00pt)), (c1: (154.00pt, 86.00pt), c2: (154.00pt, 88.00pt), end: (154.00pt, 90.00pt)))),
+    (from: 2, to: 1, head-from: "triangle-open", head-to: "none", style: "dashed", path: ((c1: (154.00pt, 70.00pt), c2: (154.00pt, 80.00pt), end: (154.00pt, 90.00pt)),)),
   ),
 )

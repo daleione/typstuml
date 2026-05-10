@@ -132,12 +132,19 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
             .filter(|i| *i != from && *i != to)
             .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
             .collect();
-        let segments = match pathplan::route_edge(start, end, &obstacles, route_opts) {
-            Ok(cubics) => cubics
-                .into_iter()
-                .map(|c| c.into_painter_segment())
-                .collect(),
-            Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
+        // Class diagrams traditionally use orthogonal (Manhattan) edges,
+        // not curves. Try a 3-segment Z route first (down-across-down for
+        // TB layout); fall back to obstacle-aware bezier routing only if
+        // the Manhattan route would intersect a class bbox.
+        let segments = match try_manhattan_route(start, end, &obstacles) {
+            Some(segs) => segs,
+            None => match pathplan::route_edge(start, end, &obstacles, route_opts) {
+                Ok(cubics) => cubics
+                    .into_iter()
+                    .map(|c| c.into_painter_segment())
+                    .collect(),
+                Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
+            },
         };
 
         emit_edge(out, oe, &segments);
@@ -202,6 +209,96 @@ fn orient_relation(rel: &Relation, entities: &[Entity]) -> Option<OrientedEdge> 
         swapped,
         relation: rel.clone(),
     })
+}
+
+/// Try to route `start → end` as 3 axis-aligned segments
+/// (down → across → down for TB layout). Returns `None` if any segment
+/// would clip a class bbox in `obstacles`, in which case the caller
+/// falls back to bezier routing.
+fn try_manhattan_route(
+    start: Point,
+    end: Point,
+    obstacles: &[pathplan::Box],
+) -> Option<Vec<(Point, Point, Point)>> {
+    const X_TOL: f64 = 1.0;
+    if (start.x - end.x).abs() < X_TOL {
+        // Source and target share an x — emit a single straight cubic.
+        let dy = end.y - start.y;
+        let c1 = Point::new(start.x, start.y + dy / 3.0);
+        let c2 = Point::new(start.x, start.y + 2.0 * dy / 3.0);
+        // Even a straight line should miss any in-between obstacle for
+        // this trivial route to be safe.
+        if obstacles
+            .iter()
+            .any(|ob| seg_intersects_box(start, end, ob))
+        {
+            return None;
+        }
+        return Some(vec![(c1, c2, end)]);
+    }
+
+    // Z-route: vertical down to mid-y, horizontal across, vertical down.
+    let mid_y = (start.y + end.y) / 2.0;
+    let p1 = start;
+    let p2 = Point::new(start.x, mid_y);
+    let p3 = Point::new(end.x, mid_y);
+    let p4 = end;
+
+    for ob in obstacles {
+        if seg_intersects_box(p1, p2, ob)
+            || seg_intersects_box(p2, p3, ob)
+            || seg_intersects_box(p3, p4, ob)
+        {
+            return None;
+        }
+    }
+
+    Some(vec![
+        cubic_from_straight(p1, p2),
+        cubic_from_straight(p2, p3),
+        cubic_from_straight(p3, p4),
+    ])
+}
+
+/// Express a straight line a→b as a (c1, c2, end) cubic Bezier whose
+/// path is exactly the line. Control handles sit at 1/3 and 2/3 along.
+fn cubic_from_straight(a: Point, b: Point) -> (Point, Point, Point) {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    (
+        Point::new(a.x + dx / 3.0, a.y + dy / 3.0),
+        Point::new(a.x + 2.0 * dx / 3.0, a.y + 2.0 * dy / 3.0),
+        b,
+    )
+}
+
+/// True iff the axis-aligned segment a→b touches the rectangle `ob`.
+/// We only call this with axis-aligned (vertical or horizontal)
+/// segments — the diagonal branch returns `false` defensively.
+fn seg_intersects_box(a: Point, b: Point, ob: &pathplan::Box) -> bool {
+    let lo = ob.min;
+    let hi = ob.max;
+    if (a.x - b.x).abs() < 1e-6 {
+        // Vertical segment at x.
+        let x = a.x;
+        if x <= lo.x || x >= hi.x {
+            return false;
+        }
+        let y_lo = a.y.min(b.y);
+        let y_hi = a.y.max(b.y);
+        return !(y_hi <= lo.y || y_lo >= hi.y);
+    }
+    if (a.y - b.y).abs() < 1e-6 {
+        // Horizontal segment at y.
+        let y = a.y;
+        if y <= lo.y || y >= hi.y {
+            return false;
+        }
+        let x_lo = a.x.min(b.x);
+        let x_hi = a.x.max(b.x);
+        return !(x_hi <= lo.x || x_lo >= hi.x);
+    }
+    false
 }
 
 fn straight_fallback(start: Point, end: Point, force_max: f64) -> Vec<(Point, Point, Point)> {

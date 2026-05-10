@@ -340,6 +340,8 @@ impl<'a> Parser<'a> {
             self.commit_relation(Relation {
                 from: id,
                 to: target,
+                from_port: None,
+                to_port: None,
                 head_from: ArrowHead::None,
                 head_to: ArrowHead::None,
                 line_style: LineStyle::Dashed,
@@ -1087,19 +1089,41 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<Relation> {
     let left = raw[..start].trim_end();
     let right = raw[end..].trim_start();
 
-    let (label, right) = match right.find(':') {
+    // Find the `:` that introduces the label. `::` (member port like
+    // `B::value`) must be skipped — treat the colon as part of the
+    // identifier when it's immediately followed by another colon.
+    let label_colon = {
+        let bytes = right.as_bytes();
+        let mut i = 0;
+        let mut found = None;
+        while i < bytes.len() {
+            if bytes[i] == b':' {
+                if i + 1 < bytes.len() && bytes[i + 1] == b':' {
+                    i += 2; // skip `::`
+                    continue;
+                }
+                found = Some(i);
+                break;
+            }
+            i += 1;
+        }
+        found
+    };
+    let (label, right) = match label_colon {
         Some(i) => (Some(right[i + 1..].trim().to_string()), right[..i].trim_end()),
         None => (None, right),
     };
 
-    let (from_id, mult_from, role_from) = parse_endpoint_left(left)?;
-    let (to_id, mult_to, role_to) = parse_endpoint_right(right)?;
+    let (from_id, mult_from, role_from, from_port) = parse_endpoint_left(left)?;
+    let (to_id, mult_to, role_to, to_port) = parse_endpoint_right(right)?;
 
     let (head_from, head_to, line_style, direction, color) = decode_arrow(arrow);
 
     Some(Relation {
         from: from_id,
         to: to_id,
+        from_port,
+        to_port,
         head_from,
         head_to,
         line_style,
@@ -1115,39 +1139,55 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<Relation> {
     })
 }
 
-fn parse_endpoint_left(s: &str) -> Option<(String, Option<String>, Option<String>)> {
+fn parse_endpoint_left(
+    s: &str,
+) -> Option<(String, Option<String>, Option<String>, Option<String>)> {
     // Right-most pieces of `s` are: optional `"mult"`, optional `/role`,
-    // and the id sits before them.
+    // and the id sits before them. The id may be `Class::member` —
+    // a member port — which we split into (id, port).
     let s = s.trim();
     if s.is_empty() {
         return None;
     }
-    // Pop trailing `"mult"`.
     let (id_part, mult) = pop_trailing_quoted(s);
     let id_part = id_part.trim();
-    // No further role parsing on the left for M0 (PlantUML's left-side
-    // role uses a different position than right-side; treat as label).
     let (id, role) = pop_trailing_role(id_part);
     if id.is_empty() {
         return None;
     }
-    Some((unquote(id), mult, role))
+    let (id, port) = split_member_port(unquote(id));
+    Some((id, mult, role, port))
 }
 
-fn parse_endpoint_right(s: &str) -> Option<(String, Option<String>, Option<String>)> {
+fn parse_endpoint_right(
+    s: &str,
+) -> Option<(String, Option<String>, Option<String>, Option<String>)> {
     let s = s.trim();
     if s.is_empty() {
         return None;
     }
-    // Leading `"mult"`.
     let (rest, mult) = pop_leading_quoted(s);
     let rest = rest.trim();
-    // Trailing `/role` (rare; PlantUML's `/role` syntax for the right side).
     let (id, role) = pop_trailing_role(rest);
     if id.is_empty() {
         return None;
     }
-    Some((unquote(id), mult, role))
+    let (id, port) = split_member_port(unquote(id));
+    Some((id, mult, role, port))
+}
+
+/// `Class::member` → (`"Class"`, `Some("member")`); plain id → (id, None).
+/// Only splits at the *last* `::` so qualified names like `outer::inner`
+/// still work (the inner-most segment is treated as the port).
+fn split_member_port(id: String) -> (String, Option<String>) {
+    if let Some(i) = id.rfind("::") {
+        let head = id[..i].to_string();
+        let port = id[i + 2..].to_string();
+        if !head.is_empty() && !port.is_empty() {
+            return (head, Some(port));
+        }
+    }
+    (id, None)
 }
 
 fn pop_trailing_quoted(s: &str) -> (&str, Option<String>) {
@@ -1603,6 +1643,38 @@ mod tests {
         assert_eq!(t.kind, ContainerKind::Together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn parses_member_port() {
+        let c = parse_ok(&[
+            "class A {",
+            "  + name: String",
+            "}",
+            "class B",
+            "A::name --> B",
+        ]);
+        // Two classes, no phantom `A::name` entity.
+        assert_eq!(c.entities.len(), 2);
+        let r = &c.relations[0];
+        assert_eq!(r.from, "A");
+        assert_eq!(r.from_port.as_deref(), Some("name"));
+        assert_eq!(r.to, "B");
+        assert!(r.to_port.is_none());
+    }
+
+    #[test]
+    fn member_port_on_target_side() {
+        let c = parse_ok(&[
+            "class A",
+            "class B {",
+            "  + value: int",
+            "}",
+            "A --> B::value",
+        ]);
+        let r = &c.relations[0];
+        assert!(r.from_port.is_none());
+        assert_eq!(r.to_port.as_deref(), Some("value"));
     }
 
     #[test]

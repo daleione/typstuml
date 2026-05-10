@@ -495,6 +495,13 @@ impl Visibility {
 pub struct Relation {
     pub from: String,
     pub to: String,
+    /// `A::field` port: when set, the edge anchors at the named member
+    /// compartment row of `from` instead of the entity's bottom-mid.
+    /// Codegen does not yet shift the anchor — the field is captured
+    /// to keep the parser's auto-create logic from inventing a phantom
+    /// entity named `A::field`.
+    pub from_port: Option<String>,
+    pub to_port: Option<String>,
     /// Decoration on the `from` side of the link (e.g. the `<|` in `<|--`).
     pub head_from: ArrowHead,
     /// Decoration on the `to` side (the `|>` in `--|>`).

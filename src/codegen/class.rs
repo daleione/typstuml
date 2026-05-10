@@ -1029,6 +1029,27 @@ mod tests {
         }
     }
 
+    fn rel(from: &str, to: &str, head_to: ArrowHead) -> Relation {
+        Relation {
+            from: from.into(),
+            to: to.into(),
+            from_port: None,
+            to_port: None,
+            head_from: ArrowHead::None,
+            head_to,
+            line_style: LineStyle::Solid,
+            direction: None,
+            label: None,
+            mult_from: None,
+            mult_to: None,
+            role_from: None,
+            role_to: None,
+            stereotype: None,
+            color: None,
+            line: 0,
+        }
+    }
+
     fn render(diag: ClassDiagram) -> String {
         let mut s = String::new();
         emit(&mut s, &diag);
@@ -1051,6 +1072,8 @@ mod tests {
         diag.relations.push(Relation {
             from: "Dog".into(),
             to: "Animal".into(),
+            from_port: None,
+            to_port: None,
             head_from: ArrowHead::None,
             head_to: ArrowHead::TriangleOpen,
             line_style: LineStyle::Solid,
@@ -1079,6 +1102,8 @@ mod tests {
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
+            from_port: None,
+            to_port: None,
             head_from: ArrowHead::None,
             head_to: ArrowHead::ArrowOpen,
             line_style: LineStyle::Solid,
@@ -1147,6 +1172,8 @@ mod tests {
         diag.relations.push(Relation {
             from: "Sub".into(),
             to: "Sup".into(),
+            from_port: None,
+            to_port: None,
             head_from: ArrowHead::None,
             head_to: ArrowHead::TriangleOpen,
             line_style: LineStyle::Solid,
@@ -1185,6 +1212,8 @@ mod tests {
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
+            from_port: None,
+            to_port: None,
             head_from: ArrowHead::None,
             head_to: ArrowHead::ArrowOpen,
             line_style: LineStyle::Solid,
@@ -1217,6 +1246,8 @@ mod tests {
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
+            from_port: None,
+            to_port: None,
             head_from: ArrowHead::None,
             head_to: ArrowHead::ArrowOpen,
             line_style: LineStyle::Solid,

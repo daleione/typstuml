@@ -96,6 +96,9 @@ impl<'a> Parser<'a> {
                 }
                 continue;
             }
+            if self.try_parse_hide_show(raw) {
+                continue;
+            }
 
             // Inside a `class A { … }` block?
             if !self.block_stack.is_empty() {
@@ -408,6 +411,41 @@ impl<'a> Parser<'a> {
         });
     }
 
+    /// Parse `hide …` / `show …` global filter directives. Returns
+    /// `true` iff the line was a hide/show that we recognized
+    /// (consumed); unknown variants are still consumed but flagged by
+    /// the caller via the trailing `unsupported` path.
+    fn try_parse_hide_show(&mut self, raw: &str) -> bool {
+        let (set_to, rest) = if let Some(rest) = strip_prefix_keyword(raw, "hide") {
+            (true, rest.trim())
+        } else if let Some(rest) = strip_prefix_keyword(raw, "show") {
+            (false, rest.trim())
+        } else {
+            return false;
+        };
+        let lower = rest.to_ascii_lowercase();
+        let lower = lower.as_str();
+        // `hide @unlinked …` and stereotype-scoped variants are not
+        // supported; we still consume the line so they don't trigger
+        // the "unrecognized syntax" diagnostic.
+        let lower = lower
+            .trim_start_matches("@unlinked")
+            .trim_start_matches("empty")
+            .trim();
+        match lower {
+            "circle" => self.diag.hide.circle = set_to,
+            "stereotype" | "stereotypes" => self.diag.hide.stereotype = set_to,
+            "members" => self.diag.hide.members = set_to,
+            "methods" | "method" => self.diag.hide.methods = set_to,
+            "fields" | "field" | "attributes" | "attribute" => self.diag.hide.fields = set_to,
+            // `hide empty members` etc. are no-ops for us — empty
+            // compartments are already collapsed by the painter.
+            "" => {}
+            _ => {} // silently ignore stereotype-scoped or class-scoped variants
+        }
+        true
+    }
+
     fn handle_skinparam(&mut self, rest: &str, line_no: usize) {
         let rest = rest.trim();
         if rest.is_empty() {
@@ -465,11 +503,12 @@ fn is_comment(line: &str) -> bool {
 }
 
 fn is_skip_directive(line: &str) -> bool {
+    // `hide …` / `show …` are intentionally NOT in this list — they're
+    // dispatched via `try_parse_hide_show` and may flip flags on the
+    // diagram.
     const HEADS: &[&str] = &[
         "@startuml",
         "@enduml",
-        "hide ",
-        "show ",
         "header ",
         "footer ",
         "!theme",
@@ -1545,6 +1584,26 @@ mod tests {
         assert_eq!(t.kind, ContainerKind::Together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn parses_hide_directives() {
+        let c = parse_ok(&[
+            "hide circle",
+            "hide methods",
+            "hide stereotype",
+            "class A",
+        ]);
+        assert!(c.hide.circle);
+        assert!(c.hide.methods);
+        assert!(c.hide.stereotype);
+        assert!(!c.hide.fields);
+    }
+
+    #[test]
+    fn show_reverses_hide() {
+        let c = parse_ok(&["hide circle", "show circle", "class A"]);
+        assert!(!c.hide.circle);
     }
 
     #[test]

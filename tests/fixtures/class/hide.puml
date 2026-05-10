@@ -1,0 +1,17 @@
+@startuml
+hide circle
+hide methods
+
+class Order <<aggregate root>> {
+  + id: UUID
+  + total: Money
+  + checkout()
+}
+
+class LineItem {
+  + qty: int
+  + lineTotal()
+}
+
+Order *-- LineItem
+@enduml

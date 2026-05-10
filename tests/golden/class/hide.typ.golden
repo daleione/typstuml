@@ -1,0 +1,13 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#class-layout(
+  classes: (
+    (x: 3.00pt, y: 6.00pt, kind: "class", name: [Order], stereotype: [aggregate root], hide-marker: true, fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [total: Money])), methods: ()),
+    (x: 24.00pt, y: 90.00pt, kind: "class", name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (57.50pt, 82.00pt), c2: (57.50pt, 86.00pt), end: (57.50pt, 90.00pt)),)),
+  ),
+)

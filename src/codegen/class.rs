@@ -23,7 +23,7 @@ use std::fmt::Write as _;
 
 use crate::ir::{
     ArrowHead, ClassDiagram, Container, ContainerKind, Direction as IrDirection, Entity,
-    EntityKind, LineStyle, Member, Relation, Skinparam, Visibility,
+    EntityKind, HideOptions, LineStyle, Member, Relation, Skinparam, Visibility,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
@@ -60,7 +60,11 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         return;
     }
 
-    let geoms: Vec<ClassGeom> = diag.entities.iter().map(class_geom).collect();
+    let geoms: Vec<ClassGeom> = diag
+        .entities
+        .iter()
+        .map(|e| class_geom_filtered(e, &diag.hide))
+        .collect();
 
     // Build the visual graph with one box per entity and one edge per
     // relation, swapping endpoints so the "owner / parent" end is at
@@ -102,7 +106,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     out.push_str("#class-layout(\n");
     out.push_str("  classes: (\n");
     for (i, entity) in diag.entities.iter().enumerate() {
-        emit_class(out, top_lefts[i], entity);
+        emit_class(out, top_lefts[i], entity, &diag.hide);
     }
     out.push_str("  ),\n");
 
@@ -315,29 +319,45 @@ struct ClassGeom {
     mid_x: f64,
 }
 
-fn class_geom(entity: &Entity) -> ClassGeom {
+fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassGeom {
     if entity.kind == EntityKind::Note {
         return note_geom(entity);
     }
-    let name_w = name_width_pt(entity);
-    let field_w = entity
-        .fields
-        .iter()
-        .map(member_width_pt)
-        .fold(0., f64::max);
-    let method_w = entity
-        .methods
-        .iter()
-        .map(member_width_pt)
-        .fold(0., f64::max);
+    let show_fields = !(hide.fields || hide.members);
+    let show_methods = !(hide.methods || hide.members);
+    let show_marker = !hide.circle;
+    let show_stereo = !hide.stereotype;
+    let name_w = name_width_pt_filtered(entity, show_marker, show_stereo);
+    let field_w = if show_fields {
+        entity.fields.iter().map(member_width_pt).fold(0., f64::max)
+    } else {
+        0.0
+    };
+    let method_w = if show_methods {
+        entity.methods.iter().map(member_width_pt).fold(0., f64::max)
+    } else {
+        0.0
+    };
     let content_w = name_w.max(field_w).max(method_w);
     let total_w = content_w + 2. * PAD_X_PT;
 
     let row_h = LINE_HEIGHT_PT + 2. * PAD_Y_PT;
-    let name_lines = if entity.stereotype.is_some() { 2.0 } else { 1.0 };
+    let name_lines = if show_stereo && entity.stereotype.is_some() {
+        2.0
+    } else {
+        1.0
+    };
     let name_h = name_lines * row_h;
-    let fields_h = entity.fields.len() as f64 * row_h;
-    let methods_h = entity.methods.len() as f64 * row_h;
+    let fields_h = if show_fields {
+        entity.fields.len() as f64 * row_h
+    } else {
+        0.0
+    };
+    let methods_h = if show_methods {
+        entity.methods.len() as f64 * row_h
+    } else {
+        0.0
+    };
     let total_h = name_h + fields_h + methods_h;
 
     ClassGeom {
@@ -367,7 +387,7 @@ fn note_geom(entity: &Entity) -> ClassGeom {
     }
 }
 
-fn name_width_pt(entity: &Entity) -> f64 {
+fn name_width_pt_filtered(entity: &Entity, show_marker: bool, show_stereo: bool) -> f64 {
     let mut name = String::new();
     name.push_str(&entity.display);
     if let Some(g) = &entity.generic {
@@ -375,13 +395,17 @@ fn name_width_pt(entity: &Entity) -> f64 {
         name.push_str(g);
         name.push('>');
     }
-    let stereo_w = entity
-        .stereotype
-        .as_deref()
-        .map(|s| text_width_pt(&format!("«{s}»"), BODY_EM))
-        .unwrap_or(0.);
+    let stereo_w = if show_stereo {
+        entity
+            .stereotype
+            .as_deref()
+            .map(|s| text_width_pt(&format!("«{s}»"), BODY_EM))
+            .unwrap_or(0.)
+    } else {
+        0.0
+    };
     let title_w = text_width_pt(&name, NAME_EM);
-    let marker = if entity.kind.marker_letter().is_some() {
+    let marker = if show_marker && entity.kind.marker_letter().is_some() {
         MARKER_W_PT
     } else {
         0.
@@ -419,10 +443,12 @@ fn top_anchor(g: &ClassGeom, top_left: Point) -> Point {
     Point::new(top_left.x + g.mid_x, top_left.y)
 }
 
-fn emit_class(out: &mut String, top_left: Point, entity: &Entity) {
+fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOptions) {
     if entity.kind == EntityKind::Note {
         return emit_note(out, top_left, entity);
     }
+    let show_fields = !(hide.fields || hide.members);
+    let show_methods = !(hide.methods || hide.members);
     out.push_str(&format!(
         "    (x: {:.2}pt, y: {:.2}pt, kind: \"{}\", name: [",
         top_left.x,
@@ -437,10 +463,15 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity) {
         out.push_str(&typst_markup_escape(g));
         out.push(']');
     }
-    if let Some(s) = &entity.stereotype {
-        out.push_str(", stereotype: [");
-        out.push_str(&typst_markup_escape(s));
-        out.push(']');
+    if !hide.stereotype {
+        if let Some(s) = &entity.stereotype {
+            out.push_str(", stereotype: [");
+            out.push_str(&typst_markup_escape(s));
+            out.push(']');
+        }
+    }
+    if hide.circle {
+        out.push_str(", hide-marker: true");
     }
     if let Some(c) = &entity.fill {
         if let Some(typst_color) = puml_color_to_typst(c) {
@@ -449,26 +480,29 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity) {
         }
     }
 
+    let fields_to_emit: &[Member] = if show_fields { &entity.fields } else { &[] };
+    let methods_to_emit: &[Member] = if show_methods { &entity.methods } else { &[] };
+
     out.push_str(", fields: (");
-    for (i, m) in entity.fields.iter().enumerate() {
+    for (i, m) in fields_to_emit.iter().enumerate() {
         if i > 0 {
             out.push_str(", ");
         }
         emit_member(out, m);
     }
-    if entity.fields.len() == 1 {
+    if fields_to_emit.len() == 1 {
         out.push(',');
     }
     out.push(')');
 
     out.push_str(", methods: (");
-    for (i, m) in entity.methods.iter().enumerate() {
+    for (i, m) in methods_to_emit.iter().enumerate() {
         if i > 0 {
             out.push_str(", ");
         }
         emit_member(out, m);
     }
-    if entity.methods.len() == 1 {
+    if methods_to_emit.len() == 1 {
         out.push(',');
     }
     out.push(')');

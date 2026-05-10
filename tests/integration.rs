@@ -447,6 +447,33 @@ fn golden_emit_typst_class_package() {
 }
 
 #[test]
+fn golden_emit_typst_class_hide() {
+    let actual = emit_typst_path(&fixture_in("class", "hide.puml"));
+    assert_golden_in("class", "hide", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_hide() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-hide.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "hide.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    // `hide methods` removes the methods compartment — checkout /
+    // lineTotal text should not appear in the rendered SVG.
+    assert!(!svg.contains("checkout"));
+    assert!(!svg.contains("lineTotal"));
+    // `hide stereotype` was NOT set, so «aggregate root» should still
+    // appear (it's not a stereotype circle, but a stereotype text line).
+    // We don't have hide stereotype on this fixture so it stays.
+}
+
+#[test]
 fn renders_svg_for_class_package() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-package.svg");

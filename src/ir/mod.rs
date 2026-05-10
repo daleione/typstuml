@@ -334,6 +334,26 @@ pub struct ClassDiagram {
     pub relations: Vec<Relation>,
     pub containers: Vec<Container>,
     pub skinparams: Vec<Skinparam>,
+    pub hide: HideOptions,
+}
+
+/// `hide …` / `show …` global filters from PlantUML. Renderers consult
+/// these before laying out members or drawing the marker / stereotype
+/// chip. Per-class / per-stereotype scoping is not implemented.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct HideOptions {
+    /// `hide circle` — suppresses the C/I/A/E marker chip on every
+    /// entity.
+    pub circle: bool,
+    /// `hide stereotype` — drops the `<<…>>` line above the name.
+    pub stereotype: bool,
+    /// `hide members` — drops both fields and methods compartments.
+    pub members: bool,
+    /// `hide methods` — drops only the methods compartment.
+    pub methods: bool,
+    /// `hide fields` / `hide attributes` — drops only the fields
+    /// compartment.
+    pub fields: bool,
 }
 
 #[derive(Clone, Debug)]

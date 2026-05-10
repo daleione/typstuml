@@ -1,0 +1,14 @@
+@startuml
+class Outer
+
+together {
+  class A
+  class B
+  A --> B
+}
+
+class C
+
+Outer --> A
+Outer --> C
+@enduml

@@ -453,6 +453,12 @@ fn golden_emit_typst_class_hide() {
 }
 
 #[test]
+fn golden_emit_typst_class_together() {
+    let actual = emit_typst_path(&fixture_in("class", "together.puml"));
+    assert_golden_in("class", "together", &actual);
+}
+
+#[test]
 fn renders_svg_for_class_hide() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-hide.svg");

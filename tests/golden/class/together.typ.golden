@@ -1,0 +1,20 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#class-layout(
+  classes: (
+    (x: 9.70pt, y: 6.00pt, kind: "class", name: [Outer], fields: (), methods: ()),
+    (x: 53.20pt, y: 36.00pt, kind: "class", name: [A], fields: (), methods: ()),
+    (x: 3.00pt, y: 66.00pt, kind: "class", name: [B], fields: (), methods: ()),
+    (x: 3.00pt, y: 36.00pt, kind: "class", name: [C], fields: (), methods: ()),
+  ),
+  packages: (
+    (x: -11.00pt, y: 22.00pt, w: 110.40pt, h: 76.00pt, kind: "together", label: []),
+  ),
+  edges: (
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (69.30pt, 56.00pt), c2: (69.30pt, 58.00pt), end: (69.30pt, 60.00pt)), (c1: (52.57pt, 60.00pt), c2: (35.83pt, 60.00pt), end: (19.10pt, 60.00pt)), (c1: (19.10pt, 62.00pt), c2: (19.10pt, 64.00pt), end: (19.10pt, 66.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (38.20pt, 26.00pt), c2: (38.20pt, 28.00pt), end: (38.20pt, 30.00pt)), (c1: (48.57pt, 30.00pt), c2: (58.93pt, 30.00pt), end: (69.30pt, 30.00pt)), (c1: (69.30pt, 32.00pt), c2: (69.30pt, 34.00pt), end: (69.30pt, 36.00pt)))),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (38.20pt, 26.00pt), c2: (38.20pt, 28.00pt), end: (38.20pt, 30.00pt)), (c1: (31.83pt, 30.00pt), c2: (25.47pt, 30.00pt), end: (19.10pt, 30.00pt)), (c1: (19.10pt, 32.00pt), c2: (19.10pt, 34.00pt), end: (19.10pt, 36.00pt)))),
+  ),
+)

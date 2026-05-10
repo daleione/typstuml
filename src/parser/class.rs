@@ -356,6 +356,24 @@ impl<'a> Parser<'a> {
         };
         let rest = rest.trim();
 
+        // `note [side] on link [: body]` — attaches the note to the most
+        // recently parsed relation. The PUML form has an optional
+        // direction ("left", "right", "top", "bottom") in front of
+        // "on link"; we ignore it for now (the painter places the note
+        // at the chord midpoint).
+        if let Some(body) = parse_note_on_link_decl(rest) {
+            let body = match body {
+                Some(b) => b,
+                None => self.collect_note_body(),
+            };
+            if let Some(last) = self.diag.relations.last_mut() {
+                last.note = Some(body);
+            } else {
+                self.unsupported(raw, line_no)?;
+            }
+            return Ok(true);
+        }
+
         // `note over A, B [: body]` — note spans multiple entities; auto-
         // create a dashed dependency edge from the note to each target.
         if let Some((targets, inline_body)) = parse_note_over_decl(rest) {
@@ -382,6 +400,7 @@ impl<'a> Parser<'a> {
                     role_to: None,
                     stereotype: None,
                     color: None,
+                    note: None,
                     line: line_no,
                 });
             }
@@ -412,6 +431,7 @@ impl<'a> Parser<'a> {
                 role_to: None,
                 stereotype: None,
                 color: None,
+                note: None,
                 line: line_no,
             });
             return Ok(true);
@@ -806,6 +826,29 @@ fn pop_trailing_generic(rest: &mut String) -> Option<String> {
     let inner = trimmed[start + 1..trimmed.len() - 1].to_string();
     *rest = trimmed[..start].to_string();
     Some(inner)
+}
+
+/// Parse `[side] on link [: body]` from a `note` directive. Outer
+/// `Option` indicates whether the line matched the form; inner
+/// `Option<String>` is the inline body (None means follow-on lines
+/// up to `end note`).
+fn parse_note_on_link_decl(rest: &str) -> Option<Option<String>> {
+    let mut s = rest.trim();
+    for side in ["left", "right", "top", "bottom"] {
+        if let Some(after) = strip_prefix_keyword(s, side) {
+            s = after.trim_start();
+            break;
+        }
+    }
+    let after_on = strip_prefix_keyword(s, "on")?.trim_start();
+    let after = strip_prefix_keyword(after_on, "link")?.trim();
+    if let Some(idx) = after.find(':') {
+        return Some(Some(after[idx + 1..].trim().to_string()));
+    }
+    if !after.is_empty() {
+        return None;
+    }
+    Some(None)
 }
 
 /// Parse `over A[, B[, C…]] [: body]` from a `note` directive. Returns
@@ -1299,6 +1342,7 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse> {
             label,
             mult_from,
             mult_to,
+            note: None,
             role_from,
             role_to,
             stereotype: None,
@@ -1730,6 +1774,32 @@ mod tests {
         let (_d, diags) = parse(&block(&["frobnicate"]), CompatMode::Warn).unwrap();
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].level, Level::Warning);
+    }
+
+    #[test]
+    fn parses_note_on_link_inline() {
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "A --> B",
+            "note on link : reads from",
+        ]);
+        let r = &c.relations[0];
+        assert_eq!(r.note.as_deref(), Some("reads from"));
+    }
+
+    #[test]
+    fn parses_note_on_link_multiline() {
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "A --> B",
+            "note left on link",
+            "  body line 1",
+            "end note",
+        ]);
+        let r = &c.relations[0];
+        assert_eq!(r.note.as_deref().unwrap().trim(), "body line 1");
     }
 
     #[test]

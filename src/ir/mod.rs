@@ -524,6 +524,9 @@ pub struct Relation {
     pub role_to: Option<String>,
     pub stereotype: Option<String>,
     pub color: Option<String>,
+    /// Body of a `note on link` attached to this relation. Codegen
+    /// renders a yellow sticky next to the edge midpoint.
+    pub note: Option<String>,
     pub line: usize,
 }
 

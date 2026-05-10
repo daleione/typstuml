@@ -606,6 +606,16 @@ fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Poi
             out.push_str(&typst_color);
         }
     }
+    if let Some(note) = &oe.relation.note {
+        out.push_str(", note: [");
+        for (i, line) in note.lines().enumerate() {
+            if i > 0 {
+                out.push_str(" \\ ");
+            }
+            out.push_str(&typst_markup_escape(line));
+        }
+        out.push(']');
+    }
     // After orientation swap, `mult-from` / `role-from` corresponds to the
     // new source of the edge — which is the IR's `to` side iff we swapped.
     let (mult_src, mult_dst, role_src, role_dst) = if oe.swapped {
@@ -1104,6 +1114,7 @@ mod tests {
             role_to: None,
             stereotype: None,
             color: None,
+            note: None,
             line: 0,
         });
         let s = render(diag);
@@ -1134,6 +1145,7 @@ mod tests {
             role_to: None,
             stereotype: None,
             color: None,
+            note: None,
             line: 0,
         });
         let s = render(diag);
@@ -1204,6 +1216,7 @@ mod tests {
             role_to: Some("rt".into()),
             stereotype: None,
             color: None,
+            note: None,
             line: 0,
         });
         let s = render(diag);
@@ -1244,6 +1257,7 @@ mod tests {
             role_to: None,
             stereotype: None,
             color: None,
+            note: None,
             line: 0,
         });
         let s = render(diag);
@@ -1278,6 +1292,7 @@ mod tests {
             role_to: None,
             stereotype: None,
             color: None,
+            note: None,
             line: 0,
         });
         let s = render(diag);

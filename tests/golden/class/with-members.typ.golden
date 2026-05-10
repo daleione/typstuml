@@ -12,6 +12,6 @@
   ),
   edges: (
     (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", from-side: "right", to-side: "left", path: ((c1: (103.17pt, 42.00pt), c2: (103.33pt, 42.00pt), end: (103.50pt, 42.00pt)), (c1: (103.50pt, 67.00pt), c2: (103.50pt, 92.00pt), end: (103.50pt, 117.00pt)), (c1: (103.67pt, 117.00pt), c2: (103.83pt, 117.00pt), end: (104.00pt, 117.00pt)))),
-    (from: 2, to: 1, head-from: "triangle-open", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (154.00pt, 70.00pt), c2: (154.00pt, 80.00pt), end: (154.00pt, 90.00pt)),)),
+    (from: 2, to: 1, head-from: "triangle-open", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 154.00pt, to-x: 154.00pt, path: ((c1: (154.00pt, 70.00pt), c2: (154.00pt, 80.00pt), end: (154.00pt, 90.00pt)),)),
   ),
 )

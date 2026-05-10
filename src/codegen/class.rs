@@ -188,9 +188,39 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
             box_center(&geoms[to], top_lefts[to]),
             is_lr,
         );
-        let start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
-        let end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
         let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
+
+        // Smart alignment: when both anchors are on the same axis and
+        // the boxes' perpendicular extents overlap, place both anchors
+        // at the same coordinate inside the overlap. This collapses
+        // the Manhattan Z (3 segments, 2 turns) into a single straight
+        // segment, which is the typical look for sibling-cluster
+        // connections in PlantUML / dot.
+        let aligned_coord = smart_align_coord(
+            &geoms[from],
+            top_lefts[from],
+            &geoms[to],
+            top_lefts[to],
+            from_side,
+            to_side,
+        );
+        let default_start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
+        let default_end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
+        let (start, end) = if let Some(coord) = aligned_coord {
+            if mainly_vertical {
+                (
+                    Point::new(coord, default_start.y),
+                    Point::new(coord, default_end.y),
+                )
+            } else {
+                (
+                    Point::new(default_start.x, coord),
+                    Point::new(default_end.x, coord),
+                )
+            }
+        } else {
+            (default_start, default_end)
+        };
 
         let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
             .filter(|i| *i != from && *i != to)
@@ -209,7 +239,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
             },
         };
 
-        emit_edge(out, oe, &segments, Some((from_side, to_side)));
+        emit_edge(out, oe, &segments, Some((from_side, to_side)), aligned_coord);
     }
     // Association-class edges: a dashed connector from the midpoint of
     // (A, B)'s box centers to C. We don't try to anchor on the actual
@@ -286,6 +316,51 @@ fn anchor_for_side(g: &ClassGeom, top_left: Point, side: Side) -> Point {
         Side::Bot => bot_anchor(g, top_left),
         Side::Left => left_anchor(g, top_left),
         Side::Right => right_anchor(g, top_left),
+    }
+}
+
+/// Headroom required inside the perpendicular-axis intersection
+/// before we'll smart-align the anchors there. Below this, alignment
+/// would push the anchor too close to a corner — fall back to the
+/// default mid-side anchor instead.
+const SMART_ALIGN_HEADROOM_PT: f64 = 4.0;
+
+/// If both anchors are on the same axis (both left/right OR both
+/// top/bot) and the boxes' perpendicular extents overlap, return the
+/// coordinate (y for left/right anchors; x for top/bot) at which both
+/// anchors should be placed so the Manhattan Z degenerates to a
+/// single straight segment.
+fn smart_align_coord(
+    from_g: &ClassGeom,
+    from_tl: Point,
+    to_g: &ClassGeom,
+    to_tl: Point,
+    from_side: Side,
+    to_side: Side,
+) -> Option<f64> {
+    let from_horizontal = matches!(from_side, Side::Left | Side::Right);
+    let to_horizontal = matches!(to_side, Side::Left | Side::Right);
+    if from_horizontal != to_horizontal {
+        return None;
+    }
+    if from_horizontal {
+        // Both anchors are on left/right side; align on y.
+        let lo = from_tl.y.max(to_tl.y);
+        let hi = (from_tl.y + from_g.size.y).min(to_tl.y + to_g.size.y);
+        if hi - lo > SMART_ALIGN_HEADROOM_PT {
+            Some((lo + hi) / 2.0)
+        } else {
+            None
+        }
+    } else {
+        // Both anchors are on top/bot; align on x.
+        let lo = from_tl.x.max(to_tl.x);
+        let hi = (from_tl.x + from_g.size.x).min(to_tl.x + to_g.size.x);
+        if hi - lo > SMART_ALIGN_HEADROOM_PT {
+            Some((lo + hi) / 2.0)
+        } else {
+            None
+        }
     }
 }
 
@@ -786,6 +861,7 @@ fn emit_edge(
     oe: &OrientedEdge,
     segments: &[(Point, Point, Point)],
     sides: Option<(Side, Side)>,
+    aligned_coord: Option<f64>,
 ) {
     let _ = write!(
         out,
@@ -802,6 +878,19 @@ fn emit_edge(
             from_side.keyword(),
             to_side.keyword(),
         ));
+        if let Some(coord) = aligned_coord {
+            // The override applies to whichever axis is "free" given
+            // the side: left/right side fixes x, frees y; top/bot
+            // fixes y, frees x. Both endpoints share the override.
+            let key = if matches!(from_side, Side::Left | Side::Right) {
+                "y"
+            } else {
+                "x"
+            };
+            out.push_str(&format!(
+                ", from-{key}: {coord:.2}pt, to-{key}: {coord:.2}pt",
+            ));
+        }
     }
     if let Some(label) = &oe.relation.label {
         out.push_str(", label: [");

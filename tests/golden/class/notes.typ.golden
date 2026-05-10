@@ -10,8 +10,8 @@
     (x: 133.50pt, y: 6.00pt, kind: "note", body: [free-floating note]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (65.25pt, 106.00pt), c2: (65.25pt, 110.00pt), end: (65.25pt, 114.00pt)),)),
-    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (65.25pt, 40.00pt), c2: (65.25pt, 44.00pt), end: (65.25pt, 48.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 65.25pt, to-x: 65.25pt, path: ((c1: (65.25pt, 106.00pt), c2: (65.25pt, 110.00pt), end: (65.25pt, 114.00pt)),)),
+    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 65.25pt, to-x: 65.25pt, path: ((c1: (65.25pt, 40.00pt), c2: (65.25pt, 44.00pt), end: (65.25pt, 48.00pt)),)),
     (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "left", to-side: "right", label: [refers to], path: ((c1: (133.50pt, 42.87pt), c2: (115.25pt, 47.13pt), end: (115.25pt, 75.00pt)),)),
   ),
 )

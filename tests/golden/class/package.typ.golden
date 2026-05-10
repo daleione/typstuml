@@ -16,8 +16,8 @@
     (x: 259.00pt, y: 6.00pt, w: 97.40pt, h: 90.00pt, kind: "namespace", label: [billing]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (67.00pt, 92.00pt), c2: (67.00pt, 96.00pt), end: (67.00pt, 100.00pt)),)),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (307.70pt, 56.00pt), c2: (307.70pt, 60.00pt), end: (307.70pt, 64.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (122.67pt, 61.00pt), c2: (128.33pt, 61.00pt), end: (134.00pt, 61.00pt)), (c1: (134.00pt, 55.00pt), c2: (134.00pt, 49.00pt), end: (134.00pt, 43.00pt)), (c1: (139.67pt, 43.00pt), c2: (145.33pt, 43.00pt), end: (151.00pt, 43.00pt)))),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 67.00pt, to-x: 67.00pt, path: ((c1: (67.00pt, 92.00pt), c2: (67.00pt, 96.00pt), end: (67.00pt, 100.00pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 307.70pt, to-x: 307.70pt, path: ((c1: (307.70pt, 56.00pt), c2: (307.70pt, 60.00pt), end: (307.70pt, 64.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 43.00pt, to-y: 43.00pt, path: ((c1: (128.33pt, 43.00pt), c2: (139.67pt, 43.00pt), end: (151.00pt, 43.00pt)),)),
   ),
 )

@@ -71,22 +71,13 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         LayoutDirection::LeftToRight => Orientation::LeftToRight,
     };
     let is_lr = diag.direction == LayoutDirection::LeftToRight;
-    // Build the visual graph with one box per entity and one edge per
-    // relation, swapping endpoints so the "owner / parent" end is at
-    // the source (lower rank).
-    let mut vg = VisualGraph::new(orientation);
-    let handles: Vec<_> = geoms
-        .iter()
-        .map(|g| vg.add_node(Element::new_box(g.size, orientation)))
-        .collect();
 
+    // Collect oriented edges and association-class couple edges. Both
+    // contribute to layout (the couple edges add A→C and B→C virtual
+    // dependencies so Sugiyama puts C below the pair).
     let mut oriented: Vec<OrientedEdge> = Vec::with_capacity(diag.relations.len());
     let mut couple_edges: Vec<CoupleEdge> = Vec::new();
     for rel in &diag.relations {
-        // Couple-link relations (`(A, B) -- C`) bypass orient_relation:
-        // they don't have a single "from" entity. We feed both A and B
-        // as edges into Sugiyama so it accounts for the C-attached
-        // anchor, but the actual rendered path is computed later.
         if let Some((a, b)) = &rel.from_couple {
             let Some(ai) = diag.entities.iter().position(|e| &e.id == a) else {
                 continue;
@@ -97,9 +88,6 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
             let Some(ci) = diag.entities.iter().position(|e| e.id == rel.to) else {
                 continue;
             };
-            // Add two virtual edges so Sugiyama places C below A and B.
-            vg.add_edge(Edge::default(), handles[ai], handles[ci]);
-            vg.add_edge(Edge::default(), handles[bi], handles[ci]);
             couple_edges.push(CoupleEdge {
                 a_idx: ai,
                 b_idx: bi,
@@ -111,28 +99,31 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         let Some(oe) = orient_relation(rel, &diag.entities) else {
             continue;
         };
-        let (src, dst) = (oe.src_idx, oe.dst_idx);
         oriented.push(oe);
-        vg.add_edge(Edge::default(), handles[src], handles[dst]);
     }
 
-    vg.layout();
-
-    let mut top_lefts: Vec<Point> = handles.iter().map(|h| vg.pos(*h).bbox(false).0).collect();
-
-    // Cluster-grouping pass: Sugiyama's mincross doesn't know about
-    // packages, so members of different clusters can land intermingled
-    // within a rank. Re-order each rank by cluster chain (root → leaf)
-    // and re-pack x with a slightly larger gap between cluster
-    // boundaries. This fixes the within-rank ordering; it does NOT
-    // prevent the case where Cluster A's widest member at rank 0
-    // extends past Cluster B's narrower member at rank 1 — the cluster
-    // bboxes can still touch or overlap. A proper fix needs compound
-    // layout (per-cluster sub-Sugiyama + super-Sugiyama composition),
-    // tracked as part of the M1 refinement.
-    if !diag.containers.is_empty() {
-        regroup_ranks_by_cluster(&mut top_lefts, &geoms, &diag.containers, &diag.entities);
+    // Layout edges feeding Sugiyama: real oriented edges + the two
+    // virtual edges per couple-link.
+    let mut layout_edges: Vec<(usize, usize)> = Vec::with_capacity(
+        oriented.len() + 2 * couple_edges.len(),
+    );
+    for oe in &oriented {
+        layout_edges.push((oe.src_idx, oe.dst_idx));
     }
+    for ce in &couple_edges {
+        layout_edges.push((ce.a_idx, ce.c_idx));
+        layout_edges.push((ce.b_idx, ce.c_idx));
+    }
+
+    // Compound layout: one sub-Sugiyama per cluster (recursive into
+    // nested containers), then a super-Sugiyama treating every
+    // top-level cluster as one box. This guarantees non-overlapping
+    // cluster rectangles even when one cluster's widest member is
+    // wider than another cluster's narrowest. With no containers the
+    // whole thing falls back to a flat single-pass layout.
+    let layout = compound_layout(diag, &geoms, orientation, &layout_edges);
+    let top_lefts = layout.top_lefts;
+    let container_bboxes = layout.container_bboxes;
 
     out.push_str("#class-layout(\n");
     if is_lr {
@@ -164,7 +155,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         .collect();
 
     if !diag.containers.is_empty() {
-        emit_packages(out, &diag.containers, &diag.entities, &class_bboxes);
+        emit_packages(out, &diag.containers, &container_bboxes);
     }
 
     out.push_str("  edges: (\n");
@@ -842,37 +833,87 @@ fn line_style_keyword(s: LineStyle) -> &'static str {
     }
 }
 
-/// Within-rank gap between two siblings of the same cluster.
-const INTRA_CLUSTER_GAP_PT: f64 = 6.0;
-/// Within-rank gap between members of different clusters (or between
-/// a clustered and non-clustered node), so the package borders won't
-/// touch the next entity over.
-const INTER_CLUSTER_GAP_PT: f64 = 18.0;
-/// Tolerance for grouping by y-rank: positions whose y differs by less
-/// than this are considered to share a rank. The Sugiyama placer uses
-/// integer ranks, so any non-zero tolerance handles f64 round-off.
-const RANK_Y_TOL_PT: f64 = 0.5;
+/// Padding between a container's outer rectangle and its inner content.
+const CONTAINER_PAD_PT: f64 = 14.0;
+/// Reserved band at the top of a container for the header label.
+/// `together` (anonymous) gets 0; everything else gets this band.
+const CONTAINER_LABEL_PT: f64 = 14.0;
 
-/// Build the cluster chain (outer → inner) for each entity. Entities
-/// outside any container get an empty chain.
-fn cluster_chains(containers: &[Container], entities: &[Entity]) -> Vec<Vec<usize>> {
-    // parent[c] = index of the container whose `children_containers`
-    // list holds c, or `None` if c is a top-level container.
-    let mut parent: Vec<Option<usize>> = vec![None; containers.len()];
-    for (pi, c) in containers.iter().enumerate() {
+/// Output of compound layout: per-entity absolute top-left position
+/// plus per-container absolute outer bbox (None for empty containers).
+struct LayoutResult {
+    top_lefts: Vec<Point>,
+    container_bboxes: Vec<Option<(Point, Point)>>,
+}
+
+/// Per-cluster sub-layout result: positions of direct member entities
+/// and direct child containers in the cluster's local frame (origin =
+/// inner content top-left, with `cluster_content_offset` already
+/// subtracted out), plus the inner content bbox.
+struct ClusterData {
+    members: Vec<(usize, Point)>,
+    children: Vec<(usize, Point)>,
+    inner_size: Point,
+}
+
+fn cluster_label_band(c: &Container) -> f64 {
+    if matches!(c.kind, ContainerKind::Together) {
+        0.0
+    } else {
+        CONTAINER_LABEL_PT
+    }
+}
+
+fn cluster_outer_size(
+    ci: usize,
+    diag: &ClassDiagram,
+    cluster_data: &std::collections::HashMap<usize, ClusterData>,
+) -> Point {
+    let inner = cluster_data[&ci].inner_size;
+    let pad = CONTAINER_PAD_PT;
+    let band = cluster_label_band(&diag.containers[ci]);
+    Point::new(inner.x + 2.0 * pad, inner.y + 2.0 * pad + band)
+}
+
+fn cluster_content_offset(ci: usize, diag: &ClassDiagram) -> Point {
+    let pad = CONTAINER_PAD_PT;
+    let band = cluster_label_band(&diag.containers[ci]);
+    Point::new(pad, pad + band)
+}
+
+/// Top-level container indices: those not registered as a child of any
+/// other container.
+fn top_level_containers(diag: &ClassDiagram) -> Vec<usize> {
+    let mut is_child = vec![false; diag.containers.len()];
+    for c in &diag.containers {
+        for &cc in &c.children_containers {
+            if cc < is_child.len() {
+                is_child[cc] = true;
+            }
+        }
+    }
+    (0..diag.containers.len())
+        .filter(|i| !is_child[*i])
+        .collect()
+}
+
+/// For each entity, the chain of containers from the outermost root
+/// down to the innermost cluster that contains it. Empty for entities
+/// outside every container.
+fn entity_cluster_chains(diag: &ClassDiagram) -> Vec<Vec<usize>> {
+    let mut parent: Vec<Option<usize>> = vec![None; diag.containers.len()];
+    for (pi, c) in diag.containers.iter().enumerate() {
         for &ci in &c.children_containers {
             if ci < parent.len() {
                 parent[ci] = Some(pi);
             }
         }
     }
-    entities
+    diag.entities
         .iter()
         .map(|e| {
-            // Pick the innermost container that holds the entity. If
-            // multiple do (legal in PUML for `together` overlaps), the
-            // last one wins — gives the user a stable rule.
-            let direct = containers
+            let direct = diag
+                .containers
                 .iter()
                 .enumerate()
                 .rev()
@@ -890,128 +931,329 @@ fn cluster_chains(containers: &[Container], entities: &[Entity]) -> Vec<Vec<usiz
         .collect()
 }
 
-/// Re-arrange entities within each rank so cluster siblings sit
-/// contiguously, then re-pack the x axis. Preserves intra-cluster
-/// relative order from Sugiyama.
-fn regroup_ranks_by_cluster(
-    top_lefts: &mut [Point],
+/// Single flat Sugiyama, used when there are no containers. Same shape
+/// as `compound_layout`'s output so callers don't branch.
+fn flat_layout(
+    diag: &ClassDiagram,
     geoms: &[ClassGeom],
-    containers: &[Container],
-    entities: &[Entity],
-) {
-    let chains = cluster_chains(containers, entities);
-
-    // Bucket entities by approximate y-rank (Sugiyama emits one y per rank).
-    let mut ranks: Vec<Vec<usize>> = Vec::new();
-    let mut bucket_y: Vec<f64> = Vec::new();
-    for (i, p) in top_lefts.iter().enumerate() {
-        let mut placed = false;
-        for (bi, &y) in bucket_y.iter().enumerate() {
-            if (p.y - y).abs() < RANK_Y_TOL_PT {
-                ranks[bi].push(i);
-                placed = true;
-                break;
-            }
-        }
-        if !placed {
-            ranks.push(vec![i]);
-            bucket_y.push(p.y);
-        }
+    orientation: Orientation,
+    layout_edges: &[(usize, usize)],
+) -> LayoutResult {
+    let mut vg = VisualGraph::new(orientation);
+    let handles: Vec<_> = geoms
+        .iter()
+        .map(|g| vg.add_node(Element::new_box(g.size, orientation)))
+        .collect();
+    for &(src, dst) in layout_edges {
+        vg.add_edge(Edge::default(), handles[src], handles[dst]);
     }
-
-    for row in ranks.iter_mut() {
-        if row.len() < 2 {
-            continue;
-        }
-        // Anchor the re-pack at the leftmost original x in the rank, so
-        // subsequent ranks (already laid out elsewhere) don't drift.
-        let start_x = row
-            .iter()
-            .map(|&i| top_lefts[i].x)
-            .fold(f64::INFINITY, f64::min);
-        // Sort by cluster chain (lex), tie-break by original x.
-        row.sort_by(|&a, &b| {
-            chains[a].cmp(&chains[b]).then(
-                top_lefts[a]
-                    .x
-                    .partial_cmp(&top_lefts[b].x)
-                    .unwrap_or(std::cmp::Ordering::Equal),
-            )
-        });
-        let mut x = start_x;
-        for i in 0..row.len() {
-            let ei = row[i];
-            top_lefts[ei] = Point::new(x, top_lefts[ei].y);
-            if i + 1 < row.len() {
-                let nxt = row[i + 1];
-                let gap = if chains[ei] == chains[nxt] {
-                    INTRA_CLUSTER_GAP_PT
-                } else {
-                    INTER_CLUSTER_GAP_PT
-                };
-                x += geoms[ei].size.x + gap;
-            }
-        }
+    vg.layout();
+    let top_lefts: Vec<Point> = handles.iter().map(|h| vg.pos(*h).bbox(false).0).collect();
+    LayoutResult {
+        top_lefts,
+        container_bboxes: vec![None; diag.containers.len()],
     }
 }
 
-/// Padding between a container's bbox and the AABB of its members.
-/// Outer containers reserve more so a label can sit on top without
-/// touching member geometry; inner-nesting containers shrink so they
-/// nest cleanly inside the parent's pad.
-const CONTAINER_PAD_PT: f64 = 14.0;
-/// Reserved space above the AABB top for a labeled container header.
-/// Together (anonymous) gets 0; everything else gets this band.
-const CONTAINER_LABEL_PT: f64 = 14.0;
+/// Compound graph layout (graphviz-style):
+///
+/// 1. **Per-cluster sub-Sugiyama**: each container is laid out
+///    independently using only its direct member entities and its
+///    direct child containers (treated as opaque super-nodes sized by
+///    their already-computed outer bbox). Recursion handles nesting.
+///
+/// 2. **Super-Sugiyama**: top-level containers and any non-clustered
+///    entities form a super-graph; cross-cluster relations become
+///    super-edges between their endpoints' top-level supernodes.
+///
+/// 3. **Compose**: each entity's absolute position = its top-level
+///    super-node origin + content offset + (recursive) sub-layout
+///    offset. Container bboxes fall out as the supernode's outer
+///    extent at each level.
+///
+/// This guarantees container rectangles never overlap, even when one
+/// cluster's widest member is wider than another cluster's narrowest —
+/// the post-Sugiyama "regroup by rank" hack the previous codegen used
+/// could not enforce that.
+fn compound_layout(
+    diag: &ClassDiagram,
+    geoms: &[ClassGeom],
+    orientation: Orientation,
+    layout_edges: &[(usize, usize)],
+) -> LayoutResult {
+    if diag.containers.is_empty() {
+        return flat_layout(diag, geoms, orientation, layout_edges);
+    }
+
+    let chains = entity_cluster_chains(diag);
+    let top_clusters = top_level_containers(diag);
+
+    let mut cluster_data: std::collections::HashMap<usize, ClusterData> =
+        std::collections::HashMap::new();
+    for &ti in &top_clusters {
+        layout_cluster(
+            ti,
+            diag,
+            geoms,
+            orientation,
+            layout_edges,
+            &chains,
+            &mut cluster_data,
+        );
+    }
+
+    // Super-graph: each top-level cluster is one box; non-clustered
+    // entities are individual boxes.
+    let mut super_vg = VisualGraph::new(orientation);
+    let mut super_h_for_cluster: std::collections::HashMap<usize, _> =
+        std::collections::HashMap::new();
+    let mut super_h_for_entity: std::collections::HashMap<usize, _> =
+        std::collections::HashMap::new();
+
+    for &ti in &top_clusters {
+        if !cluster_data.contains_key(&ti) {
+            continue;
+        }
+        let outer = cluster_outer_size(ti, diag, &cluster_data);
+        let h = super_vg.add_node(Element::new_box(outer, orientation));
+        super_h_for_cluster.insert(ti, h);
+    }
+    for (ei, _) in diag.entities.iter().enumerate() {
+        if chains[ei].is_empty() {
+            let h = super_vg.add_node(Element::new_box(geoms[ei].size, orientation));
+            super_h_for_entity.insert(ei, h);
+        }
+    }
+
+    let super_handle = |ei: usize| {
+        if let Some(top) = chains[ei].first() {
+            super_h_for_cluster.get(top).copied()
+        } else {
+            super_h_for_entity.get(&ei).copied()
+        }
+    };
+
+    for &(src, dst) in layout_edges {
+        if let (Some(s), Some(d)) = (super_handle(src), super_handle(dst)) {
+            if s != d {
+                super_vg.add_edge(Edge::default(), s, d);
+            }
+        }
+    }
+    super_vg.layout();
+
+    // Compose absolute positions.
+    let mut top_lefts = vec![Point::new(0.0, 0.0); diag.entities.len()];
+    let mut container_bboxes: Vec<Option<(Point, Point)>> = vec![None; diag.containers.len()];
+
+    for (&ti, &h) in &super_h_for_cluster {
+        let outer_top_left = super_vg.pos(h).bbox(false).0;
+        place_cluster(
+            ti,
+            outer_top_left,
+            diag,
+            &cluster_data,
+            &mut top_lefts,
+            &mut container_bboxes,
+        );
+    }
+    for (&ei, &h) in &super_h_for_entity {
+        top_lefts[ei] = super_vg.pos(h).bbox(false).0;
+    }
+
+    LayoutResult {
+        top_lefts,
+        container_bboxes,
+    }
+}
+
+/// Recursively lay out a cluster: child clusters first (so their bbox
+/// is known), then a Sugiyama pass on this cluster's direct members +
+/// child cluster super-nodes. Edges are restricted to those visible
+/// from this cluster (both endpoints are direct or descend through a
+/// direct child).
+fn layout_cluster(
+    ci: usize,
+    diag: &ClassDiagram,
+    geoms: &[ClassGeom],
+    orientation: Orientation,
+    layout_edges: &[(usize, usize)],
+    chains: &[Vec<usize>],
+    cluster_data: &mut std::collections::HashMap<usize, ClusterData>,
+) {
+    if cluster_data.contains_key(&ci) {
+        return;
+    }
+    // Recurse into nested children first.
+    let child_indices = diag.containers[ci].children_containers.clone();
+    for child in &child_indices {
+        layout_cluster(
+            *child,
+            diag,
+            geoms,
+            orientation,
+            layout_edges,
+            chains,
+            cluster_data,
+        );
+    }
+
+    let mut sub_vg = VisualGraph::new(orientation);
+    let mut entity_h: std::collections::HashMap<usize, _> = std::collections::HashMap::new();
+    let mut child_h: std::collections::HashMap<usize, _> = std::collections::HashMap::new();
+
+    for child_id in &diag.containers[ci].children_entities {
+        if let Some(ei) = diag.entities.iter().position(|e| &e.id == child_id) {
+            let h = sub_vg.add_node(Element::new_box(geoms[ei].size, orientation));
+            entity_h.insert(ei, h);
+        }
+    }
+    for &cidx in &child_indices {
+        if !cluster_data.contains_key(&cidx) {
+            continue;
+        }
+        let outer = cluster_outer_size(cidx, diag, cluster_data);
+        let h = sub_vg.add_node(Element::new_box(outer, orientation));
+        child_h.insert(cidx, h);
+    }
+
+    // Each entity's chain tells us which sub-graph node — if any — it
+    // maps to from this cluster's perspective: a direct member if `ci`
+    // is the chain's last element, else the child cluster that's one
+    // level down from `ci` in the chain. Entities outside `ci` return
+    // None (their edges become super-edges at a higher level).
+    let endpoint = |ei: usize| {
+        let chain = &chains[ei];
+        let pos = chain.iter().position(|&c| c == ci)?;
+        if pos == chain.len() - 1 {
+            entity_h.get(&ei).copied()
+        } else {
+            let child_ci = chain[pos + 1];
+            child_h.get(&child_ci).copied()
+        }
+    };
+
+    for &(src, dst) in layout_edges {
+        if let (Some(s), Some(d)) = (endpoint(src), endpoint(dst)) {
+            if s != d {
+                sub_vg.add_edge(Edge::default(), s, d);
+            }
+        }
+    }
+    sub_vg.layout();
+
+    // Extract sub-positions in cluster-local frame, then normalize so
+    // the bbox top-left lands at (0, 0).
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    let mut members: Vec<(usize, Point)> = entity_h
+        .iter()
+        .map(|(&ei, &h)| (ei, sub_vg.pos(h).bbox(false).0))
+        .collect();
+    members.sort_by_key(|&(ei, _)| ei);
+    for &(ei, p) in &members {
+        let s = geoms[ei].size;
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x + s.x);
+        max_y = max_y.max(p.y + s.y);
+    }
+
+    let mut children: Vec<(usize, Point)> = child_h
+        .iter()
+        .map(|(&cidx, &h)| (cidx, sub_vg.pos(h).bbox(false).0))
+        .collect();
+    children.sort_by_key(|&(c, _)| c);
+    for &(cidx, p) in &children {
+        let outer = cluster_outer_size(cidx, diag, cluster_data);
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x + outer.x);
+        max_y = max_y.max(p.y + outer.y);
+    }
+
+    if members.is_empty() && children.is_empty() {
+        cluster_data.insert(
+            ci,
+            ClusterData {
+                members: Vec::new(),
+                children: Vec::new(),
+                inner_size: Point::new(0.0, 0.0),
+            },
+        );
+        return;
+    }
+
+    for (_, p) in &mut members {
+        p.x -= min_x;
+        p.y -= min_y;
+    }
+    for (_, p) in &mut children {
+        p.x -= min_x;
+        p.y -= min_y;
+    }
+
+    cluster_data.insert(
+        ci,
+        ClusterData {
+            members,
+            children,
+            inner_size: Point::new(max_x - min_x, max_y - min_y),
+        },
+    );
+}
+
+/// Walk a cluster (and its nested children) translating local
+/// positions into absolute coordinates. `outer_top_left` is the
+/// cluster's own outer rectangle origin in the absolute frame.
+fn place_cluster(
+    ci: usize,
+    outer_top_left: Point,
+    diag: &ClassDiagram,
+    cluster_data: &std::collections::HashMap<usize, ClusterData>,
+    top_lefts: &mut [Point],
+    bboxes: &mut [Option<(Point, Point)>],
+) {
+    let outer_size = cluster_outer_size(ci, diag, cluster_data);
+    bboxes[ci] = Some((outer_top_left, outer_top_left.add(outer_size)));
+    let content_origin = outer_top_left.add(cluster_content_offset(ci, diag));
+    let data = &cluster_data[&ci];
+    for &(ei, local) in &data.members {
+        top_lefts[ei] = content_origin.add(local);
+    }
+    for &(child_ci, local) in &data.children {
+        let child_outer = content_origin.add(local);
+        place_cluster(
+            child_ci,
+            child_outer,
+            diag,
+            cluster_data,
+            top_lefts,
+            bboxes,
+        );
+    }
+}
 
 fn emit_packages(
     out: &mut String,
     containers: &[Container],
-    entities: &[Entity],
-    class_bboxes: &[(Point, Point)],
+    container_bboxes: &[Option<(Point, Point)>],
 ) {
-    // Build entity-id → index map once.
-    let mut id_to_idx: std::collections::HashMap<&str, usize> =
-        std::collections::HashMap::with_capacity(entities.len());
-    for (i, e) in entities.iter().enumerate() {
-        id_to_idx.insert(e.id.as_str(), i);
-    }
-
-    // Recursively compute each container's AABB. Nested containers sit
-    // inside their parent's pad band; their own children contribute via
-    // the same recursion, so the result is naturally hierarchical.
-    let mut bboxes: Vec<Option<(Point, Point)>> = vec![None; containers.len()];
-    for i in 0..containers.len() {
-        compute_container_bbox(
-            i,
-            containers,
-            &id_to_idx,
-            class_bboxes,
-            &mut bboxes,
-        );
-    }
-
     out.push_str("  packages: (\n");
     for (i, c) in containers.iter().enumerate() {
-        let Some((min, max)) = bboxes[i] else {
+        let Some((top_left, bot_right)) = container_bboxes[i] else {
             continue;
         };
-        // `together` is anonymous, no header band.
-        let label_band = if matches!(c.kind, ContainerKind::Together) {
-            0.0
-        } else {
-            CONTAINER_LABEL_PT
-        };
-        let pad = CONTAINER_PAD_PT;
-        let x = min.x - pad;
-        let y = min.y - pad - label_band;
-        let w = (max.x - min.x) + 2.0 * pad;
-        let h = (max.y - min.y) + 2.0 * pad + label_band;
+        let w = bot_right.x - top_left.x;
+        let h = bot_right.y - top_left.y;
         let _ = write!(
             out,
             "    (x: {:.2}pt, y: {:.2}pt, w: {:.2}pt, h: {:.2}pt, kind: \"{}\", label: [",
-            x,
-            y,
+            top_left.x,
+            top_left.y,
             w,
             h,
             container_kind_keyword(c.kind),
@@ -1026,57 +1268,6 @@ fn emit_packages(
         out.push_str("),\n");
     }
     out.push_str("  ),\n");
-}
-
-fn compute_container_bbox(
-    idx: usize,
-    containers: &[Container],
-    id_to_idx: &std::collections::HashMap<&str, usize>,
-    class_bboxes: &[(Point, Point)],
-    out: &mut [Option<(Point, Point)>],
-) {
-    if out[idx].is_some() {
-        return;
-    }
-    let c = &containers[idx];
-    let mut acc: Option<(Point, Point)> = None;
-    for child_id in &c.children_entities {
-        if let Some(&ei) = id_to_idx.get(child_id.as_str()) {
-            let (mn, mx) = class_bboxes[ei];
-            acc = Some(merge_bbox(acc, (mn, mx)));
-        }
-    }
-    for &child_idx in &c.children_containers {
-        // Recurse first so nested bbox is available.
-        compute_container_bbox(child_idx, containers, id_to_idx, class_bboxes, out);
-        if let Some(child_bb) = out[child_idx] {
-            // Inflate the child by its own pad+label band so the parent
-            // bbox accounts for the nested container's outer rectangle,
-            // not just its inner contents.
-            let inner_pad = CONTAINER_PAD_PT;
-            let inner_band = if matches!(containers[child_idx].kind, ContainerKind::Together) {
-                0.0
-            } else {
-                CONTAINER_LABEL_PT
-            };
-            let inflated = (
-                Point::new(child_bb.0.x - inner_pad, child_bb.0.y - inner_pad - inner_band),
-                Point::new(child_bb.1.x + inner_pad, child_bb.1.y + inner_pad),
-            );
-            acc = Some(merge_bbox(acc, inflated));
-        }
-    }
-    out[idx] = acc;
-}
-
-fn merge_bbox(acc: Option<(Point, Point)>, new: (Point, Point)) -> (Point, Point) {
-    match acc {
-        None => new,
-        Some((amin, amax)) => (
-            Point::new(amin.x.min(new.0.x), amin.y.min(new.0.y)),
-            Point::new(amax.x.max(new.1.x), amax.y.max(new.1.y)),
-        ),
-    }
 }
 
 fn container_kind_keyword(k: ContainerKind) -> &'static str {

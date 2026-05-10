@@ -76,7 +76,33 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         .collect();
 
     let mut oriented: Vec<OrientedEdge> = Vec::with_capacity(diag.relations.len());
+    let mut couple_edges: Vec<CoupleEdge> = Vec::new();
     for rel in &diag.relations {
+        // Couple-link relations (`(A, B) -- C`) bypass orient_relation:
+        // they don't have a single "from" entity. We feed both A and B
+        // as edges into Sugiyama so it accounts for the C-attached
+        // anchor, but the actual rendered path is computed later.
+        if let Some((a, b)) = &rel.from_couple {
+            let Some(ai) = diag.entities.iter().position(|e| &e.id == a) else {
+                continue;
+            };
+            let Some(bi) = diag.entities.iter().position(|e| &e.id == b) else {
+                continue;
+            };
+            let Some(ci) = diag.entities.iter().position(|e| e.id == rel.to) else {
+                continue;
+            };
+            // Add two virtual edges so Sugiyama places C below A and B.
+            vg.add_edge(Edge::default(), handles[ai], handles[ci]);
+            vg.add_edge(Edge::default(), handles[bi], handles[ci]);
+            couple_edges.push(CoupleEdge {
+                a_idx: ai,
+                b_idx: bi,
+                c_idx: ci,
+                relation: rel.clone(),
+            });
+            continue;
+        }
         let Some(oe) = orient_relation(rel, &diag.entities) else {
             continue;
         };
@@ -153,9 +179,71 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
 
         emit_edge(out, oe, &segments);
     }
+    // Association-class edges: a dashed connector from the midpoint of
+    // (A, B)'s box centers to C. We don't try to anchor on the actual
+    // routed A-B path — the box-centers approximation is good enough
+    // for short hops.
+    for ce in &couple_edges {
+        let a_center = box_center(&geoms[ce.a_idx], top_lefts[ce.a_idx]);
+        let b_center = box_center(&geoms[ce.b_idx], top_lefts[ce.b_idx]);
+        let start = Point::new(
+            (a_center.x + b_center.x) / 2.0,
+            (a_center.y + b_center.y) / 2.0,
+        );
+        let end = top_anchor(&geoms[ce.c_idx], top_lefts[ce.c_idx]);
+        let segments = vec![cubic_from_straight(start, end)];
+        emit_couple_edge(out, ce, &segments, start);
+    }
     out.push_str("  ),\n");
 
     out.push_str(")\n");
+}
+
+fn box_center(g: &ClassGeom, top_left: Point) -> Point {
+    Point::new(top_left.x + g.size.x / 2.0, top_left.y + g.size.y / 2.0)
+}
+
+fn emit_couple_edge(
+    out: &mut String,
+    ce: &CoupleEdge,
+    segments: &[(Point, Point, Point)],
+    start: Point,
+) {
+    let _ = write!(
+        out,
+        "    (from-couple: ({}, {}), to: {}, head-from: \"none\", head-to: \"none\", style: \"dashed\", start: ({:.2}pt, {:.2}pt)",
+        ce.a_idx, ce.b_idx, ce.c_idx, start.x, start.y,
+    );
+    if let Some(label) = &ce.relation.label {
+        out.push_str(", label: [");
+        out.push_str(&typst_markup_escape(label));
+        out.push(']');
+    }
+    out.push_str(", path: (");
+    for (i, (c1, c2, end)) in segments.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        let _ = write!(
+            out,
+            "(c1: ({:.2}pt, {:.2}pt), c2: ({:.2}pt, {:.2}pt), end: ({:.2}pt, {:.2}pt))",
+            c1.x, c1.y, c2.x, c2.y, end.x, end.y,
+        );
+    }
+    if segments.len() == 1 {
+        out.push(',');
+    }
+    out.push_str(")),\n");
+}
+
+struct CoupleEdge {
+    /// Index of A in `diag.entities`.
+    a_idx: usize,
+    /// Index of B in `diag.entities`.
+    b_idx: usize,
+    /// Index of the association class (C).
+    c_idx: usize,
+    relation: Relation,
 }
 
 struct OrientedEdge {
@@ -1101,6 +1189,7 @@ mod tests {
         diag.relations.push(Relation {
             from: "Dog".into(),
             to: "Animal".into(),
+            from_couple: None,
             from_port: None,
             to_port: None,
             head_from: ArrowHead::None,
@@ -1132,6 +1221,7 @@ mod tests {
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
+            from_couple: None,
             from_port: None,
             to_port: None,
             head_from: ArrowHead::None,
@@ -1203,6 +1293,7 @@ mod tests {
         diag.relations.push(Relation {
             from: "Sub".into(),
             to: "Sup".into(),
+            from_couple: None,
             from_port: None,
             to_port: None,
             head_from: ArrowHead::None,
@@ -1244,6 +1335,7 @@ mod tests {
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
+            from_couple: None,
             from_port: None,
             to_port: None,
             head_from: ArrowHead::None,
@@ -1279,6 +1371,7 @@ mod tests {
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
+            from_couple: None,
             from_port: None,
             to_port: None,
             head_from: ArrowHead::None,

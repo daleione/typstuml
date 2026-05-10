@@ -387,6 +387,7 @@ impl<'a> Parser<'a> {
                 self.commit_relation(Relation {
                     from: id.clone(),
                     to: target,
+                    from_couple: None,
                     from_port: None,
                     to_port: None,
                     head_from: ArrowHead::None,
@@ -418,6 +419,7 @@ impl<'a> Parser<'a> {
             self.commit_relation(Relation {
                 from: id,
                 to: target,
+                from_couple: None,
                 from_port: None,
                 to_port: None,
                 head_from: ArrowHead::None,
@@ -1323,9 +1325,20 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse> {
         None => (None, right),
     };
 
-    let (from_id, mult_from, role_from, from_port, from_lollipop) =
+    let (from_id, mult_from, role_from, from_port, from_lollipop, from_couple_l) =
         parse_endpoint_left(left)?;
-    let (to_id, mult_to, role_to, to_port, to_lollipop) = parse_endpoint_right(right)?;
+    let (to_id, mult_to, role_to, to_port, to_lollipop, to_couple) =
+        parse_endpoint_right(right)?;
+    // If the user wrote `C -- (A, B)`, the couple is on the right; we
+    // normalize to from_couple by swapping. After normalization, `to`
+    // is the lone class and `from_couple` is the (A, B) pair.
+    let (final_from, final_to, from_couple) = match (from_couple_l, to_couple) {
+        (Some(c), _) => (String::new(), to_id, Some(c)),
+        (None, Some(c)) => (String::new(), from_id, Some(c)),
+        (None, None) => (from_id, to_id, None),
+    };
+    let from_id = final_from;
+    let to_id = final_to;
 
     let (head_from, head_to, line_style, direction, color) = decode_arrow(arrow);
 
@@ -1333,6 +1346,7 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse> {
         rel: Relation {
             from: from_id,
             to: to_id,
+            from_couple,
             from_port,
             to_port,
             head_from,
@@ -1363,15 +1377,28 @@ struct RelationParse {
     to_lollipop: bool,
 }
 
-/// Endpoint parse result: (id, mult, role, port, is_lollipop). The
-/// lollipop flag is true when the user wrote `(Name)` — codegen
-/// renders such an endpoint as a small circle instead of a class card.
-type EndpointTuple = (String, Option<String>, Option<String>, Option<String>, bool);
+/// Endpoint parse result: (id, mult, role, port, is_lollipop, couple).
+/// `couple` is `Some((A, B))` when the user wrote `(A, B)` —
+/// PlantUML's association-class syntax: the edge anchors at the
+/// midpoint of the existing A-B edge instead of a single entity.
+type EndpointTuple = (
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    bool,
+    Option<(String, String)>,
+);
 
 fn parse_endpoint_left(s: &str) -> Option<EndpointTuple> {
     let s = s.trim();
     if s.is_empty() {
         return None;
+    }
+    // Couple form has top priority — the comma inside `()` is what
+    // distinguishes it from a lollipop reference.
+    if let Some(couple) = parse_couple_parens(s) {
+        return Some((String::new(), None, None, None, false, Some(couple)));
     }
     let (id_part, mult) = pop_trailing_quoted(s);
     let id_part = id_part.trim();
@@ -1381,13 +1408,16 @@ fn parse_endpoint_left(s: &str) -> Option<EndpointTuple> {
     }
     let (id, is_lollipop) = strip_lollipop_parens(unquote(id));
     let (id, port) = split_member_port(id);
-    Some((id, mult, role, port, is_lollipop))
+    Some((id, mult, role, port, is_lollipop, None))
 }
 
 fn parse_endpoint_right(s: &str) -> Option<EndpointTuple> {
     let s = s.trim();
     if s.is_empty() {
         return None;
+    }
+    if let Some(couple) = parse_couple_parens(s) {
+        return Some((String::new(), None, None, None, false, Some(couple)));
     }
     let (rest, mult) = pop_leading_quoted(s);
     let rest = rest.trim();
@@ -1397,7 +1427,26 @@ fn parse_endpoint_right(s: &str) -> Option<EndpointTuple> {
     }
     let (id, is_lollipop) = strip_lollipop_parens(unquote(id));
     let (id, port) = split_member_port(id);
-    Some((id, mult, role, port, is_lollipop))
+    Some((id, mult, role, port, is_lollipop, None))
+}
+
+/// Detect `(A, B)` couple form. Returns `(A, B)` on success.
+fn parse_couple_parens(s: &str) -> Option<(String, String)> {
+    let t = s.trim();
+    if !(t.starts_with('(') && t.ends_with(')') && t.len() >= 2) {
+        return None;
+    }
+    let inner = &t[1..t.len() - 1];
+    let comma = inner.find(',')?;
+    let a = inner[..comma].trim().to_string();
+    let b = inner[comma + 1..].trim().to_string();
+    if a.is_empty() || b.is_empty() {
+        return None;
+    }
+    if a.contains('(') || b.contains('(') {
+        return None;
+    }
+    Some((a, b))
 }
 
 /// `(Name)` → (`"Name"`, true); plain id → (id, false). Whitespace
@@ -1925,6 +1974,38 @@ mod tests {
         assert_eq!(t.kind, ContainerKind::Together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn parses_association_class_left_couple() {
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "class C",
+            "A -- B",
+            "(A, B) .. C",
+        ]);
+        // Two relations: the regular A--B and the couple .. C.
+        assert_eq!(c.relations.len(), 2);
+        let assoc = &c.relations[1];
+        assert_eq!(assoc.from_couple, Some(("A".into(), "B".into())));
+        assert_eq!(assoc.to, "C");
+        assert_eq!(assoc.line_style, LineStyle::Dashed);
+    }
+
+    #[test]
+    fn parses_association_class_right_couple_normalizes() {
+        // `C -- (A, B)` — the couple is on the right; parser swaps so
+        // the IR consistently has from_couple + to.
+        let c = parse_ok(&[
+            "class A",
+            "class B",
+            "class C",
+            "C -- (A, B)",
+        ]);
+        let assoc = &c.relations[0];
+        assert_eq!(assoc.from_couple, Some(("A".into(), "B".into())));
+        assert_eq!(assoc.to, "C");
     }
 
     #[test]

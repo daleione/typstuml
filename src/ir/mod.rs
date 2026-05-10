@@ -502,6 +502,12 @@ impl Visibility {
 pub struct Relation {
     pub from: String,
     pub to: String,
+    /// PlantUML's couple-link / association-class syntax. When set,
+    /// `from_couple = Some((A, B))` and `from = ""` — the edge starts
+    /// at the midpoint of the existing relation between A and B and
+    /// runs to `to`. Codegen renders it as a dashed connector so an
+    /// association class can attach to the link between two classes.
+    pub from_couple: Option<(String, String)>,
     /// `A::field` port: when set, the edge anchors at the named member
     /// compartment row of `from` instead of the entity's bottom-mid.
     /// Codegen does not yet shift the anchor — the field is captured

@@ -1,0 +1,8 @@
+@startuml
+class Customer
+class Order
+class OrderHistory
+
+Customer "1" -- "*" Order
+(Customer, Order) .. OrderHistory
+@enduml

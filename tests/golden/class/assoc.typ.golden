@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#class-layout(
+  classes: (
+    (x: 11.20pt, y: 6.00pt, kind: "class", name: [Customer], fields: (), methods: ()),
+    (x: 3.00pt, y: 36.00pt, kind: "class", name: [Order], fields: (), methods: ()),
+    (x: 21.75pt, y: 66.00pt, kind: "class", name: [OrderHistory], fields: (), methods: ()),
+    (x: 92.80pt, y: 6.00pt, kind: "class", name: [], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", mult-from: [1], mult-to: [\*], path: ((c1: (49.00pt, 26.00pt), c2: (49.00pt, 28.00pt), end: (49.00pt, 30.00pt)), (c1: (43.17pt, 30.00pt), c2: (37.33pt, 30.00pt), end: (31.50pt, 30.00pt)), (c1: (31.50pt, 32.00pt), c2: (31.50pt, 34.00pt), end: (31.50pt, 36.00pt)))),
+    (from-couple: (0, 1), to: 2, head-from: "none", head-to: "none", style: "dashed", start: (40.25pt, 30.00pt), path: ((c1: (50.82pt, 42.00pt), c2: (61.38pt, 54.00pt), end: (71.95pt, 66.00pt)),)),
+  ),
+)

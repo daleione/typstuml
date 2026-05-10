@@ -8,10 +8,11 @@ renders it through [Typst](https://typst.app/) using the
 Cargo crate name and binary command: `typstuml`.
 
 > Active development. Sequence, JSON, YAML, WBS, mind-map, and class
-> diagrams render today; other diagram types are recognized by the
-> parser but not yet wired up. CLI is subcommand-based with a `watch`
-> mode for live re-rendering. See [Features](#features) for the full
-> status matrix.
+> diagrams (with packages, notes, lollipops, association classes,
+> orthogonal edges, and `!theme`) render today; other diagram types are
+> recognized by the parser but not yet wired up. CLI is subcommand-based
+> with a `watch` mode for live re-rendering. See
+> [Features](#features) for the full status matrix.
 
 ## Why
 
@@ -105,7 +106,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | YAML (`@startyaml`)           |   ✅   | Shares the JSON `record-graph` renderer; flow & block style, anchors / aliases via serde |
 | MindMap (`@startmindmap`)     |   ✅   | Left/right fan-out via `blockcell.mindmap`                                              |
 | WBS (`@startwbs`)             |   ✅   | Work-breakdown hierarchy                                                                |
-| Class                         |   🚧   | M0+: 3-compartment cards, stereotype circle, 7 head shapes, dog-eared notes, multiplicity / role labels; no `package` / orthogonal edges yet |
+| Class                         |   ✅   | 3-compartment cards, 7 head shapes, packages / namespaces / together, lollipop, notes (anchored / multi-target / on-link), `hide` filters, custom stereotype markers, generic corner box, association class, edge inline color, member ports, Manhattan edges, Creole-lite markup, `!theme` builtins, `left to right direction` |
 | `skinparam` coverage          |   🚧   | `backgroundColor`, `defaultFontName`, `defaultFontSize` map today; rest pass through    |
 | Object                        |   ⏳   | UML object instances with field values                                                  |
 | Component                     |   ⏳   | Components, interfaces, ports                                                           |

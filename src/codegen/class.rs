@@ -216,7 +216,7 @@ fn emit_couple_edge(
     );
     if let Some(label) = &ce.relation.label {
         out.push_str(", label: [");
-        out.push_str(&typst_markup_escape(label));
+        out.push_str(&creole_to_typst(label));
         out.push(']');
     }
     out.push_str(", path: (");
@@ -561,18 +561,18 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOpt
         top_left.y,
         entity.kind.keyword(),
     ));
-    out.push_str(&typst_markup_escape(&entity.display));
+    out.push_str(&creole_to_typst(&entity.display));
     out.push(']');
 
     if let Some(g) = &entity.generic {
         out.push_str(", generic: [");
-        out.push_str(&typst_markup_escape(g));
+        out.push_str(&creole_to_typst(g));
         out.push(']');
     }
     if !hide.stereotype {
         if let Some(s) = &entity.stereotype {
             out.push_str(", stereotype: [");
-            out.push_str(&typst_markup_escape(s));
+            out.push_str(&creole_to_typst(s));
             out.push(']');
         }
     }
@@ -632,7 +632,7 @@ fn emit_lollipop(out: &mut String, top_left: Point, entity: &Entity) {
         "    (x: {:.2}pt, y: {:.2}pt, kind: \"lollipop\", name: [",
         top_left.x, top_left.y,
     ));
-    out.push_str(&typst_markup_escape(&entity.display));
+    out.push_str(&creole_to_typst(&entity.display));
     out.push_str("]),\n");
 }
 
@@ -651,7 +651,7 @@ fn emit_note(out: &mut String, top_left: Point, entity: &Entity) {
             if i > 0 {
                 out.push_str(" \\ ");
             }
-            out.push_str(&typst_markup_escape(line));
+            out.push_str(&creole_to_typst(line));
         }
     }
     out.push_str("]),\n");
@@ -662,7 +662,7 @@ fn emit_member(out: &mut String, m: &Member) {
         out,
         "(vis: \"{}\", body: [{}]",
         m.visibility.glyph(),
-        typst_markup_escape(&m.body),
+        creole_to_typst(&m.body),
     );
     if m.is_static {
         out.push_str(", static: true");
@@ -685,7 +685,7 @@ fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Poi
     );
     if let Some(label) = &oe.relation.label {
         out.push_str(", label: [");
-        out.push_str(&typst_markup_escape(label));
+        out.push_str(&creole_to_typst(label));
         out.push(']');
     }
     if let Some(c) = &oe.relation.color {
@@ -700,7 +700,7 @@ fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Poi
             if i > 0 {
                 out.push_str(" \\ ");
             }
-            out.push_str(&typst_markup_escape(line));
+            out.push_str(&creole_to_typst(line));
         }
         out.push(']');
     }
@@ -723,22 +723,22 @@ fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Poi
     };
     if let Some(s) = mult_src {
         out.push_str(", mult-from: [");
-        out.push_str(&typst_markup_escape(s));
+        out.push_str(&creole_to_typst(s));
         out.push(']');
     }
     if let Some(s) = mult_dst {
         out.push_str(", mult-to: [");
-        out.push_str(&typst_markup_escape(s));
+        out.push_str(&creole_to_typst(s));
         out.push(']');
     }
     if let Some(s) = role_src {
         out.push_str(", role-from: [");
-        out.push_str(&typst_markup_escape(s));
+        out.push_str(&creole_to_typst(s));
         out.push(']');
     }
     if let Some(s) = role_dst {
         out.push_str(", role-to: [");
-        out.push_str(&typst_markup_escape(s));
+        out.push_str(&creole_to_typst(s));
         out.push(']');
     }
 
@@ -954,11 +954,11 @@ fn emit_packages(
             h,
             container_kind_keyword(c.kind),
         );
-        out.push_str(&typst_markup_escape(&c.label));
+        out.push_str(&creole_to_typst(&c.label));
         out.push(']');
         if let Some(s) = &c.stereotype {
             out.push_str(", stereotype: [");
-            out.push_str(&typst_markup_escape(s));
+            out.push_str(&creole_to_typst(s));
             out.push(']');
         }
         out.push_str("),\n");
@@ -1111,20 +1111,92 @@ fn puml_color_to_typst(raw: &str) -> Option<String> {
     Some(format!("rgb(\"#{}\")", final_hex))
 }
 
-fn typst_markup_escape(s: &str) -> String {
+/// Convert PlantUML Creole-lite markup to Typst markup. Handles
+/// `**bold**`, `//italic//`, literal `\n` (line break), and
+/// `<color:NAME>…</color>`. All other characters are escaped via
+/// `typst_markup_escape`. Nested formatting works (e.g. `**//foo//**`)
+/// because the body of each construct is recursed into.
+fn creole_to_typst(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' => {
-                out.push('\\');
-                out.push(c);
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i..].starts_with(b"**") {
+            if let Some(end) = find_marker(bytes, i + 2, b"**") {
+                let body = &s[i + 2..end];
+                out.push_str("#strong[");
+                out.push_str(&creole_to_typst(body));
+                out.push(']');
+                i = end + 2;
+                continue;
             }
-            _ => out.push(c),
         }
+        if bytes[i..].starts_with(b"//") {
+            if let Some(end) = find_marker(bytes, i + 2, b"//") {
+                let body = &s[i + 2..end];
+                out.push_str("#emph[");
+                out.push_str(&creole_to_typst(body));
+                out.push(']');
+                i = end + 2;
+                continue;
+            }
+        }
+        if bytes[i..].starts_with(b"\\n") {
+            out.push_str(" \\ ");
+            i += 2;
+            continue;
+        }
+        if bytes[i..].starts_with(b"<color:") {
+            let after_open = i + b"<color:".len();
+            if let Some(rel) = bytes[after_open..].iter().position(|&b| b == b'>') {
+                let color_end = after_open + rel;
+                let color = &s[after_open..color_end];
+                let body_start = color_end + 1;
+                if let Some(rel_close) = s[body_start..].find("</color>") {
+                    let body = &s[body_start..body_start + rel_close];
+                    let typst_color = puml_color_to_typst(color)
+                        .unwrap_or_else(|| "black".to_string());
+                    let _ = write!(out, "#text(fill: {})[", typst_color);
+                    out.push_str(&creole_to_typst(body));
+                    out.push(']');
+                    i = body_start + rel_close + b"</color>".len();
+                    continue;
+                }
+            }
+        }
+        // Default: escape one char and advance by its UTF-8 length.
+        let ch = s[i..].chars().next().unwrap();
+        out.push_str(&escape_one(ch));
+        i += ch.len_utf8();
     }
     out
 }
+
+fn find_marker(bytes: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
+    if from >= bytes.len() {
+        return None;
+    }
+    let n = needle.len();
+    let mut i = from;
+    while i + n <= bytes.len() {
+        if &bytes[i..i + n] == needle {
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
+}
+
+fn escape_one(c: char) -> String {
+    match c {
+        '\\' => "\\\\".into(),
+        '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' => {
+            format!("\\{c}")
+        }
+        _ => c.to_string(),
+    }
+}
+
 
 fn typst_str_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());

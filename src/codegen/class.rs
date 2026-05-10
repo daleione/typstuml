@@ -472,6 +472,17 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOpt
     }
     if hide.circle {
         out.push_str(", hide-marker: true");
+    } else if let Some((letter, color)) = &entity.stereotype_marker {
+        out.push_str(&format!(
+            ", marker-letter: \"{}\"",
+            typst_str_escape(letter)
+        ));
+        if let Some(c) = color {
+            if let Some(typst_color) = puml_color_to_typst(c) {
+                out.push_str(", marker-color: ");
+                out.push_str(&typst_color);
+            }
+        }
     }
     if let Some(c) = &entity.fill {
         if let Some(typst_color) = puml_color_to_typst(c) {
@@ -1021,6 +1032,7 @@ mod tests {
             display: id.into(),
             generic: None,
             stereotype: None,
+            stereotype_marker: None,
             fields: Vec::new(),
             methods: Vec::new(),
             body: None,

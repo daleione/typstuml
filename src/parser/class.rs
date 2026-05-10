@@ -237,6 +237,7 @@ impl<'a> Parser<'a> {
                     display: id.to_string(),
                     generic: None,
                     stereotype: None,
+                    stereotype_marker: None,
                     fields: Vec::new(),
                     methods: Vec::new(),
                     body: None,
@@ -308,6 +309,7 @@ impl<'a> Parser<'a> {
                     display: id.clone(),
                     generic: None,
                     stereotype: None,
+                    stereotype_marker: None,
                     fields: Vec::new(),
                     methods: Vec::new(),
                     body: None,
@@ -405,6 +407,7 @@ impl<'a> Parser<'a> {
             display: id,
             generic: None,
             stereotype: None,
+            stereotype_marker: None,
             fields: Vec::new(),
             methods: Vec::new(),
             body: Some(body),
@@ -586,7 +589,11 @@ fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityAction> {
     let mut working = rest_trim.to_string();
 
     let fill = pop_trailing_color(&mut working);
-    let stereotype = pop_trailing_stereotype(&mut working);
+    let (stereotype, stereotype_marker) =
+        match pop_trailing_stereotype_with_marker(&mut working) {
+            Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
+            None => (None, None),
+        };
     let generic = pop_trailing_generic(&mut working);
     let (id, display) = parse_alias(working.trim())?;
 
@@ -597,6 +604,7 @@ fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityAction> {
             display,
             generic,
             stereotype,
+            stereotype_marker,
             fields: Vec::new(),
             methods: Vec::new(),
             body: None,
@@ -627,14 +635,51 @@ fn pop_trailing_color(rest: &mut String) -> Option<String> {
     Some(token)
 }
 
-/// Strip a trailing `<<stereotype>>` block.
-fn pop_trailing_stereotype(rest: &mut String) -> Option<String> {
+/// Strip a trailing `<<stereotype>>` block. Also returns a custom
+/// marker `(letter, color)` parsed from the `(L, color) text` prefix
+/// PlantUML uses to override the kind-default chip; the returned text
+/// has the prefix stripped.
+fn pop_trailing_stereotype_with_marker(
+    rest: &mut String,
+) -> Option<(String, Option<(String, Option<String>)>)> {
     let trimmed = rest.trim_end();
     let body = trimmed.strip_suffix(">>")?;
     let lt_idx = body.rfind("<<")?;
     let inner = body[lt_idx + 2..].trim().to_string();
     *rest = body[..lt_idx].trim_end().to_string();
-    Some(inner)
+    Some(parse_stereotype_inner(inner))
+}
+
+/// Backwards-compat helper used by call sites that don't care about
+/// the marker (e.g. `package` decl).
+fn pop_trailing_stereotype(rest: &mut String) -> Option<String> {
+    pop_trailing_stereotype_with_marker(rest).map(|(text, _)| text)
+}
+
+/// Split `(L, color) text` into (text, Some((L, color))) or treat the
+/// whole thing as plain text. The color is optional: `(L) text` is
+/// also valid and produces marker `(L, None)`.
+fn parse_stereotype_inner(s: String) -> (String, Option<(String, Option<String>)>) {
+    let s_trim = s.trim();
+    if !s_trim.starts_with('(') {
+        return (s, None);
+    }
+    let close = match s_trim.find(')') {
+        Some(c) => c,
+        None => return (s, None),
+    };
+    let inner = s_trim[1..close].trim();
+    if inner.is_empty() {
+        return (s, None);
+    }
+    let mut parts = inner.splitn(2, ',').map(str::trim);
+    let letter = parts.next().unwrap_or("").to_string();
+    let color = parts.next().map(|c| c.to_string()).filter(|c| !c.is_empty());
+    if letter.is_empty() {
+        return (s, None);
+    }
+    let after = s_trim[close + 1..].trim().to_string();
+    (after, Some((letter, color)))
 }
 
 /// Strip a trailing `<T, U>` generic parameter list, balancing nested `<>`
@@ -1643,6 +1688,26 @@ mod tests {
         assert_eq!(t.kind, ContainerKind::Together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn parses_custom_stereotype_marker_with_color() {
+        let c = parse_ok(&["class Robot <<(R, #FF8800) Service>>"]);
+        let e = &c.entities[0];
+        assert_eq!(e.stereotype.as_deref(), Some("Service"));
+        let marker = e.stereotype_marker.as_ref().unwrap();
+        assert_eq!(marker.0, "R");
+        assert_eq!(marker.1.as_deref(), Some("#FF8800"));
+    }
+
+    #[test]
+    fn parses_custom_marker_without_color() {
+        let c = parse_ok(&["class Foo <<(X) something>>"]);
+        let e = &c.entities[0];
+        assert_eq!(e.stereotype.as_deref(), Some("something"));
+        let marker = e.stereotype_marker.as_ref().unwrap();
+        assert_eq!(marker.0, "X");
+        assert!(marker.1.is_none());
     }
 
     #[test]

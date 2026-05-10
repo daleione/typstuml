@@ -365,8 +365,15 @@ pub struct Entity {
     pub display: String,
     /// Generic parameters as written between `<` and `>` (e.g. `T, U`).
     pub generic: Option<String>,
-    /// `<<...>>` text without the angle brackets.
+    /// `<<...>>` text without the angle brackets and without the
+    /// `(L, color)` custom-marker prefix (which goes into
+    /// `stereotype_marker`).
     pub stereotype: Option<String>,
+    /// Custom marker `(letter, color)` from `<<(L, #color) text>>`. The
+    /// letter overrides the kind-default chip glyph; the color is a
+    /// raw color spec (`#ABCDEF`, `red`, …) or `None` for the kind
+    /// default.
+    pub stereotype_marker: Option<(String, Option<String>)>,
     pub fields: Vec<Member>,
     pub methods: Vec<Member>,
     /// Free-text body. Set only for [`EntityKind::Note`]; renderers use

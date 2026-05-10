@@ -335,6 +335,17 @@ pub struct ClassDiagram {
     pub containers: Vec<Container>,
     pub skinparams: Vec<Skinparam>,
     pub hide: HideOptions,
+    pub direction: LayoutDirection,
+}
+
+/// Top-level layout flow. PlantUML's `left to right direction` flips
+/// the Sugiyama orientation; everything else (`top to bottom`,
+/// default) keeps TB.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum LayoutDirection {
+    #[default]
+    TopToBottom,
+    LeftToRight,
 }
 
 /// `hide …` / `show …` global filters from PlantUML. Renderers consult

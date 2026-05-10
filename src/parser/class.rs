@@ -26,7 +26,7 @@
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::{
     ArrowHead, ClassDiagram, Container, ContainerKind, Diagram, Direction, Entity, EntityKind,
-    LineStyle, Member, Relation, Skinparam, Visibility,
+    LayoutDirection, LineStyle, Member, Relation, Skinparam, Visibility,
 };
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
@@ -83,6 +83,17 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if is_skip_directive(raw) {
+                continue;
+            }
+            // Layout direction overrides.
+            if raw.starts_with("left to right direction")
+                || raw == "left to right"
+            {
+                self.diag.direction = LayoutDirection::LeftToRight;
+                continue;
+            }
+            if raw.starts_with("top to bottom direction") || raw == "top to bottom" {
+                self.diag.direction = LayoutDirection::TopToBottom;
                 continue;
             }
             // `!theme <name>` — captured as a synthetic skinparam so
@@ -603,9 +614,9 @@ fn is_skip_directive(line: &str) -> bool {
     // `hide …` / `show …` are intentionally NOT in this list — they're
     // dispatched via `try_parse_hide_show` and may flip flags on the
     // diagram.
-    // `!theme` is intentionally NOT in this list — `try_parse_theme`
-    // handles it and stores a synthetic skinparam so codegen can expand
-    // the theme name into preset color overrides.
+    // `!theme`, `left to right direction`, and `top to bottom direction`
+    // are intentionally NOT in this list — they're captured by
+    // dedicated handlers in `run()` so codegen can act on them.
     const HEADS: &[&str] = &[
         "@startuml",
         "@enduml",
@@ -615,8 +626,6 @@ fn is_skip_directive(line: &str) -> bool {
         "!define",
         "!include",
         "scale ",
-        "left to right",
-        "top to bottom",
         "set namespaceSeparator",
         "set separator",
     ];

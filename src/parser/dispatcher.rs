@@ -117,6 +117,9 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
             "hide attribute",
             "hide member",
             "hide stereotype",
+            "left to right",
+            "top to bottom",
+            "!theme",
         ];
         if CLASS_HEADS.iter().any(|h| t.starts_with(h)) {
             return DiagramKind::Class;

@@ -23,7 +23,7 @@ use std::fmt::Write as _;
 
 use crate::ir::{
     ArrowHead, ClassDiagram, Container, ContainerKind, Direction as IrDirection, Entity,
-    EntityKind, HideOptions, LineStyle, Member, Relation, Skinparam, Visibility,
+    EntityKind, HideOptions, LayoutDirection, LineStyle, Member, Relation, Skinparam, Visibility,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
@@ -66,13 +66,18 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         .map(|e| class_geom_filtered(e, &diag.hide))
         .collect();
 
+    let orientation = match diag.direction {
+        LayoutDirection::TopToBottom => Orientation::TopToBottom,
+        LayoutDirection::LeftToRight => Orientation::LeftToRight,
+    };
+    let is_lr = diag.direction == LayoutDirection::LeftToRight;
     // Build the visual graph with one box per entity and one edge per
     // relation, swapping endpoints so the "owner / parent" end is at
-    // the source (lower rank in TB layout).
-    let mut vg = VisualGraph::new(Orientation::TopToBottom);
+    // the source (lower rank).
+    let mut vg = VisualGraph::new(orientation);
     let handles: Vec<_> = geoms
         .iter()
-        .map(|g| vg.add_node(Element::new_box(g.size, Orientation::TopToBottom)))
+        .map(|g| vg.add_node(Element::new_box(g.size, orientation)))
         .collect();
 
     let mut oriented: Vec<OrientedEdge> = Vec::with_capacity(diag.relations.len());
@@ -130,6 +135,9 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     }
 
     out.push_str("#class-layout(\n");
+    if is_lr {
+        out.push_str("  direction: \"lr\",\n");
+    }
     if let Some(c) = &overrides.class_fill {
         out.push_str(&format!("  default-fill: {c},\n"));
     }
@@ -162,16 +170,33 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     out.push_str("  edges: (\n");
     let route_opts = pathplan::RouteOpts {
         obstacle_padding: ROUTE_PADDING_PT,
-        // Vertical tangents so the cubic launches downward from a class's
-        // bottom edge and arrives downward into the next class's top edge.
-        src_tangent: Point::new(0.0, 1.0),
-        dst_tangent: Point::new(0.0, 1.0),
+        // TB: vertical tangents (cubic launches/arrives top-down).
+        // LR: horizontal tangents (left-to-right flow).
+        src_tangent: if is_lr {
+            Point::new(1.0, 0.0)
+        } else {
+            Point::new(0.0, 1.0)
+        },
+        dst_tangent: if is_lr {
+            Point::new(1.0, 0.0)
+        } else {
+            Point::new(0.0, 1.0)
+        },
     };
     for oe in &oriented {
         let from = oe.src_idx;
         let to = oe.dst_idx;
-        let start = bot_anchor(&geoms[from], top_lefts[from]);
-        let end = top_anchor(&geoms[to], top_lefts[to]);
+        let (start, end) = if is_lr {
+            (
+                right_anchor(&geoms[from], top_lefts[from]),
+                left_anchor(&geoms[to], top_lefts[to]),
+            )
+        } else {
+            (
+                bot_anchor(&geoms[from], top_lefts[from]),
+                top_anchor(&geoms[to], top_lefts[to]),
+            )
+        };
 
         let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
             .filter(|i| *i != from && *i != to)
@@ -181,7 +206,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         // not curves. Try a 3-segment Z route first (down-across-down for
         // TB layout); fall back to obstacle-aware bezier routing only if
         // the Manhattan route would intersect a class bbox.
-        let segments = match try_manhattan_route(start, end, &obstacles) {
+        let segments = match try_manhattan_route(start, end, &obstacles, !is_lr) {
             Some(segs) => segs,
             None => match pathplan::route_edge(start, end, &obstacles, route_opts) {
                 Ok(cubics) => cubics
@@ -318,23 +343,33 @@ fn orient_relation(rel: &Relation, entities: &[Entity]) -> Option<OrientedEdge> 
     })
 }
 
-/// Try to route `start → end` as 3 axis-aligned segments
-/// (down → across → down for TB layout). Returns `None` if any segment
-/// would clip a class bbox in `obstacles`, in which case the caller
-/// falls back to bezier routing.
+/// Try to route `start → end` as 3 axis-aligned segments. For TB
+/// (vertical = true), a "down → across → down" Z; for LR (vertical =
+/// false), a "right → up/down → right" Z. Returns `None` if any
+/// segment would clip a class bbox in `obstacles`.
 fn try_manhattan_route(
     start: Point,
     end: Point,
     obstacles: &[pathplan::Box],
+    vertical: bool,
 ) -> Option<Vec<(Point, Point, Point)>> {
-    const X_TOL: f64 = 1.0;
-    if (start.x - end.x).abs() < X_TOL {
-        // Source and target share an x — emit a single straight cubic.
-        let dy = end.y - start.y;
-        let c1 = Point::new(start.x, start.y + dy / 3.0);
-        let c2 = Point::new(start.x, start.y + 2.0 * dy / 3.0);
-        // Even a straight line should miss any in-between obstacle for
-        // this trivial route to be safe.
+    const TOL: f64 = 1.0;
+    let parallel = if vertical {
+        (start.x - end.x).abs() < TOL
+    } else {
+        (start.y - end.y).abs() < TOL
+    };
+    if parallel {
+        // Source and target share the cross-axis coord — single straight
+        // cubic.
+        let c1 = Point::new(
+            start.x + (end.x - start.x) / 3.0,
+            start.y + (end.y - start.y) / 3.0,
+        );
+        let c2 = Point::new(
+            start.x + 2.0 * (end.x - start.x) / 3.0,
+            start.y + 2.0 * (end.y - start.y) / 3.0,
+        );
         if obstacles
             .iter()
             .any(|ob| seg_intersects_box(start, end, ob))
@@ -344,11 +379,15 @@ fn try_manhattan_route(
         return Some(vec![(c1, c2, end)]);
     }
 
-    // Z-route: vertical down to mid-y, horizontal across, vertical down.
-    let mid_y = (start.y + end.y) / 2.0;
+    // Z-route. For vertical: turn at mid-y; for horizontal: turn at mid-x.
+    let (p2, p3) = if vertical {
+        let mid_y = (start.y + end.y) / 2.0;
+        (Point::new(start.x, mid_y), Point::new(end.x, mid_y))
+    } else {
+        let mid_x = (start.x + end.x) / 2.0;
+        (Point::new(mid_x, start.y), Point::new(mid_x, end.y))
+    };
     let p1 = start;
-    let p2 = Point::new(start.x, mid_y);
-    let p3 = Point::new(end.x, mid_y);
     let p4 = end;
 
     for ob in obstacles {
@@ -559,6 +598,14 @@ fn bot_anchor(g: &ClassGeom, top_left: Point) -> Point {
 
 fn top_anchor(g: &ClassGeom, top_left: Point) -> Point {
     Point::new(top_left.x + g.mid_x, top_left.y)
+}
+
+fn left_anchor(g: &ClassGeom, top_left: Point) -> Point {
+    Point::new(top_left.x, top_left.y + g.size.y / 2.0)
+}
+
+fn right_anchor(g: &ClassGeom, top_left: Point) -> Point {
+    Point::new(top_left.x + g.size.x, top_left.y + g.size.y / 2.0)
 }
 
 fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOptions) {

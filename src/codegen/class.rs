@@ -323,6 +323,9 @@ fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassGeom {
     if entity.kind == EntityKind::Note {
         return note_geom(entity);
     }
+    if entity.kind == EntityKind::Circle {
+        return lollipop_geom(entity);
+    }
     let show_fields = !(hide.fields || hide.members);
     let show_methods = !(hide.methods || hide.members);
     let show_marker = !hide.circle;
@@ -370,6 +373,22 @@ fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassGeom {
 /// note. Codegen has to reserve this in the bbox so the painter's fold
 /// triangle doesn't push edge endpoints into the body text.
 const NOTE_DOG_EAR_PT: f64 = 8.0;
+
+/// Lollipop / interface circle: a small filled disc with the label
+/// rendered below. Width = max(disc, label width). Height = disc + gap
+/// + label.
+const LOLLIPOP_DIAMETER_PT: f64 = 14.0;
+const LOLLIPOP_LABEL_GAP_PT: f64 = 2.0;
+
+fn lollipop_geom(entity: &Entity) -> ClassGeom {
+    let label_w = text_width_pt(&entity.display, BODY_EM);
+    let total_w = label_w.max(LOLLIPOP_DIAMETER_PT);
+    let total_h = LOLLIPOP_DIAMETER_PT + LOLLIPOP_LABEL_GAP_PT + LINE_HEIGHT_PT;
+    ClassGeom {
+        size: Point::new(total_w, total_h),
+        mid_x: total_w / 2.0,
+    }
+}
 
 fn note_geom(entity: &Entity) -> ClassGeom {
     let body = entity.body.as_deref().unwrap_or("");
@@ -443,6 +462,9 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOpt
     if entity.kind == EntityKind::Note {
         return emit_note(out, top_left, entity);
     }
+    if entity.kind == EntityKind::Circle {
+        return emit_lollipop(out, top_left, entity);
+    }
     let show_fields = !(hide.fields || hide.members);
     let show_methods = !(hide.methods || hide.members);
     out.push_str(&format!(
@@ -515,6 +537,15 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOpt
     out.push(')');
 
     out.push_str("),\n");
+}
+
+fn emit_lollipop(out: &mut String, top_left: Point, entity: &Entity) {
+    out.push_str(&format!(
+        "    (x: {:.2}pt, y: {:.2}pt, kind: \"lollipop\", name: [",
+        top_left.x, top_left.y,
+    ));
+    out.push_str(&typst_markup_escape(&entity.display));
+    out.push_str("]),\n");
 }
 
 fn emit_note(out: &mut String, top_left: Point, entity: &Entity) {

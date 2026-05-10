@@ -117,6 +117,12 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            // Lollipop: `() Foo` or `() "Display Foo" as Foo`.
+            if let Some(action) = parse_lollipop_decl(raw, line_no) {
+                self.commit_entity(action);
+                continue;
+            }
+
             // Entity declaration: `class A`, `interface I`, `abstract X`, etc.
             if let Some(action) = parse_entity_decl(raw, line_no) {
                 self.commit_entity(action);
@@ -131,8 +137,8 @@ impl<'a> Parser<'a> {
             }
 
             // Relation: `A --|> B`, `A *-- "*" B : owns`, etc.
-            if let Some(rel) = parse_relation(raw, line_no) {
-                self.commit_relation(rel);
+            if let Some(rp) = parse_relation(raw, line_no) {
+                self.commit_relation_with_hints(rp.rel, rp.from_lollipop, rp.to_lollipop);
                 continue;
             }
 
@@ -275,8 +281,8 @@ impl<'a> Parser<'a> {
                     self.add_member(&id, body, line_no);
                     return Ok(());
                 }
-                if let Some(rel) = parse_relation(raw, line_no) {
-                    self.commit_relation(rel);
+                if let Some(rp) = parse_relation(raw, line_no) {
+                    self.commit_relation_with_hints(rp.rel, rp.from_lollipop, rp.to_lollipop);
                     return Ok(());
                 }
                 if let Some((kind, label, stereotype)) = parse_container_open(raw) {
@@ -300,11 +306,30 @@ impl<'a> Parser<'a> {
     }
 
     fn commit_relation(&mut self, rel: Relation) {
-        // Auto-create endpoints if not yet declared (PlantUML behavior).
-        for id in [&rel.from, &rel.to] {
+        self.commit_relation_with_hints(rel, false, false);
+    }
+
+    /// Like `commit_relation` but uses `from_lollipop` / `to_lollipop`
+    /// to pick `Circle` over `Class` when auto-creating an endpoint
+    /// that hasn't been declared yet.
+    fn commit_relation_with_hints(
+        &mut self,
+        rel: Relation,
+        from_lollipop: bool,
+        to_lollipop: bool,
+    ) {
+        for (id, lollipop) in [
+            (&rel.from, from_lollipop),
+            (&rel.to, to_lollipop),
+        ] {
             if !self.diag.entities.iter().any(|e| e.id == *id) {
+                let kind = if lollipop {
+                    EntityKind::Circle
+                } else {
+                    EntityKind::Class
+                };
                 self.diag.entities.push(Entity {
-                    kind: EntityKind::Class,
+                    kind,
                     id: id.clone(),
                     display: id.clone(),
                     generic: None,
@@ -563,6 +588,37 @@ const ENTITY_KEYWORDS: &[&str] = &[
 struct EntityAction {
     entity: Entity,
     has_block: bool,
+}
+
+/// Parse `() Foo` or `() "Display" as Foo` as a lollipop interface
+/// declaration. Lollipops render as a small circle, not a full class
+/// card. The leading `()` is the syntactic marker.
+fn parse_lollipop_decl(raw: &str, line_no: usize) -> Option<EntityAction> {
+    let rest = raw.strip_prefix("()")?;
+    if !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    let working = rest.trim();
+    if working.is_empty() {
+        return None;
+    }
+    let (id, display) = parse_alias(working)?;
+    Some(EntityAction {
+        entity: Entity {
+            kind: EntityKind::Circle,
+            id,
+            display,
+            generic: None,
+            stereotype: None,
+            stereotype_marker: None,
+            fields: Vec::new(),
+            methods: Vec::new(),
+            body: None,
+            fill: None,
+            line: line_no,
+        },
+        has_block: false,
+    })
 }
 
 /// Try to parse `raw` as an entity declaration. Returns `None` if the
@@ -1126,7 +1182,7 @@ fn validate_arrow_borders(bytes: &[u8], start: usize, end: usize) -> bool {
     left_ok && right_ok
 }
 
-fn parse_relation(raw: &str, line_no: usize) -> Option<Relation> {
+fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse> {
     let (start, end) = find_arrow_span(raw)?;
     // Arrow string itself.
     let arrow = &raw[start..end];
@@ -1159,37 +1215,51 @@ fn parse_relation(raw: &str, line_no: usize) -> Option<Relation> {
         None => (None, right),
     };
 
-    let (from_id, mult_from, role_from, from_port) = parse_endpoint_left(left)?;
-    let (to_id, mult_to, role_to, to_port) = parse_endpoint_right(right)?;
+    let (from_id, mult_from, role_from, from_port, from_lollipop) =
+        parse_endpoint_left(left)?;
+    let (to_id, mult_to, role_to, to_port, to_lollipop) = parse_endpoint_right(right)?;
 
     let (head_from, head_to, line_style, direction, color) = decode_arrow(arrow);
 
-    Some(Relation {
-        from: from_id,
-        to: to_id,
-        from_port,
-        to_port,
-        head_from,
-        head_to,
-        line_style,
-        direction,
-        label,
-        mult_from,
-        mult_to,
-        role_from,
-        role_to,
-        stereotype: None,
-        color,
-        line: line_no,
+    Some(RelationParse {
+        rel: Relation {
+            from: from_id,
+            to: to_id,
+            from_port,
+            to_port,
+            head_from,
+            head_to,
+            line_style,
+            direction,
+            label,
+            mult_from,
+            mult_to,
+            role_from,
+            role_to,
+            stereotype: None,
+            color,
+            line: line_no,
+        },
+        from_lollipop,
+        to_lollipop,
     })
 }
 
-fn parse_endpoint_left(
-    s: &str,
-) -> Option<(String, Option<String>, Option<String>, Option<String>)> {
-    // Right-most pieces of `s` are: optional `"mult"`, optional `/role`,
-    // and the id sits before them. The id may be `Class::member` —
-    // a member port — which we split into (id, port).
+/// Parsed relation plus per-endpoint lollipop hints. The caller uses
+/// the hints when auto-creating endpoints (so `(Foo) --> Bar` makes
+/// Foo a Circle, not a Class).
+struct RelationParse {
+    rel: Relation,
+    from_lollipop: bool,
+    to_lollipop: bool,
+}
+
+/// Endpoint parse result: (id, mult, role, port, is_lollipop). The
+/// lollipop flag is true when the user wrote `(Name)` — codegen
+/// renders such an endpoint as a small circle instead of a class card.
+type EndpointTuple = (String, Option<String>, Option<String>, Option<String>, bool);
+
+fn parse_endpoint_left(s: &str) -> Option<EndpointTuple> {
     let s = s.trim();
     if s.is_empty() {
         return None;
@@ -1200,13 +1270,12 @@ fn parse_endpoint_left(
     if id.is_empty() {
         return None;
     }
-    let (id, port) = split_member_port(unquote(id));
-    Some((id, mult, role, port))
+    let (id, is_lollipop) = strip_lollipop_parens(unquote(id));
+    let (id, port) = split_member_port(id);
+    Some((id, mult, role, port, is_lollipop))
 }
 
-fn parse_endpoint_right(
-    s: &str,
-) -> Option<(String, Option<String>, Option<String>, Option<String>)> {
+fn parse_endpoint_right(s: &str) -> Option<EndpointTuple> {
     let s = s.trim();
     if s.is_empty() {
         return None;
@@ -1217,8 +1286,22 @@ fn parse_endpoint_right(
     if id.is_empty() {
         return None;
     }
-    let (id, port) = split_member_port(unquote(id));
-    Some((id, mult, role, port))
+    let (id, is_lollipop) = strip_lollipop_parens(unquote(id));
+    let (id, port) = split_member_port(id);
+    Some((id, mult, role, port, is_lollipop))
+}
+
+/// `(Name)` → (`"Name"`, true); plain id → (id, false). Whitespace
+/// inside the parens is trimmed.
+fn strip_lollipop_parens(id: String) -> (String, bool) {
+    let t = id.trim();
+    if t.starts_with('(') && t.ends_with(')') && t.len() >= 2 {
+        let inner = t[1..t.len() - 1].trim().to_string();
+        if !inner.is_empty() && !inner.contains('(') && !inner.contains(')') {
+            return (inner, true);
+        }
+    }
+    (id, false)
 }
 
 /// `Class::member` → (`"Class"`, `Some("member")`); plain id → (id, None).
@@ -1688,6 +1771,24 @@ mod tests {
         assert_eq!(t.kind, ContainerKind::Together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn parses_lollipop_decl() {
+        let c = parse_ok(&["() Foo"]);
+        assert_eq!(c.entities.len(), 1);
+        let e = &c.entities[0];
+        assert_eq!(e.kind, EntityKind::Circle);
+        assert_eq!(e.id, "Foo");
+    }
+
+    #[test]
+    fn lollipop_in_relation_auto_creates_circle() {
+        // `(Iface)` references a lollipop — auto-create as Circle, not
+        // Class. `class A` declared explicitly stays Class.
+        let c = parse_ok(&["class A", "A --> (Iface)"]);
+        let iface = c.entities.iter().find(|e| e.id == "Iface").unwrap();
+        assert_eq!(iface.kind, EntityKind::Circle);
     }
 
     #[test]

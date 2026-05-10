@@ -1,0 +1,12 @@
+@startuml
+() Trainable
+() Drawable
+
+class Dog
+class Square
+
+Dog ..|> Trainable
+Square ..|> Drawable
+
+(Trainable) -- (Drawable)
+@enduml

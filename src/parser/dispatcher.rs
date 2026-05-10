@@ -109,6 +109,14 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
             "entity ",
             "package ",
             "namespace ",
+            "together ",
+            "() ",
+            "hide circle",
+            "hide method",
+            "hide field",
+            "hide attribute",
+            "hide member",
+            "hide stereotype",
         ];
         if CLASS_HEADS.iter().any(|h| t.starts_with(h)) {
             return DiagramKind::Class;

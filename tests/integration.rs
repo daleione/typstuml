@@ -459,6 +459,12 @@ fn golden_emit_typst_class_together() {
 }
 
 #[test]
+fn golden_emit_typst_class_lollipop() {
+    let actual = emit_typst_path(&fixture_in("class", "lollipop.puml"));
+    assert_golden_in("class", "lollipop", &actual);
+}
+
+#[test]
 fn renders_svg_for_class_hide() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-hide.svg");

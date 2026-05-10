@@ -388,13 +388,9 @@ fn note_geom(entity: &Entity) -> ClassGeom {
 }
 
 fn name_width_pt_filtered(entity: &Entity, show_marker: bool, show_stereo: bool) -> f64 {
-    let mut name = String::new();
-    name.push_str(&entity.display);
-    if let Some(g) = &entity.generic {
-        name.push_str(" <");
-        name.push_str(g);
-        name.push('>');
-    }
+    // Generic parameters render as a small dashed box at the top-right
+    // corner of the class — they don't widen the name line.
+    let name = entity.display.clone();
     let stereo_w = if show_stereo {
         entity
             .stereotype
@@ -1041,26 +1037,6 @@ mod tests {
         }
     }
 
-    fn rel(from: &str, to: &str, head_to: ArrowHead) -> Relation {
-        Relation {
-            from: from.into(),
-            to: to.into(),
-            from_port: None,
-            to_port: None,
-            head_from: ArrowHead::None,
-            head_to,
-            line_style: LineStyle::Solid,
-            direction: None,
-            label: None,
-            mult_from: None,
-            mult_to: None,
-            role_from: None,
-            role_to: None,
-            stereotype: None,
-            color: None,
-            line: 0,
-        }
-    }
 
     fn render(diag: ClassDiagram) -> String {
         let mut s = String::new();

@@ -8,6 +8,6 @@
     (x: 24.00pt, y: 90.00pt, kind: "class", name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (57.50pt, 82.00pt), c2: (57.50pt, 86.00pt), end: (57.50pt, 90.00pt)),)),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (57.50pt, 82.00pt), c2: (57.50pt, 86.00pt), end: (57.50pt, 90.00pt)),)),
   ),
 )

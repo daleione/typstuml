@@ -13,8 +13,8 @@
     (x: 3.00pt, y: 36.00pt, w: 60.20pt, h: 76.00pt, kind: "together", label: []),
   ),
   edges: (
-    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (33.10pt, 72.00pt), c2: (33.10pt, 76.00pt), end: (33.10pt, 80.00pt)),)),
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (59.20pt, 28.33pt), c2: (59.20pt, 32.67pt), end: (59.20pt, 37.00pt)), (c1: (50.50pt, 37.00pt), c2: (41.80pt, 37.00pt), end: (33.10pt, 37.00pt)), (c1: (33.10pt, 41.33pt), c2: (33.10pt, 45.67pt), end: (33.10pt, 50.00pt)))),
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (59.20pt, 26.00pt), c2: (59.20pt, 28.00pt), end: (59.20pt, 30.00pt)), (c1: (67.90pt, 30.00pt), c2: (76.60pt, 30.00pt), end: (85.30pt, 30.00pt)), (c1: (85.30pt, 32.00pt), c2: (85.30pt, 34.00pt), end: (85.30pt, 36.00pt)))),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (33.10pt, 72.00pt), c2: (33.10pt, 76.00pt), end: (33.10pt, 80.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (59.20pt, 28.33pt), c2: (59.20pt, 32.67pt), end: (59.20pt, 37.00pt)), (c1: (50.50pt, 37.00pt), c2: (41.80pt, 37.00pt), end: (33.10pt, 37.00pt)), (c1: (33.10pt, 41.33pt), c2: (33.10pt, 45.67pt), end: (33.10pt, 50.00pt)))),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (59.20pt, 26.00pt), c2: (59.20pt, 28.00pt), end: (59.20pt, 30.00pt)), (c1: (67.90pt, 30.00pt), c2: (76.60pt, 30.00pt), end: (85.30pt, 30.00pt)), (c1: (85.30pt, 32.00pt), c2: (85.30pt, 34.00pt), end: (85.30pt, 36.00pt)))),
   ),
 )

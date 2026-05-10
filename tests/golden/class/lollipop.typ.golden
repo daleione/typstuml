@@ -9,7 +9,7 @@
     (x: 53.00pt, y: 36.00pt, kind: "lollipop", name: [Required]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", path: ((c1: (50.00pt, 26.00pt), c2: (50.00pt, 28.00pt), end: (50.00pt, 30.00pt)), (c1: (41.67pt, 30.00pt), c2: (33.33pt, 30.00pt), end: (25.00pt, 30.00pt)), (c1: (25.00pt, 32.00pt), c2: (25.00pt, 34.00pt), end: (25.00pt, 36.00pt)))),
-    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", path: ((c1: (50.00pt, 26.00pt), c2: (50.00pt, 28.00pt), end: (50.00pt, 30.00pt)), (c1: (58.33pt, 30.00pt), c2: (66.67pt, 30.00pt), end: (75.00pt, 30.00pt)), (c1: (75.00pt, 32.00pt), c2: (75.00pt, 34.00pt), end: (75.00pt, 36.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (50.00pt, 26.00pt), c2: (50.00pt, 28.00pt), end: (50.00pt, 30.00pt)), (c1: (41.67pt, 30.00pt), c2: (33.33pt, 30.00pt), end: (25.00pt, 30.00pt)), (c1: (25.00pt, 32.00pt), c2: (25.00pt, 34.00pt), end: (25.00pt, 36.00pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (50.00pt, 26.00pt), c2: (50.00pt, 28.00pt), end: (50.00pt, 30.00pt)), (c1: (58.33pt, 30.00pt), c2: (66.67pt, 30.00pt), end: (75.00pt, 30.00pt)), (c1: (75.00pt, 32.00pt), c2: (75.00pt, 34.00pt), end: (75.00pt, 36.00pt)))),
   ),
 )

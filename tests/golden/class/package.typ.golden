@@ -6,18 +6,18 @@
   classes: (
     (x: 17.00pt, y: 34.00pt, kind: "class", name: [Order], fields: ((vis: "+", body: [id: UUID]),), methods: ((vis: "+", body: [total(): Money]),)),
     (x: 29.20pt, y: 100.00pt, kind: "class", name: [LineItem], fields: ((vis: "+", body: [qty: int]),), methods: ()),
-    (x: 23.00pt, y: 190.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
-    (x: 151.00pt, y: 34.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
-    (x: 151.00pt, y: 64.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
+    (x: 151.00pt, y: 34.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
+    (x: 273.00pt, y: 34.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
+    (x: 273.00pt, y: 64.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
   ),
   packages: (
     (x: 3.00pt, y: 6.00pt, w: 128.00pt, h: 144.00pt, kind: "package", label: [Domain]),
-    (x: 9.00pt, y: 162.00pt, w: 116.00pt, h: 60.00pt, kind: "package", label: [Infrastructure]),
-    (x: 137.00pt, y: 6.00pt, w: 97.40pt, h: 90.00pt, kind: "namespace", label: [billing]),
+    (x: 137.00pt, y: 6.00pt, w: 116.00pt, h: 60.00pt, kind: "package", label: [Infrastructure]),
+    (x: 259.00pt, y: 6.00pt, w: 97.40pt, h: 90.00pt, kind: "namespace", label: [billing]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (67.00pt, 92.00pt), c2: (67.00pt, 96.00pt), end: (67.00pt, 100.00pt)),)),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (185.70pt, 56.00pt), c2: (185.70pt, 60.00pt), end: (185.70pt, 64.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (67.00pt, 118.00pt), c2: (67.00pt, 160.00pt), end: (67.00pt, 190.00pt)),)),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (67.00pt, 92.00pt), c2: (67.00pt, 96.00pt), end: (67.00pt, 100.00pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (307.70pt, 56.00pt), c2: (307.70pt, 60.00pt), end: (307.70pt, 64.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (122.67pt, 61.00pt), c2: (128.33pt, 61.00pt), end: (134.00pt, 61.00pt)), (c1: (134.00pt, 55.00pt), c2: (134.00pt, 49.00pt), end: (134.00pt, 43.00pt)), (c1: (139.67pt, 43.00pt), c2: (145.33pt, 43.00pt), end: (151.00pt, 43.00pt)))),
   ),
 )

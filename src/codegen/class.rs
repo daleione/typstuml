@@ -177,27 +177,28 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     for oe in &oriented {
         let from = oe.src_idx;
         let to = oe.dst_idx;
-        let (start, end) = if is_lr {
-            (
-                right_anchor(&geoms[from], top_lefts[from]),
-                left_anchor(&geoms[to], top_lefts[to]),
-            )
-        } else {
-            (
-                bot_anchor(&geoms[from], top_lefts[from]),
-                top_anchor(&geoms[to], top_lefts[to]),
-            )
-        };
+        // Pick anchors based on the dominant displacement axis. Pure
+        // top/bot ↔ top/bot anchoring (or right/left for LR) breaks down
+        // when sibling clusters sit at the same rank: an edge's source
+        // bot-mid is BELOW the target top-mid, forcing a U-turn. Whichever
+        // axis the displacement is larger on, both endpoints anchor to
+        // that side of their box.
+        let (from_side, to_side) = pick_edge_sides(
+            box_center(&geoms[from], top_lefts[from]),
+            box_center(&geoms[to], top_lefts[to]),
+            is_lr,
+        );
+        let start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
+        let end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
+        let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
 
         let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
             .filter(|i| *i != from && *i != to)
             .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
             .collect();
-        // Class diagrams traditionally use orthogonal (Manhattan) edges,
-        // not curves. Try a 3-segment Z route first (down-across-down for
-        // TB layout); fall back to obstacle-aware bezier routing only if
-        // the Manhattan route would intersect a class bbox.
-        let segments = match try_manhattan_route(start, end, &obstacles, !is_lr) {
+        // Try Manhattan Z first (orientation-aware); fall back to
+        // bezier when the Z would clip a class bbox.
+        let segments = match try_manhattan_route(start, end, &obstacles, mainly_vertical) {
             Some(segs) => segs,
             None => match pathplan::route_edge(start, end, &obstacles, route_opts) {
                 Ok(cubics) => cubics
@@ -208,7 +209,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
             },
         };
 
-        emit_edge(out, oe, &segments);
+        emit_edge(out, oe, &segments, Some((from_side, to_side)));
     }
     // Association-class edges: a dashed connector from the midpoint of
     // (A, B)'s box centers to C. We don't try to anchor on the actual
@@ -232,6 +233,60 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
 
 fn box_center(g: &ClassGeom, top_left: Point) -> Point {
     Point::new(top_left.x + g.size.x / 2.0, top_left.y + g.size.y / 2.0)
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Side {
+    Top,
+    Bot,
+    Left,
+    Right,
+}
+
+impl Side {
+    fn keyword(self) -> &'static str {
+        match self {
+            Side::Top => "top",
+            Side::Bot => "bot",
+            Side::Left => "left",
+            Side::Right => "right",
+        }
+    }
+}
+
+/// Pick (from-side, to-side) for an edge based on which axis of the
+/// displacement between the two box centers is larger. Equal-magnitude
+/// displacements bias toward the layout's primary axis (vertical for
+/// TB, horizontal for LR) so a regular parent → child inheritance
+/// edge in TB still uses bot/top anchoring.
+fn pick_edge_sides(from_center: Point, to_center: Point, is_lr: bool) -> (Side, Side) {
+    let dx = to_center.x - from_center.x;
+    let dy = to_center.y - from_center.y;
+    let prefer_horizontal = if dx.abs() == dy.abs() {
+        is_lr
+    } else {
+        dx.abs() > dy.abs()
+    };
+    if prefer_horizontal {
+        if dx >= 0.0 {
+            (Side::Right, Side::Left)
+        } else {
+            (Side::Left, Side::Right)
+        }
+    } else if dy >= 0.0 {
+        (Side::Bot, Side::Top)
+    } else {
+        (Side::Top, Side::Bot)
+    }
+}
+
+fn anchor_for_side(g: &ClassGeom, top_left: Point, side: Side) -> Point {
+    match side {
+        Side::Top => top_anchor(g, top_left),
+        Side::Bot => bot_anchor(g, top_left),
+        Side::Left => left_anchor(g, top_left),
+        Side::Right => right_anchor(g, top_left),
+    }
 }
 
 fn emit_couple_edge(
@@ -726,7 +781,12 @@ fn emit_member(out: &mut String, m: &Member) {
     out.push(')');
 }
 
-fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Point)]) {
+fn emit_edge(
+    out: &mut String,
+    oe: &OrientedEdge,
+    segments: &[(Point, Point, Point)],
+    sides: Option<(Side, Side)>,
+) {
     let _ = write!(
         out,
         "    (from: {}, to: {}, head-from: \"{}\", head-to: \"{}\", style: \"{}\"",
@@ -736,6 +796,13 @@ fn emit_edge(out: &mut String, oe: &OrientedEdge, segments: &[(Point, Point, Poi
         head_keyword(oe.head_dst),
         line_style_keyword(oe.relation.line_style),
     );
+    if let Some((from_side, to_side)) = sides {
+        out.push_str(&format!(
+            ", from-side: \"{}\", to-side: \"{}\"",
+            from_side.keyword(),
+            to_side.keyword(),
+        ));
+    }
     if let Some(label) = &oe.relation.label {
         out.push_str(", label: [");
         out.push_str(&creole_to_typst(label));
@@ -1034,6 +1101,20 @@ fn compound_layout(
     };
 
     for &(src, dst) in layout_edges {
+        // Drop cluster-to-cluster super-edges. They would otherwise
+        // rank one cluster strictly above the other (Sugiyama gives
+        // the source rank N, target rank N+1), even though both could
+        // fit side-by-side at the same rank. PlantUML's default lays
+        // sibling clusters out at the same rank in declaration order
+        // and routes the cross-cluster edge through their sides.
+        // Edges where at least one endpoint is non-clustered still
+        // contribute (so e.g. `OuterClass → ClusterMember` keeps the
+        // outer class above the cluster).
+        let src_in_cluster = !chains[src].is_empty();
+        let dst_in_cluster = !chains[dst].is_empty();
+        if src_in_cluster && dst_in_cluster {
+            continue;
+        }
         if let (Some(s), Some(d)) = (super_handle(src), super_handle(dst)) {
             if s != d {
                 super_vg.add_edge(Edge::default(), s, d);

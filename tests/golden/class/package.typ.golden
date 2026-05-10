@@ -1,0 +1,23 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#class-layout(
+  classes: (
+    (x: 34.70pt, y: 6.00pt, kind: "class", name: [Order], fields: ((vis: "+", body: [id: UUID]),), methods: ((vis: "+", body: [total(): Money]),)),
+    (x: 3.00pt, y: 72.00pt, kind: "class", name: [LineItem], fields: ((vis: "+", body: [qty: int]),), methods: ()),
+    (x: 96.60pt, y: 72.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
+    (x: 152.70pt, y: 6.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
+    (x: 181.60pt, y: 36.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
+  ),
+  packages: (
+    (x: -11.00pt, y: -22.00pt, w: 159.70pt, h: 144.00pt, kind: "package", label: [Domain]),
+    (x: 82.60pt, y: 44.00pt, w: 116.00pt, h: 60.00pt, kind: "package", label: [Infrastructure]),
+    (x: 138.70pt, y: -22.00pt, w: 126.30pt, h: 90.00pt, kind: "namespace", label: [billing]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", path: ((c1: (84.70pt, 80.23pt), c2: (40.80pt, 51.77pt), end: (40.80pt, 72.00pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (187.40pt, 37.91pt), c2: (216.30pt, 22.09pt), end: (216.30pt, 36.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", path: ((c1: (84.70pt, 85.41pt), c2: (140.60pt, 46.59pt), end: (140.60pt, 72.00pt)),)),
+  ),
+)

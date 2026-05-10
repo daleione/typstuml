@@ -25,8 +25,8 @@
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::{
-    ArrowHead, ClassDiagram, Diagram, Direction, Entity, EntityKind, LineStyle, Member, Relation,
-    Skinparam, Visibility,
+    ArrowHead, ClassDiagram, Container, ContainerKind, Diagram, Direction, Entity, EntityKind,
+    LineStyle, Member, Relation, Skinparam, Visibility,
 };
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
@@ -43,9 +43,21 @@ struct Parser<'a> {
     pos: usize,
     compat: CompatMode,
     diag: ClassDiagram,
-    /// Stack of (entity_index, line_no) for `class A {` … `}` blocks.
-    block_stack: Vec<(usize, usize)>,
+    /// Frame stack for nested `{ … }` blocks. Both `class A { … }`
+    /// (entity members) and `package "X" { … }` (cluster children) push
+    /// here; the variant tells `handle_block_member` how to dispatch.
+    block_stack: Vec<(BlockFrame, usize)>,
     diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum BlockFrame {
+    /// Inside `class A { … }` — member lines go to `entities[idx]`.
+    Entity(usize),
+    /// Inside `package "X" { … }` / `namespace foo { … }` — declared
+    /// entities and nested containers register as children of
+    /// `containers[idx]`.
+    Container(usize),
 }
 
 impl<'a> Parser<'a> {
@@ -121,11 +133,11 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            // `package "Foo" {` / `namespace foo {` — M0 ignores the cluster
-            // structure (containers stays empty) but still consumes the
-            // matching `}` so members inside aren't misparsed.
-            if is_container_open(raw) {
-                self.block_stack.push((usize::MAX, line_no));
+            // `package "Foo" {` / `namespace foo {` / `together { … }` /
+            // similar. Pushes a new container frame; following entities
+            // and nested containers register as children.
+            if let Some((kind, label, stereotype)) = parse_container_open(raw) {
+                self.commit_container(kind, label, stereotype, line_no);
                 continue;
             }
 
@@ -148,9 +160,43 @@ impl<'a> Parser<'a> {
         let EntityAction { entity, has_block } = action;
         let line_no = entity.line;
         let idx = self.upsert_entity(entity);
-        if has_block {
-            self.block_stack.push((idx, line_no));
+        // If this entity is being declared inside a `package` / `namespace`,
+        // wire it into that container's child list. Multiple declarations
+        // of the same id inside the same container collapse to one entry.
+        if let Some(&(BlockFrame::Container(c_idx), _)) = self.block_stack.last() {
+            let id = self.diag.entities[idx].id.clone();
+            let cont = &mut self.diag.containers[c_idx];
+            if !cont.children_entities.contains(&id) {
+                cont.children_entities.push(id);
+            }
         }
+        if has_block {
+            self.block_stack.push((BlockFrame::Entity(idx), line_no));
+        }
+    }
+
+    fn commit_container(
+        &mut self,
+        kind: ContainerKind,
+        label: String,
+        stereotype: Option<String>,
+        line_no: usize,
+    ) {
+        let new_idx = self.diag.containers.len();
+        self.diag.containers.push(Container {
+            kind,
+            label,
+            stereotype,
+            children_entities: Vec::new(),
+            children_containers: Vec::new(),
+            line: line_no,
+        });
+        if let Some(&(BlockFrame::Container(parent_idx), _)) = self.block_stack.last() {
+            self.diag.containers[parent_idx]
+                .children_containers
+                .push(new_idx);
+        }
+        self.block_stack.push((BlockFrame::Container(new_idx), line_no));
     }
 
     fn upsert_entity(&mut self, entity: Entity) -> usize {
@@ -207,39 +253,46 @@ impl<'a> Parser<'a> {
     }
 
     fn handle_block_member(&mut self, raw: &str, line_no: usize) -> Result<()> {
-        let &(idx, _) = self.block_stack.last().expect("stack non-empty");
-        if idx == usize::MAX {
-            // Inside a container (package/namespace) — for M0 we treat
-            // the body as if it were at the top level (re-dispatch).
-            // Simplest: push the line back onto the queue. Instead of
-            // touching `pos`, we recurse on the supported forms inline.
-            if let Some(action) = parse_entity_decl(raw, line_no) {
-                self.commit_entity(action);
-                return Ok(());
+        let &(frame, _) = self.block_stack.last().expect("stack non-empty");
+        match frame {
+            BlockFrame::Container(_) => {
+                // Inside `package`/`namespace` — re-dispatch as if at top
+                // level. Entity declarations and nested containers are
+                // automatically wired to the current container by their
+                // commit_* functions.
+                if let Some(action) = parse_entity_decl(raw, line_no) {
+                    self.commit_entity(action);
+                    return Ok(());
+                }
+                if self.try_parse_note(raw, line_no)? {
+                    return Ok(());
+                }
+                if let Some((id, body)) = split_member_line(raw) {
+                    self.add_member(&id, body, line_no);
+                    return Ok(());
+                }
+                if let Some(rel) = parse_relation(raw, line_no) {
+                    self.commit_relation(rel);
+                    return Ok(());
+                }
+                if let Some((kind, label, stereotype)) = parse_container_open(raw) {
+                    self.commit_container(kind, label, stereotype, line_no);
+                    return Ok(());
+                }
+                self.unsupported(raw, line_no)
             }
-            if let Some((id, body)) = split_member_line(raw) {
-                self.add_member(&id, body, line_no);
-                return Ok(());
+            BlockFrame::Entity(idx) => {
+                // Inline member inside `class A { + foo() }`.
+                let member = parse_member(raw, line_no);
+                let entity = &mut self.diag.entities[idx];
+                if is_method_signature(&member.body) {
+                    entity.methods.push(member);
+                } else {
+                    entity.fields.push(member);
+                }
+                Ok(())
             }
-            if let Some(rel) = parse_relation(raw, line_no) {
-                self.commit_relation(rel);
-                return Ok(());
-            }
-            if is_container_open(raw) {
-                self.block_stack.push((usize::MAX, line_no));
-                return Ok(());
-            }
-            return self.unsupported(raw, line_no);
         }
-        // Inline member inside `class A { + foo() }`.
-        let member = parse_member(raw, line_no);
-        let entity = &mut self.diag.entities[idx];
-        if is_method_signature(&member.body) {
-            entity.methods.push(member);
-        } else {
-            entity.fields.push(member);
-        }
-        Ok(())
     }
 
     fn commit_relation(&mut self, rel: Relation) {
@@ -799,15 +852,48 @@ fn is_method_signature(body: &str) -> bool {
 /// M0 swallows the body without recording the container — see
 /// `docs/class-diagram-design.md` for the M1 plan that actually
 /// populates `ClassDiagram.containers`.
-fn is_container_open(raw: &str) -> bool {
-    for kw in ["package", "namespace", "together", "folder", "frame", "node", "cloud"] {
-        if let Some(rest) = strip_prefix_keyword(raw, kw) {
-            if rest.trim_end().ends_with('{') {
-                return true;
-            }
+/// If `raw` opens a container block (`package "Foo" {`,
+/// `namespace foo.bar {`, `together {`, `folder X {`, …), return the
+/// kind, the label (empty for `together`), and an optional `<<stereo>>`
+/// found between the name and the `#color`. Returns `None` otherwise.
+fn parse_container_open(raw: &str) -> Option<(ContainerKind, String, Option<String>)> {
+    const KW: &[(&str, ContainerKind)] = &[
+        ("package", ContainerKind::Package),
+        ("namespace", ContainerKind::Namespace),
+        ("together", ContainerKind::Together),
+        ("folder", ContainerKind::Folder),
+        ("frame", ContainerKind::Frame),
+        ("node", ContainerKind::Node),
+        ("cloud", ContainerKind::Cloud),
+    ];
+    for (kw, kind) in KW {
+        let Some(rest) = strip_prefix_keyword(raw, kw) else {
+            continue;
+        };
+        let rest = rest.trim_end();
+        if !rest.ends_with('{') {
+            continue;
         }
+        let body = rest[..rest.len() - 1].trim();
+        // Order matches entity-decl: trailing color, then stereotype, then
+        // generic — generic is rare but legal on a `package`. The label is
+        // what's left after stripping all three; quoted form unwraps quotes.
+        let mut working = body.to_string();
+        let _color = pop_trailing_color(&mut working);
+        let stereotype = pop_trailing_stereotype(&mut working);
+        let _generic = pop_trailing_generic(&mut working);
+        let label_raw = working.trim();
+        // `together` doesn't take a name; everything else does.
+        let label = if matches!(kind, ContainerKind::Together) {
+            String::new()
+        } else if let Some((quoted, _)) = strip_leading_quoted(label_raw) {
+            quoted
+        } else {
+            label_raw.split_whitespace().next().unwrap_or("").to_string()
+        };
+        return Some((*kind, label, stereotype));
     }
-    false
+    None
 }
 
 // ---- Arrow / relation parsing ---------------------------------------------
@@ -1407,6 +1493,58 @@ mod tests {
         assert_eq!(r.from, "N1");
         assert_eq!(r.to, "Foo");
         assert_eq!(r.line_style, LineStyle::Dashed);
+    }
+
+    #[test]
+    fn parses_package_with_nested_class() {
+        let c = parse_ok(&[
+            "package \"Domain\" {",
+            "  class Order",
+            "  class LineItem",
+            "}",
+            "class External",
+        ]);
+        assert_eq!(c.entities.len(), 3);
+        assert_eq!(c.containers.len(), 1);
+        let pkg = &c.containers[0];
+        assert_eq!(pkg.kind, ContainerKind::Package);
+        assert_eq!(pkg.label, "Domain");
+        assert_eq!(pkg.children_entities, vec!["Order", "LineItem"]);
+    }
+
+    #[test]
+    fn parses_nested_namespaces() {
+        let c = parse_ok(&[
+            "namespace outer {",
+            "  namespace inner {",
+            "    class Inner",
+            "  }",
+            "  class Mid",
+            "}",
+        ]);
+        assert_eq!(c.containers.len(), 2);
+        let outer = c.containers.iter().find(|c| c.label == "outer").unwrap();
+        let inner = c.containers.iter().find(|c| c.label == "inner").unwrap();
+        // outer holds Mid + a child container ref.
+        assert!(outer.children_entities.contains(&"Mid".to_string()));
+        assert_eq!(outer.children_containers.len(), 1);
+        // inner holds Inner.
+        assert_eq!(inner.children_entities, vec!["Inner"]);
+    }
+
+    #[test]
+    fn parses_together_block() {
+        let c = parse_ok(&[
+            "together {",
+            "  class A",
+            "  class B",
+            "}",
+        ]);
+        assert_eq!(c.containers.len(), 1);
+        let t = &c.containers[0];
+        assert_eq!(t.kind, ContainerKind::Together);
+        assert!(t.label.is_empty());
+        assert_eq!(t.children_entities, vec!["A", "B"]);
     }
 
     #[test]

@@ -441,6 +441,30 @@ fn golden_emit_typst_class_notes() {
 }
 
 #[test]
+fn golden_emit_typst_class_package() {
+    let actual = emit_typst_path(&fixture_in("class", "package.puml"));
+    assert_golden_in("class", "package", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_package() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-package.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "package.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    // Three packages → at least three rectangle outlines on top of the
+    // class boxes. Width must accommodate two side-by-side packages.
+    let width = svg_viewbox_width(&svg).expect("viewBox missing");
+    assert!(width > 200.0, "package viewBox unexpectedly small: {width}");
+}
+
+#[test]
 fn renders_svg_for_class_notes() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-notes.svg");

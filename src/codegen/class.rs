@@ -22,8 +22,8 @@
 use std::fmt::Write as _;
 
 use crate::ir::{
-    ArrowHead, ClassDiagram, Direction as IrDirection, Entity, EntityKind, LineStyle, Member,
-    Relation, Skinparam, Visibility,
+    ArrowHead, ClassDiagram, Container, ContainerKind, Direction as IrDirection, Entity,
+    EntityKind, LineStyle, Member, Relation, Skinparam, Visibility,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
@@ -83,7 +83,21 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
 
     vg.layout();
 
-    let top_lefts: Vec<Point> = handles.iter().map(|h| vg.pos(*h).bbox(false).0).collect();
+    let mut top_lefts: Vec<Point> = handles.iter().map(|h| vg.pos(*h).bbox(false).0).collect();
+
+    // Cluster-grouping pass: Sugiyama's mincross doesn't know about
+    // packages, so members of different clusters can land intermingled
+    // within a rank. Re-order each rank by cluster chain (root → leaf)
+    // and re-pack x with a slightly larger gap between cluster
+    // boundaries. This fixes the within-rank ordering; it does NOT
+    // prevent the case where Cluster A's widest member at rank 0
+    // extends past Cluster B's narrower member at rank 1 — the cluster
+    // bboxes can still touch or overlap. A proper fix needs compound
+    // layout (per-cluster sub-Sugiyama + super-Sugiyama composition),
+    // tracked as part of the M1 refinement.
+    if !diag.containers.is_empty() {
+        regroup_ranks_by_cluster(&mut top_lefts, &geoms, &diag.containers, &diag.entities);
+    }
 
     out.push_str("#class-layout(\n");
     out.push_str("  classes: (\n");
@@ -95,6 +109,10 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     let class_bboxes: Vec<(Point, Point)> = (0..diag.entities.len())
         .map(|i| (top_lefts[i], top_lefts[i].add(geoms[i].size)))
         .collect();
+
+    if !diag.containers.is_empty() {
+        emit_packages(out, &diag.containers, &diag.entities, &class_bboxes);
+    }
 
     out.push_str("  edges: (\n");
     let route_opts = pathplan::RouteOpts {
@@ -486,6 +504,255 @@ fn line_style_keyword(s: LineStyle) -> &'static str {
         LineStyle::Solid => "solid",
         LineStyle::Dashed => "dashed",
         LineStyle::Dotted => "dotted",
+    }
+}
+
+/// Within-rank gap between two siblings of the same cluster.
+const INTRA_CLUSTER_GAP_PT: f64 = 6.0;
+/// Within-rank gap between members of different clusters (or between
+/// a clustered and non-clustered node), so the package borders won't
+/// touch the next entity over.
+const INTER_CLUSTER_GAP_PT: f64 = 18.0;
+/// Tolerance for grouping by y-rank: positions whose y differs by less
+/// than this are considered to share a rank. The Sugiyama placer uses
+/// integer ranks, so any non-zero tolerance handles f64 round-off.
+const RANK_Y_TOL_PT: f64 = 0.5;
+
+/// Build the cluster chain (outer → inner) for each entity. Entities
+/// outside any container get an empty chain.
+fn cluster_chains(containers: &[Container], entities: &[Entity]) -> Vec<Vec<usize>> {
+    // parent[c] = index of the container whose `children_containers`
+    // list holds c, or `None` if c is a top-level container.
+    let mut parent: Vec<Option<usize>> = vec![None; containers.len()];
+    for (pi, c) in containers.iter().enumerate() {
+        for &ci in &c.children_containers {
+            if ci < parent.len() {
+                parent[ci] = Some(pi);
+            }
+        }
+    }
+    entities
+        .iter()
+        .map(|e| {
+            // Pick the innermost container that holds the entity. If
+            // multiple do (legal in PUML for `together` overlaps), the
+            // last one wins — gives the user a stable rule.
+            let direct = containers
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, c)| c.children_entities.iter().any(|cid| cid == &e.id))
+                .map(|(i, _)| i);
+            let mut chain = Vec::new();
+            let mut cur = direct;
+            while let Some(c) = cur {
+                chain.push(c);
+                cur = parent[c];
+            }
+            chain.reverse();
+            chain
+        })
+        .collect()
+}
+
+/// Re-arrange entities within each rank so cluster siblings sit
+/// contiguously, then re-pack the x axis. Preserves intra-cluster
+/// relative order from Sugiyama.
+fn regroup_ranks_by_cluster(
+    top_lefts: &mut [Point],
+    geoms: &[ClassGeom],
+    containers: &[Container],
+    entities: &[Entity],
+) {
+    let chains = cluster_chains(containers, entities);
+
+    // Bucket entities by approximate y-rank (Sugiyama emits one y per rank).
+    let mut ranks: Vec<Vec<usize>> = Vec::new();
+    let mut bucket_y: Vec<f64> = Vec::new();
+    for (i, p) in top_lefts.iter().enumerate() {
+        let mut placed = false;
+        for (bi, &y) in bucket_y.iter().enumerate() {
+            if (p.y - y).abs() < RANK_Y_TOL_PT {
+                ranks[bi].push(i);
+                placed = true;
+                break;
+            }
+        }
+        if !placed {
+            ranks.push(vec![i]);
+            bucket_y.push(p.y);
+        }
+    }
+
+    for row in ranks.iter_mut() {
+        if row.len() < 2 {
+            continue;
+        }
+        // Anchor the re-pack at the leftmost original x in the rank, so
+        // subsequent ranks (already laid out elsewhere) don't drift.
+        let start_x = row
+            .iter()
+            .map(|&i| top_lefts[i].x)
+            .fold(f64::INFINITY, f64::min);
+        // Sort by cluster chain (lex), tie-break by original x.
+        row.sort_by(|&a, &b| {
+            chains[a].cmp(&chains[b]).then(
+                top_lefts[a]
+                    .x
+                    .partial_cmp(&top_lefts[b].x)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
+        });
+        let mut x = start_x;
+        for i in 0..row.len() {
+            let ei = row[i];
+            top_lefts[ei] = Point::new(x, top_lefts[ei].y);
+            if i + 1 < row.len() {
+                let nxt = row[i + 1];
+                let gap = if chains[ei] == chains[nxt] {
+                    INTRA_CLUSTER_GAP_PT
+                } else {
+                    INTER_CLUSTER_GAP_PT
+                };
+                x += geoms[ei].size.x + gap;
+            }
+        }
+    }
+}
+
+/// Padding between a container's bbox and the AABB of its members.
+/// Outer containers reserve more so a label can sit on top without
+/// touching member geometry; inner-nesting containers shrink so they
+/// nest cleanly inside the parent's pad.
+const CONTAINER_PAD_PT: f64 = 14.0;
+/// Reserved space above the AABB top for a labeled container header.
+/// Together (anonymous) gets 0; everything else gets this band.
+const CONTAINER_LABEL_PT: f64 = 14.0;
+
+fn emit_packages(
+    out: &mut String,
+    containers: &[Container],
+    entities: &[Entity],
+    class_bboxes: &[(Point, Point)],
+) {
+    // Build entity-id → index map once.
+    let mut id_to_idx: std::collections::HashMap<&str, usize> =
+        std::collections::HashMap::with_capacity(entities.len());
+    for (i, e) in entities.iter().enumerate() {
+        id_to_idx.insert(e.id.as_str(), i);
+    }
+
+    // Recursively compute each container's AABB. Nested containers sit
+    // inside their parent's pad band; their own children contribute via
+    // the same recursion, so the result is naturally hierarchical.
+    let mut bboxes: Vec<Option<(Point, Point)>> = vec![None; containers.len()];
+    for i in 0..containers.len() {
+        compute_container_bbox(
+            i,
+            containers,
+            &id_to_idx,
+            class_bboxes,
+            &mut bboxes,
+        );
+    }
+
+    out.push_str("  packages: (\n");
+    for (i, c) in containers.iter().enumerate() {
+        let Some((min, max)) = bboxes[i] else {
+            continue;
+        };
+        // `together` is anonymous, no header band.
+        let label_band = if matches!(c.kind, ContainerKind::Together) {
+            0.0
+        } else {
+            CONTAINER_LABEL_PT
+        };
+        let pad = CONTAINER_PAD_PT;
+        let x = min.x - pad;
+        let y = min.y - pad - label_band;
+        let w = (max.x - min.x) + 2.0 * pad;
+        let h = (max.y - min.y) + 2.0 * pad + label_band;
+        let _ = write!(
+            out,
+            "    (x: {:.2}pt, y: {:.2}pt, w: {:.2}pt, h: {:.2}pt, kind: \"{}\", label: [",
+            x,
+            y,
+            w,
+            h,
+            container_kind_keyword(c.kind),
+        );
+        out.push_str(&typst_markup_escape(&c.label));
+        out.push(']');
+        if let Some(s) = &c.stereotype {
+            out.push_str(", stereotype: [");
+            out.push_str(&typst_markup_escape(s));
+            out.push(']');
+        }
+        out.push_str("),\n");
+    }
+    out.push_str("  ),\n");
+}
+
+fn compute_container_bbox(
+    idx: usize,
+    containers: &[Container],
+    id_to_idx: &std::collections::HashMap<&str, usize>,
+    class_bboxes: &[(Point, Point)],
+    out: &mut [Option<(Point, Point)>],
+) {
+    if out[idx].is_some() {
+        return;
+    }
+    let c = &containers[idx];
+    let mut acc: Option<(Point, Point)> = None;
+    for child_id in &c.children_entities {
+        if let Some(&ei) = id_to_idx.get(child_id.as_str()) {
+            let (mn, mx) = class_bboxes[ei];
+            acc = Some(merge_bbox(acc, (mn, mx)));
+        }
+    }
+    for &child_idx in &c.children_containers {
+        // Recurse first so nested bbox is available.
+        compute_container_bbox(child_idx, containers, id_to_idx, class_bboxes, out);
+        if let Some(child_bb) = out[child_idx] {
+            // Inflate the child by its own pad+label band so the parent
+            // bbox accounts for the nested container's outer rectangle,
+            // not just its inner contents.
+            let inner_pad = CONTAINER_PAD_PT;
+            let inner_band = if matches!(containers[child_idx].kind, ContainerKind::Together) {
+                0.0
+            } else {
+                CONTAINER_LABEL_PT
+            };
+            let inflated = (
+                Point::new(child_bb.0.x - inner_pad, child_bb.0.y - inner_pad - inner_band),
+                Point::new(child_bb.1.x + inner_pad, child_bb.1.y + inner_pad),
+            );
+            acc = Some(merge_bbox(acc, inflated));
+        }
+    }
+    out[idx] = acc;
+}
+
+fn merge_bbox(acc: Option<(Point, Point)>, new: (Point, Point)) -> (Point, Point) {
+    match acc {
+        None => new,
+        Some((amin, amax)) => (
+            Point::new(amin.x.min(new.0.x), amin.y.min(new.0.y)),
+            Point::new(amax.x.max(new.1.x), amax.y.max(new.1.y)),
+        ),
+    }
+}
+
+fn container_kind_keyword(k: ContainerKind) -> &'static str {
+    match k {
+        ContainerKind::Package => "package",
+        ContainerKind::Namespace => "namespace",
+        ContainerKind::Folder => "folder",
+        ContainerKind::Frame => "frame",
+        ContainerKind::Cloud => "cloud",
+        ContainerKind::Node => "node",
+        ContainerKind::Together => "together",
     }
 }
 

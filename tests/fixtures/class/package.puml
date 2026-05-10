@@ -1,0 +1,24 @@
+@startuml
+package "Domain" {
+  class Order {
+    + id: UUID
+    + total(): Money
+  }
+  class LineItem {
+    + qty: int
+  }
+  Order *-- LineItem
+}
+
+package "Infrastructure" {
+  class Repository
+}
+
+namespace billing {
+  class Invoice
+  class Payment
+  Invoice --> Payment
+}
+
+Order --> Repository
+@enduml

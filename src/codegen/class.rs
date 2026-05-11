@@ -45,6 +45,14 @@ const MARKER_W_PT: f64 = 1.4 * FONT_PT;
 /// Bezier control-handle pull (same scheme as record_graph.rs).
 const EDGE_FORCE_MAX_PT: f64 = 30.0;
 const ROUTE_PADDING_PT: f64 = 1.0;
+/// Halo added around each class bbox before Sugiyama placement so
+/// siblings end up with a real gap (the underlying simple.rs / BK
+/// pack nodes shoulder-to-shoulder). Half on each side, both axes —
+/// gives ~SIBLING_PAD_PT inter-rank y-gap and ~SIBLING_PAD_PT
+/// inter-sibling x-gap. Tuned so PlantUML-style fan-outs (heads,
+/// basic) have visible breathing room without ballooning lollipop
+/// and package layouts.
+const SIBLING_PAD_PT: f64 = 24.0;
 
 pub fn emit(out: &mut String, diag: &ClassDiagram) {
     let overrides = emit_skinparam_preamble(out, &diag.skinparams);
@@ -64,6 +72,19 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         .entities
         .iter()
         .map(|e| class_geom_filtered(e, &diag.hide))
+        .collect();
+    // Sugiyama's `simple` and BK passes pack siblings shoulder-to-
+    // shoulder (gap ≈ EPSILON). For class diagrams we want visible
+    // breathing room — fan-outs need each child clear of the next so
+    // arrowheads don't overlap. Inflate every box by SIBLING_PAD_PT,
+    // run layout against the halos, then deflate the resulting
+    // top-lefts so the actual class draws centered inside its halo.
+    let inflated_geoms: Vec<ClassGeom> = geoms
+        .iter()
+        .map(|g| ClassGeom {
+            size: Point::new(g.size.x + SIBLING_PAD_PT, g.size.y + SIBLING_PAD_PT),
+            mid_x: g.mid_x + SIBLING_PAD_PT / 2.0,
+        })
         .collect();
 
     let orientation = match diag.direction {
@@ -102,8 +123,12 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         oriented.push(oe);
     }
 
-    // Layout edges feeding Sugiyama: real oriented edges + the two
-    // virtual edges per couple-link.
+    // Layout edges feeding Sugiyama: real oriented edges + two virtual
+    // edges per couple-link, A→C and C→B, so C lands at the rank
+    // between A and B. PlantUML draws an "apoint" anchor on the A-B
+    // chord at C's row and connects it horizontally to C; placing C
+    // mid-rank lets us reproduce that with a horizontal dashed
+    // connector + a small dot on the chord.
     let mut layout_edges: Vec<(usize, usize)> = Vec::with_capacity(
         oriented.len() + 2 * couple_edges.len(),
     );
@@ -112,7 +137,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     }
     for ce in &couple_edges {
         layout_edges.push((ce.a_idx, ce.c_idx));
-        layout_edges.push((ce.b_idx, ce.c_idx));
+        layout_edges.push((ce.c_idx, ce.b_idx));
     }
 
     // Compound layout: one sub-Sugiyama per cluster (recursive into
@@ -121,9 +146,165 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     // cluster rectangles even when one cluster's widest member is
     // wider than another cluster's narrowest. With no containers the
     // whole thing falls back to a flat single-pass layout.
-    let layout = compound_layout(diag, &geoms, orientation, &layout_edges);
-    let top_lefts = layout.top_lefts;
+    let layout = compound_layout(diag, &inflated_geoms, orientation, &layout_edges);
+    // Shift each top-left by half the halo so the class itself sits
+    // centered inside its inflated bbox. Container bboxes returned by
+    // the layout already include the halos around their members; we
+    // tighten them below for clean container rendering.
+    let half_pad = Point::new(SIBLING_PAD_PT / 2.0, SIBLING_PAD_PT / 2.0);
+    let mut top_lefts: Vec<Point> = layout.top_lefts.iter().map(|p| p.add(half_pad)).collect();
     let container_bboxes = layout.container_bboxes;
+
+    // Post-layout centering: when an entity's predecessors all sit
+    // on the same rank, center it under their midpoint. The Sugiyama
+    // BK pass tends to align such children with whichever corner sweep
+    // won — a single child below two parents (e.g. Animal under
+    // Dog/Cat in basic.puml) ends up flush with one parent instead
+    // of centered. We do this *before* the chord-overlap fix below
+    // because re-centering can resolve some overlaps too.
+    {
+        let mut preds: Vec<Vec<usize>> = vec![Vec::new(); diag.entities.len()];
+        for &(s, d) in &layout_edges {
+            preds[d].push(s);
+        }
+        let entity_count = diag.entities.len();
+        for ei in 0..entity_count {
+            let p = &preds[ei];
+            if p.len() < 2 {
+                continue;
+            }
+            let pred_y0 = top_lefts[p[0]].y;
+            if !p.iter().all(|&pi| (top_lefts[pi].y - pred_y0).abs() < 1.0) {
+                continue;
+            }
+            // Don't re-center if this entity has its own successors
+            // that would themselves prefer different alignment — keep
+            // the leaf-only rule simple.
+            let mid_x_avg: f64 = p
+                .iter()
+                .map(|&pi| top_lefts[pi].x + geoms[pi].size.x / 2.0)
+                .sum::<f64>()
+                / p.len() as f64;
+            let my_y = top_lefts[ei].y;
+            let my_w = geoms[ei].size.x;
+            let new_x = mid_x_avg - my_w / 2.0;
+            let new_box = (
+                Point::new(new_x, my_y),
+                Point::new(new_x + my_w, my_y + geoms[ei].size.y),
+            );
+            // Reject if the move would crash into another entity at
+            // ei's rank.
+            let conflict = (0..entity_count).any(|j| {
+                if j == ei || (top_lefts[j].y - my_y).abs() > 1.0 {
+                    return false;
+                }
+                let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
+                new_box.0.x < other.1.x
+                    && other.0.x < new_box.1.x
+                    && new_box.0.y < other.1.y
+                    && other.0.y < new_box.1.y
+            });
+            if !conflict {
+                top_lefts[ei] = Point::new(new_x, my_y);
+            }
+        }
+    }
+
+    // Couple-edge post-fixes:
+    //
+    // 1. Force A and B to share an x column so the chord is straight
+    //    vertical (PlantUML's default look). Sugiyama's BK aligns long
+    //    edges through their virtual midpoints, but adding A→C and
+    //    C→B virtual edges puts C at the same rank as the A-B
+    //    midpoint, and BK can favour C's column over A/B's. After
+    //    shifting, A and B share the chord's mid-x.
+    //
+    // 2. If C straddles the chord column, push it past the chord on
+    //    one side so the dashed connector reads as a clean horizontal
+    //    line into C's near face.
+    if !couple_edges.is_empty() {
+        // Visible dashed-connector length between C and the chord
+        // apoint. Tuned so a few dashes render at default stroke
+        // thickness (PlantUML uses ~30pt of dashed line).
+        let chord_pad: f64 = 32.0;
+        let entity_count = diag.entities.len();
+        let conflict_at_y = |new_box: (Point, Point), self_idx: usize, top_lefts: &[Point]| -> bool {
+            (0..entity_count).any(|j| {
+                if j == self_idx
+                    || (top_lefts[j].y - new_box.0.y).abs() > 1.0
+                {
+                    return false;
+                }
+                let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
+                new_box.0.x < other.1.x
+                    && other.0.x < new_box.1.x
+                    && new_box.0.y < other.1.y
+                    && other.0.y < new_box.1.y
+            })
+        };
+        for ce in &couple_edges {
+            // Shift A and B (independently) to share an x column, so
+            // the chord renders straight. Use the average of their
+            // current mids so neither moves much.
+            let a_mid = top_lefts[ce.a_idx].x + geoms[ce.a_idx].size.x / 2.0;
+            let b_mid = top_lefts[ce.b_idx].x + geoms[ce.b_idx].size.x / 2.0;
+            let chord_x = (a_mid + b_mid) / 2.0;
+            for &idx in &[ce.a_idx, ce.b_idx] {
+                let cur_mid = top_lefts[idx].x + geoms[idx].size.x / 2.0;
+                if (cur_mid - chord_x).abs() < 1.0 {
+                    continue;
+                }
+                let new_x = chord_x - geoms[idx].size.x / 2.0;
+                let cur_y = top_lefts[idx].y;
+                let new_box = (
+                    Point::new(new_x, cur_y),
+                    Point::new(new_x + geoms[idx].size.x, cur_y + geoms[idx].size.y),
+                );
+                if !conflict_at_y(new_box, idx, &top_lefts) {
+                    top_lefts[idx] = Point::new(new_x, cur_y);
+                }
+            }
+
+            // Now ensure C clears the chord by at least `chord_pad`
+            // — both for the obvious "C straddles chord" case and the
+            // "C just barely misses chord" case where the dashed
+            // connector would render as a 1pt nub.
+            let a_tl = top_lefts[ce.a_idx];
+            let a_br = a_tl.add(geoms[ce.a_idx].size);
+            let b_tl = top_lefts[ce.b_idx];
+            let b_br = b_tl.add(geoms[ce.b_idx].size);
+            let lo = a_tl.x.max(b_tl.x);
+            let hi = a_br.x.min(b_br.x);
+            let chord_x_eff = if hi - lo > SMART_ALIGN_HEADROOM_PT {
+                (lo + hi) / 2.0
+            } else {
+                ((a_tl.x + a_br.x) / 2.0 + (b_tl.x + b_br.x) / 2.0) / 2.0
+            };
+            let c_tl = top_lefts[ce.c_idx];
+            let c_w = geoms[ce.c_idx].size.x;
+            let c_br = c_tl.add(geoms[ce.c_idx].size);
+            let c_mid = c_tl.x + c_w / 2.0;
+            // Decide which side C should sit on; default to whichever
+            // side it's closer to (or right if it currently overlaps
+            // the chord).
+            let push_right = if chord_x_eff > c_tl.x && chord_x_eff < c_br.x {
+                // Straddles — push to whichever side has more room.
+                c_mid >= chord_x_eff
+            } else {
+                c_mid > chord_x_eff
+            };
+            let new_x = if push_right {
+                let needed_left = chord_x_eff + chord_pad;
+                if c_tl.x >= needed_left { c_tl.x } else { needed_left }
+            } else {
+                let needed_right = chord_x_eff - chord_pad;
+                if c_br.x <= needed_right { c_tl.x } else { needed_right - c_w }
+            };
+            if (new_x - c_tl.x).abs() > 0.1 {
+                top_lefts[ce.c_idx] = Point::new(new_x, c_tl.y);
+            }
+        }
+    }
 
     out.push_str("#class-layout(\n");
     if is_lr {
@@ -159,21 +340,6 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     }
 
     out.push_str("  edges: (\n");
-    let route_opts = pathplan::RouteOpts {
-        obstacle_padding: ROUTE_PADDING_PT,
-        // TB: vertical tangents (cubic launches/arrives top-down).
-        // LR: horizontal tangents (left-to-right flow).
-        src_tangent: if is_lr {
-            Point::new(1.0, 0.0)
-        } else {
-            Point::new(0.0, 1.0)
-        },
-        dst_tangent: if is_lr {
-            Point::new(1.0, 0.0)
-        } else {
-            Point::new(0.0, 1.0)
-        },
-    };
     for oe in &oriented {
         let from = oe.src_idx;
         let to = oe.dst_idx;
@@ -186,6 +352,8 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
         let (from_side, to_side) = pick_edge_sides(
             box_center(&geoms[from], top_lefts[from]),
             box_center(&geoms[to], top_lefts[to]),
+            (top_lefts[from], top_lefts[from].add(geoms[from].size)),
+            (top_lefts[to], top_lefts[to].add(geoms[to].size)),
             is_lr,
         );
         let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
@@ -226,35 +394,120 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
             .filter(|i| *i != from && *i != to)
             .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
             .collect();
-        // Try Manhattan Z first (orientation-aware); fall back to
-        // bezier when the Z would clip a class bbox.
-        let segments = match try_manhattan_route(start, end, &obstacles, mainly_vertical) {
-            Some(segs) => segs,
-            None => match pathplan::route_edge(start, end, &obstacles, route_opts) {
+        // Tangents follow the actual anchor sides — bezier launch
+        // direction matches the snap axis the painter will enforce,
+        // otherwise the head tangent collapses to zero on edges where
+        // we anchor on the perpendicular axis (e.g. a free-floating
+        // note pointing horizontally to a class). The pathplan convention
+        // is "direction of travel": at src we leave outward through the
+        // face; at dst we approach inward through the face (opposite
+        // sign of the outward normal).
+        let route_opts = pathplan::RouteOpts {
+            obstacle_padding: ROUTE_PADDING_PT,
+            src_tangent: side_tangent(from_side),
+            dst_tangent: side_tangent(to_side).neg(),
+        };
+        // Routing priority:
+        //   1. Straight line of sight — single cubic with axis-aligned
+        //      tangents from start to end. PlantUML-style fan-out from a
+        //      hub: the line just goes diagonally across the gap, no
+        //      Manhattan turn.
+        //   2. Manhattan Z — for blocked diagonals, fall back to a
+        //      down-across-down (or right-along-right) right-angle route.
+        //   3. Pathplan bezier — for routes that need to detour around
+        //      multiple obstacles.
+        //   4. Forced straight cubic — last resort.
+        let segments = if line_of_sight_clear(start, end, &obstacles) {
+            diagonal_path(start, end, side_tangent(from_side))
+        } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
+            segs
+        } else {
+            match pathplan::route_edge(start, end, &obstacles, route_opts) {
                 Ok(cubics) => cubics
                     .into_iter()
                     .map(|c| c.into_painter_segment())
                     .collect(),
                 Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
-            },
+            }
         };
 
         emit_edge(out, oe, &segments, Some((from_side, to_side)), aligned_coord);
     }
-    // Association-class edges: a dashed connector from the midpoint of
-    // (A, B)'s box centers to C. We don't try to anchor on the actual
-    // routed A-B path — the box-centers approximation is good enough
-    // for short hops.
+    // Association-class edges. The layout pass placed C at the rank
+    // between A and B (via virtual A→C, C→B edges), so the dashed
+    // connector lands cleanly at C's row, perpendicular to the A-B
+    // chord. We anchor on the chord at C's y-level and meet C on its
+    // near side — same look as PlantUML's "apoint" connector. A small
+    // dot is drawn at the chord anchor to mark the association point.
     for ce in &couple_edges {
-        let a_center = box_center(&geoms[ce.a_idx], top_lefts[ce.a_idx]);
-        let b_center = box_center(&geoms[ce.b_idx], top_lefts[ce.b_idx]);
-        let start = Point::new(
-            (a_center.x + b_center.x) / 2.0,
-            (a_center.y + b_center.y) / 2.0,
-        );
-        let end = top_anchor(&geoms[ce.c_idx], top_lefts[ce.c_idx]);
+        let a_tl = top_lefts[ce.a_idx];
+        let a_br = a_tl.add(geoms[ce.a_idx].size);
+        let b_tl = top_lefts[ce.b_idx];
+        let b_br = b_tl.add(geoms[ce.b_idx].size);
+        let c_tl = top_lefts[ce.c_idx];
+        let c_br = c_tl.add(geoms[ce.c_idx].size);
+        let a_center = box_center(&geoms[ce.a_idx], a_tl);
+        let b_center = box_center(&geoms[ce.b_idx], b_tl);
+        let c_center = box_center(&geoms[ce.c_idx], c_tl);
+
+        // The A-B chord runs along whichever axis separates A and B.
+        // For TB (the common case) that's vertical; the anchor x is
+        // the smart-aligned column shared by A.bot and B.top, the
+        // anchor y is C's row.
+        let tb = a_br.y <= b_tl.y || b_br.y <= a_tl.y;
+        let (anchor_x, anchor_y, end, from_side, to_side) = if tb {
+            // Smart-align column for the A-B chord, mirroring
+            // smart_align_coord above so the chord and apoint share x.
+            let lo = a_tl.x.max(b_tl.x);
+            let hi = a_br.x.min(b_br.x);
+            let x = if hi - lo > SMART_ALIGN_HEADROOM_PT {
+                (lo + hi) / 2.0
+            } else {
+                (a_center.x + b_center.x) / 2.0
+            };
+            // C is at a different rank from A and B (in between);
+            // the connector runs horizontally at C's mid-y.
+            let y = c_center.y;
+            let (end, c_side) = if c_center.x >= x {
+                (left_anchor(&geoms[ce.c_idx], c_tl), Side::Left)
+            } else {
+                (right_anchor(&geoms[ce.c_idx], c_tl), Side::Right)
+            };
+            // The apoint sits on the chord, so it "leaves" toward C
+            // along the perpendicular axis — opposite of c_side.
+            let from_side = match c_side {
+                Side::Left => Side::Right,
+                Side::Right => Side::Left,
+                _ => unreachable!(),
+            };
+            (x, y, end, from_side, c_side)
+        } else {
+            // LR-style: A and B separated horizontally; the chord is
+            // horizontal and the apoint is at C's column.
+            let lo = a_tl.y.max(b_tl.y);
+            let hi = a_br.y.min(b_br.y);
+            let y = if hi - lo > SMART_ALIGN_HEADROOM_PT {
+                (lo + hi) / 2.0
+            } else {
+                (a_center.y + b_center.y) / 2.0
+            };
+            let x = c_center.x;
+            let (end, c_side) = if c_center.y >= y {
+                (top_anchor(&geoms[ce.c_idx], c_tl), Side::Top)
+            } else {
+                (bot_anchor(&geoms[ce.c_idx], c_tl), Side::Bot)
+            };
+            let from_side = match c_side {
+                Side::Top => Side::Bot,
+                Side::Bot => Side::Top,
+                _ => unreachable!(),
+            };
+            (x, y, end, from_side, c_side)
+        };
+        let _ = c_br;
+        let start = Point::new(anchor_x, anchor_y);
         let segments = vec![cubic_from_straight(start, end)];
-        emit_couple_edge(out, ce, &segments, start);
+        emit_couple_edge(out, ce, &segments, start, from_side, to_side);
     }
     out.push_str("  ),\n");
 
@@ -284,19 +537,41 @@ impl Side {
     }
 }
 
-/// Pick (from-side, to-side) for an edge based on which axis of the
-/// displacement between the two box centers is larger. Equal-magnitude
-/// displacements bias toward the layout's primary axis (vertical for
-/// TB, horizontal for LR) so a regular parent → child inheritance
-/// edge in TB still uses bot/top anchoring.
-fn pick_edge_sides(from_center: Point, to_center: Point, is_lr: bool) -> (Side, Side) {
+/// Pick (from-side, to-side) for an edge.
+///
+/// Rule of thumb: connect along the layout's primary axis (vertical
+/// for TB, horizontal for LR) whenever the boxes are on different
+/// ranks — i.e. their extents on that axis don't overlap. Use the
+/// perpendicular axis only for sibling-rank pairs whose primary-axis
+/// extents *do* overlap (a U-turn over the rank gap would otherwise
+/// be ugly).
+///
+/// `from_bbox` / `to_bbox` are `(top_left, bot_right)`.
+fn pick_edge_sides(
+    from_center: Point,
+    to_center: Point,
+    from_bbox: (Point, Point),
+    to_bbox: (Point, Point),
+    is_lr: bool,
+) -> (Side, Side) {
     let dx = to_center.x - from_center.x;
     let dy = to_center.y - from_center.y;
-    let prefer_horizontal = if dx.abs() == dy.abs() {
-        is_lr
+
+    let primary_axis_overlap = if is_lr {
+        // LR: primary axis is x. Overlap on x means same rank.
+        from_bbox.0.x < to_bbox.1.x && to_bbox.0.x < from_bbox.1.x
     } else {
-        dx.abs() > dy.abs()
+        // TB: primary axis is y. Overlap on y means same rank.
+        from_bbox.0.y < to_bbox.1.y && to_bbox.0.y < from_bbox.1.y
     };
+
+    // Sibling rank (boxes overlap on the rank axis): a primary-axis
+    // edge would U-turn, so anchor on the perpendicular axis.
+    // Different rank: always anchor along the primary axis so the
+    // edge runs with the rank flow (looks like a Sugiyama tree fan-out
+    // rather than a horizontal cross-cut). Tangents and obstacle
+    // routing handle long-distance fan-outs without crowding.
+    let prefer_horizontal = if primary_axis_overlap { true } else { is_lr };
     if prefer_horizontal {
         if dx >= 0.0 {
             (Side::Right, Side::Left)
@@ -307,6 +582,18 @@ fn pick_edge_sides(from_center: Point, to_center: Point, is_lr: bool) -> (Side, 
         (Side::Bot, Side::Top)
     } else {
         (Side::Top, Side::Bot)
+    }
+}
+
+/// Unit tangent pointing *outward* from a box face — used as the
+/// launch / arrival tangent for cubic edge routing so the bezier
+/// leaves the anchor perpendicular to the face it attaches to.
+fn side_tangent(side: Side) -> Point {
+    match side {
+        Side::Top => Point::new(0.0, -1.0),
+        Side::Bot => Point::new(0.0, 1.0),
+        Side::Left => Point::new(-1.0, 0.0),
+        Side::Right => Point::new(1.0, 0.0),
     }
 }
 
@@ -326,10 +613,17 @@ fn anchor_for_side(g: &ClassGeom, top_left: Point, side: Side) -> Point {
 const SMART_ALIGN_HEADROOM_PT: f64 = 4.0;
 
 /// If both anchors are on the same axis (both left/right OR both
-/// top/bot) and the boxes' perpendicular extents overlap, return the
-/// coordinate (y for left/right anchors; x for top/bot) at which both
-/// anchors should be placed so the Manhattan Z degenerates to a
+/// top/bot) and the boxes' perpendicular extents *and* both boxes'
+/// centers fit inside that overlap, return the coordinate at which
+/// both anchors should be placed so the Manhattan Z degenerates to a
 /// single straight segment.
+///
+/// The "both centers in overlap" gate is what makes fan-in / fan-out
+/// (e.g. basic.puml's Dog and Cat both pointing at Animal) keep
+/// their natural anchors. Without it, smart-align would yank a
+/// source's anchor far from its own mid, making the edge appear to
+/// leave a corner of the parent box rather than the centre — the
+/// look that makes fan-outs read as "lines hooked to nowhere".
 fn smart_align_coord(
     from_g: &ClassGeom,
     from_tl: Point,
@@ -347,20 +641,30 @@ fn smart_align_coord(
         // Both anchors are on left/right side; align on y.
         let lo = from_tl.y.max(to_tl.y);
         let hi = (from_tl.y + from_g.size.y).min(to_tl.y + to_g.size.y);
-        if hi - lo > SMART_ALIGN_HEADROOM_PT {
-            Some((lo + hi) / 2.0)
-        } else {
-            None
+        if hi - lo <= SMART_ALIGN_HEADROOM_PT {
+            return None;
         }
+        let from_mid = from_tl.y + from_g.size.y / 2.0;
+        let to_mid = to_tl.y + to_g.size.y / 2.0;
+        if !(lo <= from_mid && from_mid <= hi && lo <= to_mid && to_mid <= hi) {
+            return None;
+        }
+        Some((from_mid + to_mid) / 2.0)
     } else {
         // Both anchors are on top/bot; align on x.
         let lo = from_tl.x.max(to_tl.x);
         let hi = (from_tl.x + from_g.size.x).min(to_tl.x + to_g.size.x);
-        if hi - lo > SMART_ALIGN_HEADROOM_PT {
-            Some((lo + hi) / 2.0)
-        } else {
-            None
+        if hi - lo <= SMART_ALIGN_HEADROOM_PT {
+            return None;
         }
+        let from_mid = from_tl.x + from_g.mid_x;
+        let to_mid = to_tl.x + to_g.mid_x;
+        if !(lo <= from_mid && from_mid <= hi && lo <= to_mid && to_mid <= hi) {
+            return None;
+        }
+        // Average of mids — anchors land close to *both* boxes' centres,
+        // so neither edge appears off-centre.
+        Some((from_mid + to_mid) / 2.0)
     }
 }
 
@@ -369,11 +673,15 @@ fn emit_couple_edge(
     ce: &CoupleEdge,
     segments: &[(Point, Point, Point)],
     start: Point,
+    from_side: Side,
+    to_side: Side,
 ) {
     let _ = write!(
         out,
-        "    (from-couple: ({}, {}), to: {}, head-from: \"none\", head-to: \"none\", style: \"dashed\", start: ({:.2}pt, {:.2}pt)",
-        ce.a_idx, ce.b_idx, ce.c_idx, start.x, start.y,
+        "    (from-couple: ({}, {}), to: {}, head-from: \"none\", head-to: \"none\", style: \"dashed\", from-side: \"{}\", to-side: \"{}\", start: ({:.2}pt, {:.2}pt)",
+        ce.a_idx, ce.b_idx, ce.c_idx,
+        from_side.keyword(), to_side.keyword(),
+        start.x, start.y,
     );
     if let Some(label) = &ce.relation.label {
         out.push_str(", label: [");
@@ -419,34 +727,26 @@ struct OrientedEdge {
     relation: Relation,
 }
 
-/// Pick an orientation for the rendered edge such that
-/// generalization / composition / aggregation flows from "parent" to
-/// "child" (head end → no-head end). Plain associations / dependencies
-/// keep the user-written direction unless an explicit `Up` / `Left`
-/// hint flips them — for top-to-bottom Sugiyama, both `Up` and `Left`
-/// mean "the target should be visually before the source", so they
-/// flip equivalently.
+/// Pick an orientation for the rendered edge.
+///
+/// Default rule: keep the user-written direction (source → target →
+/// top → bottom in TB), matching PlantUML. Earlier this code swapped
+/// `B --|> A` so the parent (A) became the source/top — that gave
+/// "semantically correct" inheritance trees but diverged from
+/// PlantUML's text-order convention. The arrow head is rendered at
+/// whichever end it was specified, so the parent visual is preserved
+/// either way.
+///
+/// `direction: Up` / `Left` flips the edge — those keywords explicitly
+/// mean "draw the target above/before the source".
 fn orient_relation(rel: &Relation, entities: &[Entity]) -> Option<OrientedEdge> {
     let from_idx = entities.iter().position(|e| e.id == rel.from)?;
     let to_idx = entities.iter().position(|e| e.id == rel.to)?;
 
-    let owner_like = |h: ArrowHead| {
-        matches!(
-            h,
-            ArrowHead::TriangleOpen | ArrowHead::DiamondFilled | ArrowHead::DiamondOpen
-        )
-    };
-
-    let mut swapped = if owner_like(rel.head_to) && !owner_like(rel.head_from) {
-        // `B --|> A` — head at `to` is the parent. Swap so parent is source.
-        true
-    } else {
-        false
-    };
-
-    if matches!(rel.direction, Some(IrDirection::Up) | Some(IrDirection::Left)) {
-        swapped = !swapped;
-    }
+    let swapped = matches!(
+        rel.direction,
+        Some(IrDirection::Up) | Some(IrDirection::Left)
+    );
 
     let (src_idx, dst_idx, head_src, head_dst) = if swapped {
         (to_idx, from_idx, rel.head_to, rel.head_from)
@@ -525,6 +825,94 @@ fn try_manhattan_route(
         cubic_from_straight(p2, p3),
         cubic_from_straight(p3, p4),
     ])
+}
+
+/// True iff a straight line from `a` to `b` doesn't cross any
+/// obstacle bbox (open boundary — touching a corner is allowed).
+/// Used to decide whether an edge can take a single diagonal cubic
+/// instead of detouring through Manhattan or pathplan.
+fn line_of_sight_clear(a: Point, b: Point, obstacles: &[pathplan::Box]) -> bool {
+    obstacles
+        .iter()
+        .all(|ob| !segment_strictly_crosses_box(a, b, ob))
+}
+
+/// True iff segment a→b enters the open interior of `ob`. Endpoints
+/// touching the box border count as outside (so an edge that anchors
+/// on a face doesn't read as crossing its own anchor box).
+fn segment_strictly_crosses_box(a: Point, b: Point, ob: &pathplan::Box) -> bool {
+    let lo = ob.min;
+    let hi = ob.max;
+    // Liang-Barsky-ish parameter clipping. Compute the t-interval over
+    // which the parametric segment lies inside [lo, hi]^2; reject if
+    // empty or only at the endpoints.
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    let mut t_enter = 0.0_f64;
+    let mut t_exit = 1.0_f64;
+    let clip = |p: f64, q: f64, t_enter: &mut f64, t_exit: &mut f64| -> bool {
+        if p.abs() < 1e-9 {
+            // Parallel to slab: inside iff q >= 0.
+            return q >= 0.0;
+        }
+        let r = q / p;
+        if p < 0.0 {
+            if r > *t_exit { return false; }
+            if r > *t_enter { *t_enter = r; }
+        } else {
+            if r < *t_enter { return false; }
+            if r < *t_exit { *t_exit = r; }
+        }
+        true
+    };
+    if !clip(-dx, a.x - lo.x, &mut t_enter, &mut t_exit) { return false; }
+    if !clip(dx, hi.x - a.x, &mut t_enter, &mut t_exit) { return false; }
+    if !clip(-dy, a.y - lo.y, &mut t_enter, &mut t_exit) { return false; }
+    if !clip(dy, hi.y - a.y, &mut t_enter, &mut t_exit) { return false; }
+    // Strict interior: we need the clipped sub-segment to have
+    // positive length (more than just touching at a single t).
+    t_exit - t_enter > 1e-6
+}
+
+/// Build a smooth path from `a` to `b` whose tangent at both ends
+/// follows `src_normal` (the outward face normal). Returns one or
+/// two cubic segments:
+///
+/// * Single cubic for short hops where a clean S-curve is enough.
+/// * Two cubics for longer hops: a sweeping cubic from `a` to a
+///   pre-arrival point that's `HEAD_STUB_PT` along the normal away
+///   from `b`, then a short straight cubic from there to `b`. The
+///   stub guarantees the line is genuinely axis-aligned for the last
+///   stretch — without it, a single cubic with perpendicular
+///   tangents at both ends would still cross the arrowhead's base
+///   off-centre, because the cubic's *trajectory* near the endpoint
+///   doesn't go straight even when its tangent does.
+fn diagonal_path(a: Point, b: Point, src_normal: Point) -> Vec<(Point, Point, Point)> {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    let along = (dx * src_normal.x + dy * src_normal.y).abs();
+    let perp = ((dx * -src_normal.y) + (dy * src_normal.x)).abs();
+    // Reserve room for the arrow head plus a 2pt safety margin so the
+    // base of a triangle/diamond head sits inside the axis-aligned tail.
+    const HEAD_STUB_PT: f64 = 12.0;
+    // No room to insert a stub — fall back to a single S-cubic.
+    if along <= HEAD_STUB_PT * 1.5 || perp < 1.0 {
+        let handle = (along * 0.5).max(8.0).min(40.0);
+        let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
+        let c2 = Point::new(b.x - src_normal.x * handle, b.y - src_normal.y * handle);
+        return vec![(c1, c2, b)];
+    }
+    // Pre-arrival point: HEAD_STUB_PT along the *outward* normal back
+    // from b. The sweep ends here; the stub from here to b is axis
+    // aligned by construction.
+    let pre = Point::new(b.x - src_normal.x * HEAD_STUB_PT, b.y - src_normal.y * HEAD_STUB_PT);
+    let along_to_pre = along - HEAD_STUB_PT;
+    let handle = (along_to_pre * 0.5).max(8.0).min(40.0);
+    let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
+    let c2 = Point::new(pre.x - src_normal.x * handle, pre.y - src_normal.y * handle);
+    let sweep = (c1, c2, pre);
+    let stub = cubic_from_straight(pre, b);
+    vec![sweep, stub]
 }
 
 /// Express a straight line a→b as a (c1, c2, end) cubic Bezier whose
@@ -738,11 +1126,19 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOpt
     }
     let show_fields = !(hide.fields || hide.members);
     let show_methods = !(hide.methods || hide.members);
+    // Force the painter to render the box with codegen's exact width
+    // and height. Without this, Typst's `measure` of the rendered text
+    // gives slightly different sizes — and the resulting mid-x is what
+    // the painter uses to anchor edges, so edges land off-centre
+    // relative to the codegen-computed routing.
+    let geom = class_geom_filtered(entity, hide);
     out.push_str(&format!(
-        "    (x: {:.2}pt, y: {:.2}pt, kind: \"{}\", name: [",
+        "    (x: {:.2}pt, y: {:.2}pt, kind: \"{}\", width: {:.2}pt, height: {:.2}pt, name: [",
         top_left.x,
         top_left.y,
         entity.kind.keyword(),
+        geom.size.x,
+        geom.size.y,
     ));
     out.push_str(&creole_to_typst(&entity.display));
     out.push(']');
@@ -811,9 +1207,10 @@ fn emit_class(out: &mut String, top_left: Point, entity: &Entity, hide: &HideOpt
 }
 
 fn emit_lollipop(out: &mut String, top_left: Point, entity: &Entity) {
+    let geom = lollipop_geom(entity);
     out.push_str(&format!(
-        "    (x: {:.2}pt, y: {:.2}pt, kind: \"lollipop\", name: [",
-        top_left.x, top_left.y,
+        "    (x: {:.2}pt, y: {:.2}pt, kind: \"lollipop\", width: {:.2}pt, name: [",
+        top_left.x, top_left.y, geom.size.x,
     ));
     out.push_str(&creole_to_typst(&entity.display));
     out.push_str("]),\n");
@@ -1764,9 +2161,12 @@ mod tests {
     }
 
     #[test]
-    fn extends_swaps_so_parent_is_source() {
+    fn extends_keeps_user_text_order() {
         // user wrote: `class Dog`, `class Animal`, `Dog --|> Animal`.
-        // Animal is parent → should appear as the source of the rendered edge.
+        // PlantUML places the source (Dog) on top and the target
+        // (Animal) below; the triangle is rendered at the target end
+        // so it still visually points at the parent. We match that —
+        // text order wins, no swap.
         let mut diag = ClassDiagram::default();
         diag.entities.push(entity("Dog", EntityKind::Class));
         diag.entities.push(entity("Animal", EntityKind::Class));
@@ -1791,10 +2191,9 @@ mod tests {
             line: 0,
         });
         let s = render(diag);
-        // After orient_relation swap: src_idx = 1 (Animal), dst_idx = 0 (Dog).
-        assert!(s.contains("from: 1, to: 0"));
-        assert!(s.contains("head-from: \"triangle-open\""));
-        assert!(s.contains("head-to: \"none\""));
+        assert!(s.contains("from: 0, to: 1"));
+        assert!(s.contains("head-to: \"triangle-open\""));
+        assert!(s.contains("head-from: \"none\""));
     }
 
     #[test]
@@ -1865,12 +2264,11 @@ mod tests {
     }
 
     #[test]
-    fn swap_relabels_multiplicity_and_role_to_rendered_ends() {
-        // Pre-fix: `swapped` was always false (the helper was a no-op),
-        // so a `--|>` arrow with multiplicities emitted them on the IR's
-        // original ends — which were now the *wrong* ends after the
-        // owner-on-top swap. With the OrientedEdge.swapped flag, the
-        // labels should follow the rendered ends.
+    fn direction_up_relabels_mult_and_role_to_rendered_ends() {
+        // `Sub -up-> Sup` — the explicit `up` direction flips the edge,
+        // so the rendered source is Sup (IR's `to`) and the rendered
+        // target is Sub (IR's `from`). Multiplicity / role labels track
+        // the rendered ends.
         let mut diag = ClassDiagram::default();
         diag.entities.push(entity("Sub", EntityKind::Class));
         diag.entities.push(entity("Sup", EntityKind::Class));
@@ -1883,7 +2281,7 @@ mod tests {
             head_from: ArrowHead::None,
             head_to: ArrowHead::TriangleOpen,
             line_style: LineStyle::Solid,
-            direction: None,
+            direction: Some(IrDirection::Up),
             label: None,
             mult_from: Some("S".into()),
             mult_to: Some("T".into()),
@@ -1895,9 +2293,6 @@ mod tests {
             line: 0,
         });
         let s = render(diag);
-        // After swap, rendered source = Sup (IR's `to`) and rendered
-        // target = Sub (IR's `from`). `mult-from`/`role-from` track the
-        // rendered source.
         assert!(s.contains("from: 1, to: 0"));
         assert!(
             s.contains("mult-from: [T]") && s.contains("mult-to: [S]"),

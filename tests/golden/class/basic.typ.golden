@@ -6,12 +6,12 @@
 
 #class-layout(
   classes: (
-    (x: 53.25pt, y: 6.00pt, kind: "class", name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
-    (x: 3.00pt, y: 90.00pt, kind: "class", name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
-    (x: 103.50pt, y: 90.00pt, kind: "class", name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 77.25pt, y: 108.00pt, kind: "class", width: 94.50pt, height: 72.00pt, name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 15.00pt, y: 18.00pt, kind: "class", width: 94.50pt, height: 54.00pt, name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 139.50pt, y: 18.00pt, kind: "class", width: 94.50pt, height: 54.00pt, name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "triangle-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 75.38pt, to-x: 75.38pt, path: ((c1: (75.38pt, 82.00pt), c2: (75.38pt, 86.00pt), end: (75.38pt, 90.00pt)),)),
-    (from: 0, to: 2, head-from: "triangle-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 125.62pt, to-x: 125.62pt, path: ((c1: (125.62pt, 82.00pt), c2: (125.62pt, 86.00pt), end: (125.62pt, 90.00pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.25pt, 84.00pt), c2: (124.50pt, 84.00pt), end: (124.50pt, 96.00pt)), (c1: (124.50pt, 100.00pt), c2: (124.50pt, 104.00pt), end: (124.50pt, 108.00pt)))),
+    (from: 2, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (186.75pt, 84.00pt), c2: (124.50pt, 84.00pt), end: (124.50pt, 96.00pt)), (c1: (124.50pt, 100.00pt), c2: (124.50pt, 104.00pt), end: (124.50pt, 108.00pt)))),
   ),
 )

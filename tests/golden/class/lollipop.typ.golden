@@ -4,12 +4,12 @@
 
 #class-layout(
   classes: (
-    (x: 9.10pt, y: 6.00pt, kind: "class", name: [Component], fields: (), methods: ()),
-    (x: 3.00pt, y: 36.00pt, kind: "lollipop", name: [Provided]),
-    (x: 53.00pt, y: 36.00pt, kind: "lollipop", name: [Required]),
+    (x: 33.10pt, y: 18.00pt, kind: "class", width: 81.80pt, height: 18.00pt, name: [Component], fields: (), methods: ()),
+    (x: 15.00pt, y: 72.00pt, kind: "lollipop", width: 44.00pt, name: [Provided]),
+    (x: 89.00pt, y: 72.00pt, kind: "lollipop", width: 44.00pt, name: [Required]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 28.05pt, to-x: 28.05pt, path: ((c1: (28.05pt, 28.00pt), c2: (28.05pt, 32.00pt), end: (28.05pt, 36.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 71.95pt, to-x: 71.95pt, path: ((c1: (71.95pt, 28.00pt), c2: (71.95pt, 32.00pt), end: (71.95pt, 36.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (74.00pt, 48.00pt), c2: (37.00pt, 48.00pt), end: (37.00pt, 60.00pt)), (c1: (37.00pt, 64.00pt), c2: (37.00pt, 68.00pt), end: (37.00pt, 72.00pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (74.00pt, 48.00pt), c2: (111.00pt, 48.00pt), end: (111.00pt, 60.00pt)), (c1: (111.00pt, 64.00pt), c2: (111.00pt, 68.00pt), end: (111.00pt, 72.00pt)))),
   ),
 )

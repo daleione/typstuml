@@ -4,10 +4,10 @@
 
 #class-layout(
   classes: (
-    (x: 3.00pt, y: 6.00pt, kind: "class", name: [Order], stereotype: [aggregate root], hide-marker: true, fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [total: Money])), methods: ()),
-    (x: 24.00pt, y: 90.00pt, kind: "class", name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),
+    (x: 15.00pt, y: 18.00pt, kind: "class", width: 109.00pt, height: 72.00pt, name: [Order], stereotype: [aggregate root], hide-marker: true, fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [total: Money])), methods: ()),
+    (x: 36.00pt, y: 126.00pt, kind: "class", width: 67.00pt, height: 36.00pt, name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 57.50pt, to-x: 57.50pt, path: ((c1: (57.50pt, 82.00pt), c2: (57.50pt, 86.00pt), end: (57.50pt, 90.00pt)),)),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 69.50pt, to-x: 69.50pt, path: ((c1: (69.50pt, 108.00pt), c2: (69.50pt, 108.00pt), end: (69.50pt, 126.00pt)),)),
   ),
 )

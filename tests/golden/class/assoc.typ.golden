@@ -4,13 +4,12 @@
 
 #class-layout(
   classes: (
-    (x: 11.20pt, y: 6.00pt, kind: "class", name: [Customer], fields: (), methods: ()),
-    (x: 3.00pt, y: 36.00pt, kind: "class", name: [Order], fields: (), methods: ()),
-    (x: 21.75pt, y: 66.00pt, kind: "class", name: [OrderHistory], fields: (), methods: ()),
-    (x: 92.80pt, y: 6.00pt, kind: "class", name: [], fields: (), methods: ()),
+    (x: 78.93pt, y: 18.00pt, kind: "class", width: 75.60pt, height: 18.00pt, name: [Customer], fields: (), methods: ()),
+    (x: 88.23pt, y: 126.00pt, kind: "class", width: 57.00pt, height: 18.00pt, name: [Order], fields: (), methods: ()),
+    (x: -15.67pt, y: 72.00pt, kind: "class", width: 100.40pt, height: 18.00pt, name: [OrderHistory], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 35.60pt, to-x: 35.60pt, mult-from: [1], mult-to: [\*], path: ((c1: (35.60pt, 28.00pt), c2: (35.60pt, 32.00pt), end: (35.60pt, 36.00pt)),)),
-    (from-couple: (0, 1), to: 2, head-from: "none", head-to: "none", style: "dashed", start: (40.25pt, 30.00pt), path: ((c1: (50.82pt, 42.00pt), c2: (61.38pt, 54.00pt), end: (71.95pt, 66.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 116.73pt, to-x: 116.73pt, mult-from: [1], mult-to: [\*], path: ((c1: (116.73pt, 76.00pt), c2: (116.73pt, 86.00pt), end: (116.73pt, 126.00pt)),)),
+    (from-couple: (0, 1), to: 2, head-from: "none", head-to: "none", style: "dashed", from-side: "left", to-side: "right", start: (116.73pt, 81.00pt), path: ((c1: (106.06pt, 81.00pt), c2: (95.39pt, 81.00pt), end: (84.73pt, 81.00pt)),)),
   ),
 )

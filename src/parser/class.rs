@@ -346,6 +346,13 @@ impl<'a> Parser<'a> {
             (&rel.from, from_lollipop),
             (&rel.to, to_lollipop),
         ] {
+            // Couple form (`(A, B) .. C`) leaves the `from` id empty —
+            // the real endpoints A and B are tracked separately in
+            // `rel.from_couple`. Don't auto-create a phantom empty
+            // entity here.
+            if id.is_empty() {
+                continue;
+            }
             if !self.diag.entities.iter().any(|e| e.id == *id) {
                 let kind = if lollipop {
                     EntityKind::Circle

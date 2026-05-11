@@ -4,17 +4,17 @@
 
 #class-layout(
   classes: (
-    (x: 30.70pt, y: 6.00pt, kind: "class", name: [Outer], fields: (), methods: ()),
-    (x: 17.00pt, y: 50.00pt, kind: "class", name: [A], fields: (), methods: ()),
-    (x: 17.00pt, y: 80.00pt, kind: "class", name: [B], fields: (), methods: ()),
-    (x: 69.20pt, y: 36.00pt, kind: "class", name: [C], fields: (), methods: ()),
+    (x: 54.70pt, y: 18.00pt, kind: "class", width: 57.00pt, height: 18.00pt, name: [Outer], fields: (), methods: ()),
+    (x: 29.00pt, y: 86.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [A], fields: (), methods: ()),
+    (x: 29.00pt, y: 140.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [B], fields: (), methods: ()),
+    (x: 105.20pt, y: 72.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [C], fields: (), methods: ()),
   ),
   packages: (
-    (x: 3.00pt, y: 36.00pt, w: 60.20pt, h: 76.00pt, kind: "together", label: []),
+    (x: 3.00pt, y: 60.00pt, w: 84.20pt, h: 124.00pt, kind: "together", label: []),
   ),
   edges: (
-    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 33.10pt, to-x: 33.10pt, path: ((c1: (33.10pt, 72.00pt), c2: (33.10pt, 76.00pt), end: (33.10pt, 80.00pt)),)),
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 39.95pt, to-x: 39.95pt, path: ((c1: (39.95pt, 32.67pt), c2: (39.95pt, 41.33pt), end: (39.95pt, 50.00pt)),)),
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 78.45pt, to-x: 78.45pt, path: ((c1: (78.45pt, 28.00pt), c2: (78.45pt, 32.00pt), end: (78.45pt, 36.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 45.10pt, to-x: 45.10pt, path: ((c1: (45.10pt, 122.00pt), c2: (45.10pt, 122.00pt), end: (45.10pt, 140.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (83.20pt, 55.00pt), c2: (45.10pt, 55.00pt), end: (45.10pt, 74.00pt)), (c1: (45.10pt, 78.00pt), c2: (45.10pt, 82.00pt), end: (45.10pt, 86.00pt)))),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (83.20pt, 48.00pt), c2: (121.30pt, 48.00pt), end: (121.30pt, 60.00pt)), (c1: (121.30pt, 64.00pt), c2: (121.30pt, 68.00pt), end: (121.30pt, 72.00pt)))),
   ),
 )

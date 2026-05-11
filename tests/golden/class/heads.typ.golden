@@ -6,18 +6,18 @@
 
 #class-layout(
   classes: (
-    (x: 50.75pt, y: 36.00pt, kind: "class", name: [A], fields: (), methods: ()),
-    (x: 3.00pt, y: 6.00pt, kind: "class", name: [B], fields: (), methods: ()),
-    (x: 50.75pt, y: 6.00pt, kind: "class", name: [C], fields: (), methods: ()),
-    (x: 12.55pt, y: 66.00pt, kind: "class", name: [D], fields: (), methods: ()),
-    (x: 50.75pt, y: 66.00pt, kind: "class", name: [E], fields: (), methods: ()),
-    (x: 88.95pt, y: 66.00pt, kind: "class", name: [F], fields: (), methods: ()),
+    (x: 139.40pt, y: 18.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [A], fields: (), methods: ()),
+    (x: 15.00pt, y: 72.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [B], fields: (), methods: ()),
+    (x: 77.20pt, y: 72.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [C], fields: (), methods: ()),
+    (x: 139.40pt, y: 72.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [D], fields: (), methods: ()),
+    (x: 201.60pt, y: 72.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [E], fields: (), methods: ()),
+    (x: 263.80pt, y: 72.00pt, kind: "class", width: 32.20pt, height: 18.00pt, name: [F], fields: (), methods: ()),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "triangle-open", head-to: "none", style: "solid", from-side: "right", to-side: "left", path: ((c1: (37.79pt, 15.00pt), c2: (40.38pt, 15.00pt), end: (42.98pt, 15.00pt)), (c1: (42.98pt, 25.00pt), c2: (42.98pt, 35.00pt), end: (42.98pt, 45.00pt)), (c1: (45.57pt, 45.00pt), c2: (48.16pt, 45.00pt), end: (50.75pt, 45.00pt)))),
-    (from: 2, to: 0, head-from: "triangle-open", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 66.85pt, to-x: 66.85pt, path: ((c1: (66.85pt, 28.00pt), c2: (66.85pt, 32.00pt), end: (66.85pt, 36.00pt)),)),
-    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", from-side: "left", to-side: "right", path: ((c1: (49.75pt, 45.00pt), c2: (48.75pt, 45.00pt), end: (47.75pt, 45.00pt)), (c1: (47.75pt, 55.00pt), c2: (47.75pt, 65.00pt), end: (47.75pt, 75.00pt)), (c1: (46.75pt, 75.00pt), c2: (45.75pt, 75.00pt), end: (44.75pt, 75.00pt)))),
-    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 66.85pt, to-x: 66.85pt, path: ((c1: (66.85pt, 58.00pt), c2: (66.85pt, 62.00pt), end: (66.85pt, 66.00pt)),)),
-    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (83.95pt, 45.00pt), c2: (84.95pt, 45.00pt), end: (85.95pt, 45.00pt)), (c1: (85.95pt, 55.00pt), c2: (85.95pt, 65.00pt), end: (85.95pt, 75.00pt)), (c1: (86.95pt, 75.00pt), c2: (87.95pt, 75.00pt), end: (88.95pt, 75.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (155.50pt, 48.00pt), c2: (31.10pt, 48.00pt), end: (31.10pt, 60.00pt)), (c1: (31.10pt, 64.00pt), c2: (31.10pt, 68.00pt), end: (31.10pt, 72.00pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (155.50pt, 48.00pt), c2: (93.30pt, 48.00pt), end: (93.30pt, 60.00pt)), (c1: (93.30pt, 64.00pt), c2: (93.30pt, 68.00pt), end: (93.30pt, 72.00pt)))),
+    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 155.50pt, to-x: 155.50pt, path: ((c1: (155.50pt, 54.00pt), c2: (155.50pt, 54.00pt), end: (155.50pt, 72.00pt)),)),
+    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (155.50pt, 48.00pt), c2: (217.70pt, 48.00pt), end: (217.70pt, 60.00pt)), (c1: (217.70pt, 64.00pt), c2: (217.70pt, 68.00pt), end: (217.70pt, 72.00pt)))),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (155.50pt, 48.00pt), c2: (279.90pt, 48.00pt), end: (279.90pt, 60.00pt)), (c1: (279.90pt, 64.00pt), c2: (279.90pt, 68.00pt), end: (279.90pt, 72.00pt)))),
   ),
 )

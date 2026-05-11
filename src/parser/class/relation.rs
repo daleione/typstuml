@@ -130,11 +130,15 @@ fn expand_arrow_around(bytes: &[u8], pivot: usize) -> Option<(usize, usize)> {
 
 /// `up` / `down` / `left` / `right` (or `le` / `ri` / `do`) starting at
 /// the first byte of `s`. Returns the length consumed, or `None`.
+///
+/// Byte-compares — `str::eq_ignore_ascii_case` on a UTF-8 slice would
+/// panic when `kw.len()` indexes inside a multi-byte char (e.g. CJK
+/// label on the right-hand side of an arrow body).
 fn match_direction_keyword(s: &[u8]) -> Option<usize> {
-    let text = std::str::from_utf8(s).ok()?;
     for kw in ["right", "left", "down", "up", "ri", "le", "do"] {
-        if text.len() >= kw.len() && text[..kw.len()].eq_ignore_ascii_case(kw) {
-            return Some(kw.len());
+        let kb = kw.as_bytes();
+        if s.len() >= kb.len() && s[..kb.len()].eq_ignore_ascii_case(kb) {
+            return Some(kb.len());
         }
     }
     None
@@ -606,5 +610,17 @@ mod tests {
         assert_eq!(style, LineStyle::Dashed);
         let (_, _, style, _, _) = decode_arrow("--|>");
         assert_eq!(style, LineStyle::Solid);
+    }
+
+    #[test]
+    fn cjk_target_after_arrow_does_not_panic() {
+        // Multi-byte char immediately after the arrow body used to
+        // panic in `match_direction_keyword` when it sliced
+        // `text[..kw.len()]` and landed inside the UTF-8 boundary
+        // of the leading CJK char.
+        let r = parse_relation("电商领域模型 ..> 基础设施层 : 依赖", 1)
+            .expect("parses without panic");
+        assert_eq!(r.rel.from, "电商领域模型");
+        assert_eq!(r.rel.to, "基础设施层");
     }
 }

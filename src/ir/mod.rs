@@ -323,9 +323,9 @@ pub struct Skinparam {
 /// (`Entity`/`Relation`/`Container`) is deliberately neutral — the same
 /// shape will host object and component diagrams once they land.
 ///
-/// `containers` is M0-empty; the field exists so M1 (cluster-aware
-/// Sugiyama) can wire `package { … }` / `namespace { … }` parsing without
-/// an IR migration.
+/// `containers` carries `package` / `namespace` / `together` /
+/// `folder` / `frame` / `node` / `cloud` blocks; codegen consumes
+/// them via the compound layout pass.
 #[derive(Clone, Debug, Default)]
 pub struct ClassDiagram {
     pub name: Option<String>,
@@ -562,7 +562,7 @@ pub enum ArrowHead {
     Cross,
     /// `+` — private internal.
     Plus,
-    /// `(0` / `0)` / `(0)` — middle circle / lollipop variants. M2.
+    /// `(0` / `0)` / `(0)` — middle circle / lollipop variant.
     CircleConnect,
 }
 
@@ -582,7 +582,9 @@ pub enum Direction {
 }
 
 /// Container for `package { }` / `namespace { }` / `together { }` etc.
-/// M0 codegen ignores this; M1 cluster-aware Sugiyama consumes it.
+/// Codegen's compound layout pass runs a sub-Sugiyama per cluster and
+/// nests them under a super-Sugiyama; cluster bboxes are emitted as
+/// `packages: (...)` for the painter to draw.
 #[derive(Clone, Debug)]
 pub struct Container {
     pub kind: ContainerKind,

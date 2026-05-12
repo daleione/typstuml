@@ -1,0 +1,20 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  classes: (
+    (x: 15.31pt, y: 18.00pt, width: 67.15pt, height: 17.00pt, kind: "class", name: [TopLevel], fields: (), methods: ()),
+    (x: 15.00pt, y: 71.00pt, width: 67.76pt, height: 17.00pt, kind: "class", name: [MidLevel], fields: (), methods: ()),
+    (x: 26.07pt, y: 124.00pt, width: 45.63pt, height: 17.00pt, kind: "class", name: [Leaf], fields: (), methods: ()),
+  ),
+  packages: (
+    (x: -27.93pt, y: -19.48pt, w: 153.63pt, h: 214.48pt, kind: "package", label: [Grandparent]),
+    (x: -13.93pt, y: 33.52pt, w: 125.63pt, h: 147.48pt, kind: "package", label: [Parent]),
+    (x: 0.07pt, y: 86.52pt, w: 97.63pt, h: 80.48pt, kind: "package", label: [Child]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 48.88pt, to-x: 48.88pt, path: ((c1: (48.88pt, 53.00pt), c2: (48.88pt, 53.00pt), end: (48.88pt, 71.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 48.88pt, to-x: 48.88pt, path: ((c1: (48.88pt, 106.00pt), c2: (48.88pt, 106.00pt), end: (48.88pt, 124.00pt)),)),
+  ),
+)

@@ -1,0 +1,19 @@
+@startuml
+' 3-level nesting regression: Grandparent > Parent > Child, each
+' level holds at least one direct entity to make sure entity
+' placement and cluster bbox derivation cooperate at every depth.
+' Inner cluster bboxes must sit strictly inside their parent;
+' tighten's depth-first compute pass guards this.
+package "Grandparent" {
+  class TopLevel
+  package "Parent" {
+    class MidLevel
+    package "Child" {
+      class Leaf
+    }
+  }
+}
+
+TopLevel --> MidLevel
+MidLevel --> Leaf
+@enduml

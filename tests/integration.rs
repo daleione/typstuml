@@ -502,6 +502,26 @@ fn golden_emit_typst_class_sibling_reorder() {
 }
 
 #[test]
+fn golden_emit_typst_class_nested_3() {
+    // M3 regression: 3 levels of nested packages each holding a
+    // direct entity. Inner cluster bboxes must sit inside their
+    // parent and the edges must rank entities top → mid → leaf in
+    // declaration depth order.
+    let actual = emit_typst_path(&fixture_in("class", "nested-3.puml"));
+    assert_golden_in("class", "nested-3", &actual);
+}
+
+#[test]
+fn golden_emit_typst_class_transparent_ancestor() {
+    // M3 regression: PkgA is a shared ancestor of edge X --> Y, so it
+    // must be transparent for routing (the edge stays inside).
+    // Sibling PkgB (containing Z) is opaque — X --> Z must detour
+    // around PkgB instead of clipping through.
+    let actual = emit_typst_path(&fixture_in("class", "transparent-ancestor.puml"));
+    assert_golden_in("class", "transparent-ancestor", &actual);
+}
+
+#[test]
 fn golden_emit_typst_class_desc_family() {
     // M5-partial / M6 regression: desc-family leaf keywords
     // (component / actor / usecase / database / node / cloud) and the

@@ -1,0 +1,19 @@
+@startuml
+' Transparent ancestor regression: PkgA contains both X and Y, with
+' an edge X --> Y. The shared ancestor PkgA is transparent for
+' routing — the edge stays inside PkgA's bbox instead of treating
+' PkgA as an obstacle and detouring around it. Sibling cluster
+' PkgB (and its member Z) is an obstacle and the route to Z must
+' detour around it.
+package "PkgA" {
+  class X
+  class Y
+}
+
+package "PkgB" {
+  class Z
+}
+
+X --> Y
+X --> Z
+@enduml

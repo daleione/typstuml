@@ -45,6 +45,10 @@ const STAGED_SRC_FILES: &[&str] = &[
     "seq.typ",
     "tree.typ",
     "cuca.typ",
+    "cuca/theme.typ",
+    "cuca/shape-card.typ",
+    "cuca/shape-desc.typ",
+    "cuca/edges.typ",
     "palettes.typ",
     "internal/metrics.typ",
 ];

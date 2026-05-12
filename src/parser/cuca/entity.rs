@@ -68,9 +68,19 @@ pub(super) const ENTITY_KEYWORDS: &[&str] = &[
     "portout",
 ];
 
+/// One entity declaration's parser output. `extends` / `implements` are
+/// the parent / interface ids picked up from
+/// `class Foo extends Bar implements Baz1, Baz2` — they become real
+/// relations once the caller commits the entity.
 pub(super) struct EntityAction {
     pub(super) entity: Entity,
     pub(super) has_block: bool,
+    /// `class A extends B` → `extends = ["B"]`. A generalization edge
+    /// B ◁── A gets created by the commit step.
+    pub(super) extends: Vec<String>,
+    /// `class A implements I1, I2` → `implements = ["I1", "I2"]`.
+    /// Dashed generalization edge per interface.
+    pub(super) implements: Vec<String>,
 }
 
 /// Parse `() Foo` or `() "Display" as Foo` as a lollipop interface
@@ -87,6 +97,8 @@ pub(super) fn parse_lollipop_decl(raw: &str, line_no: usize) -> Option<EntityAct
     }
     let (id, display) = parse_alias(working)?;
     Some(EntityAction {
+        extends: Vec::new(),
+        implements: Vec::new(),
         entity: Entity {
             usymbol: USymbol::Interface,
             id,
@@ -175,6 +187,8 @@ pub(super) fn parse_inline_shorthand(raw: &str, line_no: usize) -> Option<Entity
     let _ = close; // close char captured for symmetry; not needed past parsing
     let (id, display) = parse_alias(working.trim())?;
     Some(EntityAction {
+        extends: Vec::new(),
+        implements: Vec::new(),
         entity: Entity {
             usymbol,
             id,
@@ -287,6 +301,13 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
             Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
             None => (None, None),
         };
+    // Strip Java-style `extends Base` / `implements I1, I2` clauses
+    // before the alias parser runs — both produce generalisation
+    // edges that `commit_entity` adds on commit. `implements` may
+    // carry a comma-separated list; `extends` typically a single
+    // target but a comma-list is also accepted.
+    let implements = pop_trailing_implements(&mut working);
+    let extends = pop_trailing_extends(&mut working);
     let generic = pop_trailing_generic(&mut working);
     let (id, display) = parse_alias(working.trim())?;
 
@@ -301,6 +322,8 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     };
 
     Some(EntityAction {
+        extends,
+        implements,
         entity: Entity {
             usymbol,
             id,
@@ -418,4 +441,37 @@ pub(super) fn pop_trailing_generic(rest: &mut String) -> Option<String> {
     let inner = trimmed[start + 1..trimmed.len() - 1].to_string();
     *rest = trimmed[..start].to_string();
     Some(inner)
+}
+
+/// Strip a trailing ` implements I1, I2, …` clause and return the
+/// interface ids. The match is whitespace-bounded on the left (so
+/// `class FooImplements` isn't mis-cut). Empty list when absent.
+pub(super) fn pop_trailing_implements(rest: &mut String) -> Vec<String> {
+    pop_trailing_clause(rest, "implements")
+}
+
+/// Strip a trailing ` extends B[, C…]` clause and return the parent
+/// ids. PlantUML almost always carries a single target here but a
+/// comma-list is harmless to accept.
+pub(super) fn pop_trailing_extends(rest: &mut String) -> Vec<String> {
+    pop_trailing_clause(rest, "extends")
+}
+
+fn pop_trailing_clause(rest: &mut String, kw: &str) -> Vec<String> {
+    let trimmed = rest.trim_end();
+    let pattern = format!(" {kw} ");
+    let Some(idx) = trimmed.rfind(&pattern) else {
+        return Vec::new();
+    };
+    let tail = &trimmed[idx + pattern.len()..];
+    let ids: Vec<String> = tail
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && !s.contains(char::is_whitespace))
+        .collect();
+    if ids.is_empty() {
+        return Vec::new();
+    }
+    *rest = trimmed[..idx].to_string();
+    ids
 }

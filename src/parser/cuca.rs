@@ -78,7 +78,7 @@ struct Parser<'a> {
     pending_annotations: Vec<String>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 enum BlockFrame {
     /// Inside `class A { … }` — member lines go to `entities[idx]`.
     Entity(usize),
@@ -86,6 +86,10 @@ enum BlockFrame {
     /// entities and nested containers register as children of
     /// `containers[idx]`.
     Container(usize),
+    /// Inside a `skinparam <target> { … }` block. Lines are `Key Value`
+    /// pairs that get combined with the target prefix to form normal
+    /// skinparam entries.
+    SkinparamBlock(String),
 }
 
 impl<'a> Parser<'a> {
@@ -160,6 +164,18 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if let Some(rest) = strip_prefix_keyword(raw, "skinparam") {
+                let trimmed = rest.trim();
+                // `skinparam class { … }` block form — collect the lines
+                // between the braces as `<class><Key>` entries on the
+                // skinparam list, matching PlantUML's prefix semantics.
+                if let Some(head) = trimmed.strip_suffix('{') {
+                    let prefix = head.trim();
+                    if !prefix.is_empty() {
+                        self.block_stack
+                            .push((BlockFrame::SkinparamBlock(prefix.to_string()), line_no));
+                        continue;
+                    }
+                }
                 self.handle_skinparam(rest, line_no);
                 continue;
             }
@@ -256,7 +272,12 @@ impl<'a> Parser<'a> {
     }
 
     fn commit_entity(&mut self, action: EntityAction) {
-        let EntityAction { mut entity, has_block } = action;
+        let EntityAction {
+            mut entity,
+            has_block,
+            extends,
+            implements,
+        } = action;
         // Java-style annotations accumulated since the last declaration
         // attach to this entity. Render path is the stereotype slot,
         // so multi-annotation classes (`@Entity\n@Table(...)`) show
@@ -269,6 +290,7 @@ impl<'a> Parser<'a> {
             };
         }
         let line_no = entity.line;
+        let child_id = entity.id.clone();
         let idx = self.upsert_entity(entity);
         // If this entity is being declared inside a `package` / `namespace`,
         // wire it into that container's child list. Multiple declarations
@@ -282,6 +304,55 @@ impl<'a> Parser<'a> {
         }
         if has_block {
             self.block_stack.push((BlockFrame::Entity(idx), line_no));
+        }
+        // Generalisation edges from `extends` / `implements`. PlantUML
+        // draws extends as solid `--|>` and implements as dashed
+        // `..|>`; both put the triangle-open head on the parent side.
+        // We emit `child --> parent` so Sugiyama places the parent
+        // above the child in TB.
+        for parent in extends {
+            self.diag.relations.push(Relation {
+                from: child_id.clone(),
+                to: parent,
+                from_couple: None,
+                from_port: None,
+                to_port: None,
+                head_from: ArrowHead::None,
+                head_to: ArrowHead::TriangleOpen,
+                line_style: LineStyle::Solid,
+                direction: None,
+                label: None,
+                mult_from: None,
+                mult_to: None,
+                role_from: None,
+                role_to: None,
+                stereotype: None,
+                color: None,
+                note: None,
+                line: line_no,
+            });
+        }
+        for iface in implements {
+            self.diag.relations.push(Relation {
+                from: child_id.clone(),
+                to: iface,
+                from_couple: None,
+                from_port: None,
+                to_port: None,
+                head_from: ArrowHead::None,
+                head_to: ArrowHead::TriangleOpen,
+                line_style: LineStyle::Dashed,
+                direction: None,
+                label: None,
+                mult_from: None,
+                mult_to: None,
+                role_from: None,
+                role_to: None,
+                stereotype: None,
+                color: None,
+                note: None,
+                line: line_no,
+            });
         }
     }
 
@@ -381,8 +452,34 @@ impl<'a> Parser<'a> {
     }
 
     fn handle_block_member(&mut self, raw: &str, line_no: usize) -> Result<()> {
-        let &(frame, _) = self.block_stack.last().expect("stack non-empty");
+        let frame = self.block_stack.last().expect("stack non-empty").0.clone();
         match frame {
+            BlockFrame::SkinparamBlock(ref prefix) => {
+                let parts: Vec<&str> = raw.splitn(2, char::is_whitespace).collect();
+                if parts.len() == 2 {
+                    let key_suffix = parts[0].trim();
+                    let value = parts[1].trim();
+                    if !key_suffix.is_empty() {
+                        // Combine `skinparam class { BackgroundColor … }`
+                        // into the flat key `classBackgroundColor`
+                        // (lower-case first char of target + capitalised
+                        // suffix) to match the single-line form.
+                        let mut key = String::with_capacity(prefix.len() + key_suffix.len());
+                        key.push_str(prefix);
+                        let mut chars = key_suffix.chars();
+                        if let Some(c) = chars.next() {
+                            key.extend(c.to_uppercase());
+                            key.push_str(chars.as_str());
+                        }
+                        self.diag.skinparams.push(crate::ir::Skinparam {
+                            key,
+                            value: value.to_string(),
+                            line: line_no,
+                        });
+                    }
+                }
+                Ok(())
+            }
             BlockFrame::Container(_) => {
                 // Inside `package`/`namespace` — re-dispatch as if at top
                 // level. Entity declarations and nested containers are

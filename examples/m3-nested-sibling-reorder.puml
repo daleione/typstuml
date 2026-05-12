@@ -1,0 +1,41 @@
+@startuml
+' M3 depth-aware barycenter reorder: nested sibling clusters get
+' reordered too, not just top-level. Source and Sink are two
+' top-level packages; each contains three child packages whose
+' members link across with the deliberately reversed mapping
+' (A→Z, B→Y, C→X).
+'
+' depth-0 reorder is a no-op (only two top-level clusters, can't be
+' reordered against each other). depth-1 reorder inside each parent
+' fires: Source's children reorder to [InnerC, InnerB, InnerA],
+' Sink's children stay [SinkX, SinkY, SinkZ]. The cross-cluster
+' arrows then run straight down with zero crossings.
+
+package "Source" {
+  package "InnerA" {
+    class A1
+  }
+  package "InnerB" {
+    class B1
+  }
+  package "InnerC" {
+    class C1
+  }
+}
+
+package "Sink" {
+  package "SinkX" {
+    class X1
+  }
+  package "SinkY" {
+    class Y1
+  }
+  package "SinkZ" {
+    class Z1
+  }
+}
+
+A1 --> Z1
+B1 --> Y1
+C1 --> X1
+@enduml

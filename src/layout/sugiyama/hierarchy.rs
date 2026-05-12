@@ -211,68 +211,81 @@ impl HierarchyMap {
         self.cluster_of(a) == self.cluster_of(b)
     }
 
-    /// Reorder sibling top-level cluster groups in each rank row by the
-    /// barycenter of their adjacent-row connections. Within a group,
-    /// intra-group order is preserved — the same-cluster mincross swap
-    /// already settled that. Returns true if any row was reordered.
+    /// Reorder sibling cluster groups in each rank row by the
+    /// barycenter of their adjacent-row connections. Intra-group order
+    /// is preserved.
     ///
-    /// Run after the mincross swap loop converges. Two sweeps:
-    /// forward (each row ordered by successor-row positions), then
-    /// backward (by predecessor-row positions). Groups with no
-    /// adjacent connections keep their current position as fallback.
-    ///
-    /// v1 only reorders top-level cluster groups (the most visible
-    /// win for 3+ sibling clusters at the diagram's outer level).
-    /// Nested-sibling reordering inside a shared parent stays in
-    /// declaration order until a fixture demands it.
+    /// Depth-aware: at each cluster nesting depth (0 = top-level,
+    /// 1 = direct children of top-level, …, up to the deepest
+    /// cluster), do a forward + backward sweep. At depth `d` we
+    /// look for contiguous row-spans whose ancestor chain agrees up
+    /// to depth `d-1` ("siblings under the same depth-`d-1` parent")
+    /// and reorder their depth-`d` sub-groups. This handles the
+    /// `Outer > {InnerA, InnerB}` case as well as the original
+    /// top-level case.
     pub fn reorder_cluster_groups(&self, dag: &mut DAG) -> bool {
         let num_levels = dag.num_levels();
         if num_levels < 2 || self.is_empty() {
             return false;
         }
+        let max_depth = self.max_cluster_depth();
         let mut any_change = false;
-        for forward in [true, false] {
-            let order: Vec<usize> = if forward {
-                (0..num_levels).collect()
-            } else {
-                (0..num_levels).rev().collect()
-            };
-            for r in order {
-                if self.reorder_row_by_barycenter(dag, r, forward) {
-                    any_change = true;
+        for depth in 0..=max_depth {
+            for forward in [true, false] {
+                let rows: Vec<usize> = if forward {
+                    (0..num_levels).collect()
+                } else {
+                    (0..num_levels).rev().collect()
+                };
+                for r in rows {
+                    if self.reorder_row_at_depth(dag, r, forward, depth) {
+                        any_change = true;
+                    }
                 }
             }
         }
         any_change
     }
 
-    fn reorder_row_by_barycenter(&self, dag: &mut DAG, row_idx: usize, forward: bool) -> bool {
-        let row = dag.row(row_idx).clone();
-        if row.len() < 2 {
-            return false;
-        }
-        // Split the row into contiguous spans sharing the same
-        // top-level cluster (`group_rows` already grouped by ancestor
-        // chain so this scan is correct without a sort).
-        let key = |n: NodeHandle| -> Option<ClusterId> {
-            self.cluster_of(n).map(|c| self.top_ancestor(c))
-        };
-        let mut groups: Vec<(Option<ClusterId>, Vec<NodeHandle>)> = Vec::new();
-        for &n in &row {
-            let k = key(n);
-            if let Some(last) = groups.last_mut() {
-                if last.0 == k {
-                    last.1.push(n);
-                    continue;
-                }
+    /// Max depth across the cluster forest. Depth 0 = top-level
+    /// (`parent: None`); a cluster's depth = number of ancestors
+    /// strictly above it.
+    fn max_cluster_depth(&self) -> usize {
+        let mut max_d = 0;
+        for c in 0..self.clusters.len() {
+            // `ancestors(c)` yields c, c.parent, …, root. Count includes c
+            // itself, so depth-of-c = count-1.
+            let d = self.ancestors(c).count().saturating_sub(1);
+            if d > max_d {
+                max_d = d;
             }
-            groups.push((k, vec![n]));
         }
-        if groups.len() < 2 {
-            return false;
-        }
+        max_d
+    }
 
-        // Reference row for barycenter lookup.
+    /// Outermost-first ancestor chain of `n`'s direct cluster, or
+    /// empty for unclustered nodes.
+    fn outermost_chain(&self, n: NodeHandle) -> Vec<ClusterId> {
+        let direct = match self.cluster_of(n) {
+            Some(c) => c,
+            None => return Vec::new(),
+        };
+        let mut chain: Vec<_> = self.ancestors(direct).collect();
+        chain.reverse();
+        chain
+    }
+
+    /// Reorder one rank row at a specific cluster depth. Groups with
+    /// matching `outermost_chain[..depth]` are treated as siblings
+    /// under the same depth-`depth-1` parent; their depth-`depth`
+    /// children get sorted by barycenter.
+    fn reorder_row_at_depth(
+        &self,
+        dag: &mut DAG,
+        row_idx: usize,
+        forward: bool,
+        depth: usize,
+    ) -> bool {
         let ref_idx = if forward {
             if row_idx + 1 >= dag.num_levels() {
                 return false;
@@ -284,56 +297,98 @@ impl HierarchyMap {
             }
             row_idx - 1
         };
-        let ref_row = dag.row(ref_idx);
+        let row = dag.row(row_idx).clone();
+        if row.len() < 2 {
+            return false;
+        }
+
+        // Pre-compute per-row ancestor chains once; the row is walked
+        // multiple times below.
+        let chains: Vec<Vec<ClusterId>> = row.iter().map(|&n| self.outermost_chain(n)).collect();
+
+        let ref_row = dag.row(ref_idx).clone();
         let mut ref_pos: std::collections::HashMap<NodeHandle, usize> =
             std::collections::HashMap::with_capacity(ref_row.len());
         for (i, &n) in ref_row.iter().enumerate() {
             ref_pos.insert(n, i);
         }
 
-        // Per-group barycenter: mean position of every member's
-        // forward-neighbour (forward) or backward-neighbour (!forward)
-        // inside `ref_row`. `None` when no neighbour lands in `ref_row`.
-        let mut barys: Vec<Option<f64>> = Vec::with_capacity(groups.len());
-        for (_, members) in &groups {
-            let mut sum = 0.0;
-            let mut count = 0usize;
-            for &n in members {
-                let adj = if forward {
-                    dag.successors(n)
-                } else {
-                    dag.predecessors(n)
-                };
-                for a in adj {
-                    if let Some(&p) = ref_pos.get(a) {
-                        sum += p as f64;
-                        count += 1;
+        let prefix_at = |idx: usize| -> &[ClusterId] {
+            let c = &chains[idx];
+            &c[..depth.min(c.len())]
+        };
+        let cluster_at = |idx: usize| -> Option<ClusterId> {
+            chains[idx].get(depth).copied()
+        };
+
+        let mut new_row: Vec<NodeHandle> = Vec::with_capacity(row.len());
+        let mut i = 0;
+        let mut changed = false;
+        while i < row.len() {
+            // Span of contiguous nodes sharing the same parent prefix.
+            let prefix_i = prefix_at(i).to_vec();
+            let mut j = i + 1;
+            while j < row.len() && prefix_at(j) == prefix_i.as_slice() {
+                j += 1;
+            }
+            // Split this span by depth-`depth` cluster.
+            let mut sub_spans: Vec<(Option<ClusterId>, Vec<NodeHandle>)> = Vec::new();
+            for k in i..j {
+                let key = cluster_at(k);
+                if let Some(last) = sub_spans.last_mut() {
+                    if last.0 == key {
+                        last.1.push(row[k]);
+                        continue;
                     }
                 }
+                sub_spans.push((key, vec![row[k]]));
             }
-            barys.push(if count == 0 { None } else { Some(sum / count as f64) });
+            if sub_spans.len() < 2 {
+                new_row.extend(sub_spans.into_iter().flat_map(|(_, v)| v));
+                i = j;
+                continue;
+            }
+
+            // Per-sub-span barycenter against ref_row.
+            let mut barys: Vec<Option<f64>> = Vec::with_capacity(sub_spans.len());
+            for (_, members) in &sub_spans {
+                let mut sum = 0.0;
+                let mut count = 0usize;
+                for &n in members {
+                    let adj = if forward {
+                        dag.successors(n)
+                    } else {
+                        dag.predecessors(n)
+                    };
+                    for a in adj {
+                        if let Some(&p) = ref_pos.get(a) {
+                            sum += p as f64;
+                            count += 1;
+                        }
+                    }
+                }
+                barys.push(if count == 0 { None } else { Some(sum / count as f64) });
+            }
+
+            let mut order: Vec<usize> = (0..sub_spans.len()).collect();
+            order.sort_by(|&a, &b| {
+                let ba = barys[a].unwrap_or(a as f64);
+                let bb = barys[b].unwrap_or(b as f64);
+                ba.partial_cmp(&bb).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            if order.iter().enumerate().any(|(idx, &o)| idx != o) {
+                changed = true;
+            }
+            for &k in &order {
+                new_row.extend_from_slice(&sub_spans[k].1);
+            }
+            i = j;
         }
 
-        // Stable sort: groups with a barycenter sort by it; groups
-        // without keep their original index as the sort key so they
-        // don't migrate.
-        let mut order: Vec<usize> = (0..groups.len()).collect();
-        order.sort_by(|&i, &j| {
-            let bi = barys[i].unwrap_or(i as f64);
-            let bj = barys[j].unwrap_or(j as f64);
-            bi.partial_cmp(&bj).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        // No-op when sort didn't change anything.
-        if order.iter().enumerate().all(|(i, &o)| i == o) {
-            return false;
+        if changed {
+            *dag.row_mut(row_idx) = new_row;
         }
-        let new_row: Vec<NodeHandle> = order
-            .into_iter()
-            .flat_map(|i| groups[i].1.clone())
-            .collect();
-        *dag.row_mut(row_idx) = new_row;
-        true
+        changed
     }
 
     /// Recompute `rank_min` / `rank_max` for every cluster from the
@@ -483,6 +538,60 @@ mod tests {
             new_row_0,
             vec![NodeHandle::new(2), NodeHandle::new(0), NodeHandle::new(1)],
             "row 0 should be reordered by barycenter to put C2 (n2) leftmost",
+        );
+    }
+
+    #[test]
+    fn reorder_cluster_groups_sorts_nested_siblings_inside_parent() {
+        // OuterSrc contains InnerA{a0}, InnerB{b0}, InnerC{c0} at rank 0.
+        // OuterDst contains SinkX{x0}, SinkY{y0}, SinkZ{z0} at rank 1.
+        // Both outers wrap their children so depth-0 finds nothing to
+        // reorder; the work belongs to depth-1's nested-sibling pass.
+        // Edges a0→z0, b0→y0, c0→x0 force the inner clusters under
+        // OuterSrc to reorder to [InnerC, InnerB, InnerA].
+        let mut m = HierarchyMap::new();
+        let outer_src = m.add_cluster(None);
+        let inner_a = m.add_cluster(Some(outer_src));
+        let inner_b = m.add_cluster(Some(outer_src));
+        let inner_c = m.add_cluster(Some(outer_src));
+        let outer_dst = m.add_cluster(None);
+        let sink_x = m.add_cluster(Some(outer_dst));
+        let sink_y = m.add_cluster(Some(outer_dst));
+        let sink_z = m.add_cluster(Some(outer_dst));
+        for i in 0..6 {
+            let h = NodeHandle::new(i);
+            let cluster = match i {
+                0 => inner_a,
+                1 => inner_b,
+                2 => inner_c,
+                3 => sink_x,
+                4 => sink_y,
+                5 => sink_z,
+                _ => unreachable!(),
+            };
+            m.assign_node(h, cluster);
+        }
+
+        let mut dag = DAG::new();
+        for _ in 0..6 {
+            dag.new_node();
+        }
+        dag.add_edge(NodeHandle::new(0), NodeHandle::new(5)); // a0 → z0
+        dag.add_edge(NodeHandle::new(1), NodeHandle::new(4)); // b0 → y0
+        dag.add_edge(NodeHandle::new(2), NodeHandle::new(3)); // c0 → x0
+        dag.recompute_node_ranks();
+        // Force row 0 to declaration order [a0, b0, c0], row 1 to
+        // [x0, y0, z0]; mincross gate keeps them stable.
+        *dag.row_mut(0) = vec![NodeHandle::new(0), NodeHandle::new(1), NodeHandle::new(2)];
+        *dag.row_mut(1) = vec![NodeHandle::new(3), NodeHandle::new(4), NodeHandle::new(5)];
+
+        let changed = m.reorder_cluster_groups(&mut dag);
+        assert!(changed);
+        assert_eq!(
+            dag.row(0).clone(),
+            vec![NodeHandle::new(2), NodeHandle::new(1), NodeHandle::new(0)],
+            "Outer's inner clusters should reorder to [InnerC, InnerB, InnerA] \
+             so the cross-cluster edges run straight down",
         );
     }
 }

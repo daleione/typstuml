@@ -11,7 +11,7 @@
     (x: 103.65pt, y: 72.45pt, kind: "lollipop", width: 30.42pt, name: [AuthAPI]),
   ),
   edges: (
-    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (178.68pt, 48.45pt), c2: (118.87pt, 48.45pt), end: (118.87pt, 60.45pt)), (c1: (118.87pt, 64.45pt), c2: (118.87pt, 68.45pt), end: (118.87pt, 72.45pt)))),
-    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (59.05pt, 48.45pt), c2: (118.87pt, 48.45pt), end: (118.87pt, 60.45pt)), (c1: (118.87pt, 64.45pt), c2: (118.87pt, 68.45pt), end: (118.87pt, 72.45pt)))),
+    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (178.68pt, 40.45pt), c2: (178.68pt, 44.45pt), end: (178.68pt, 48.45pt)), (c1: (178.68pt, 56.45pt), c2: (118.87pt, 52.45pt), end: (118.87pt, 60.45pt)), (c1: (118.87pt, 64.45pt), c2: (118.87pt, 68.45pt), end: (118.87pt, 72.45pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (59.05pt, 40.45pt), c2: (59.05pt, 44.45pt), end: (59.05pt, 48.45pt)), (c1: (59.05pt, 56.45pt), c2: (118.87pt, 52.45pt), end: (118.87pt, 60.45pt)), (c1: (118.87pt, 64.45pt), c2: (118.87pt, 68.45pt), end: (118.87pt, 72.45pt)))),
   ),
 )

@@ -11,7 +11,7 @@
     (x: 120.34pt, y: 97.44pt, width: 70.56pt, height: 37.35pt, kind: "interface", name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (104.14pt, 73.44pt), c2: (52.67pt, 73.44pt), end: (52.67pt, 85.44pt)), (c1: (52.67pt, 89.44pt), c2: (52.67pt, 93.44pt), end: (52.67pt, 97.44pt)))),
-    (from: 1, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (104.14pt, 73.44pt), c2: (155.62pt, 73.44pt), end: (155.62pt, 85.44pt)), (c1: (155.62pt, 89.44pt), c2: (155.62pt, 93.44pt), end: (155.62pt, 97.44pt)))),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (104.14pt, 65.44pt), c2: (104.14pt, 69.44pt), end: (104.14pt, 73.44pt)), (c1: (104.14pt, 81.44pt), c2: (52.67pt, 77.44pt), end: (52.67pt, 85.44pt)), (c1: (52.67pt, 89.44pt), c2: (52.67pt, 93.44pt), end: (52.67pt, 97.44pt)))),
+    (from: 1, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (104.14pt, 65.44pt), c2: (104.14pt, 69.44pt), end: (104.14pt, 73.44pt)), (c1: (104.14pt, 81.44pt), c2: (155.62pt, 77.44pt), end: (155.62pt, 85.44pt)), (c1: (155.62pt, 89.44pt), c2: (155.62pt, 93.44pt), end: (155.62pt, 97.44pt)))),
   ),
 )

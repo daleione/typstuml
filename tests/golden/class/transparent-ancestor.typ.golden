@@ -13,7 +13,7 @@
     (x: 116.83pt, y: 33.52pt, w: 84.24pt, h: 80.48pt, kind: "package", label: [PkgB]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.24pt, 47.00pt), c2: (31.12pt, 47.00pt), end: (31.12pt, 59.00pt)), (c1: (31.12pt, 63.00pt), c2: (31.12pt, 67.00pt), end: (31.12pt, 71.00pt)))),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.24pt, 47.00pt), c2: (158.95pt, 47.00pt), end: (158.95pt, 59.00pt)), (c1: (158.95pt, 63.00pt), c2: (158.95pt, 67.00pt), end: (158.95pt, 71.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.24pt, 39.00pt), c2: (62.24pt, 43.00pt), end: (62.24pt, 47.00pt)), (c1: (62.24pt, 55.00pt), c2: (31.12pt, 51.00pt), end: (31.12pt, 59.00pt)), (c1: (31.12pt, 63.00pt), c2: (31.12pt, 67.00pt), end: (31.12pt, 71.00pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.24pt, 39.00pt), c2: (62.24pt, 43.00pt), end: (62.24pt, 47.00pt)), (c1: (62.24pt, 55.00pt), c2: (158.95pt, 51.00pt), end: (158.95pt, 59.00pt)), (c1: (158.95pt, 63.00pt), c2: (158.95pt, 67.00pt), end: (158.95pt, 71.00pt)))),
   ),
 )

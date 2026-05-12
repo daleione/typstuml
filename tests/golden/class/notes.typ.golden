@@ -10,8 +10,8 @@
     (x: 137.35pt, y: 18.00pt, kind: "note", body: [free-floating note]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (119.36pt, 132.15pt), c2: (61.18pt, 132.15pt), end: (61.18pt, 144.15pt)), (c1: (61.18pt, 148.15pt), c2: (61.18pt, 152.15pt), end: (61.18pt, 156.15pt)))),
-    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (61.18pt, 52.71pt), c2: (119.36pt, 52.71pt), end: (119.36pt, 64.71pt)), (c1: (119.36pt, 68.71pt), c2: (119.36pt, 72.71pt), end: (119.36pt, 76.71pt)))),
-    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", label: [refers to], path: ((c1: (177.54pt, 49.36pt), c2: (119.36pt, 49.36pt), end: (119.36pt, 64.71pt)), (c1: (119.36pt, 68.71pt), c2: (119.36pt, 72.71pt), end: (119.36pt, 76.71pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (119.36pt, 124.15pt), c2: (119.36pt, 128.15pt), end: (119.36pt, 132.15pt)), (c1: (119.36pt, 140.15pt), c2: (61.18pt, 136.15pt), end: (61.18pt, 144.15pt)), (c1: (61.18pt, 148.15pt), c2: (61.18pt, 152.15pt), end: (61.18pt, 156.15pt)))),
+    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (61.18pt, 44.71pt), c2: (61.18pt, 48.71pt), end: (61.18pt, 52.71pt)), (c1: (61.18pt, 60.71pt), c2: (119.36pt, 56.71pt), end: (119.36pt, 64.71pt)), (c1: (119.36pt, 68.71pt), c2: (119.36pt, 72.71pt), end: (119.36pt, 76.71pt)))),
+    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", label: [refers to], path: ((c1: (177.54pt, 38.00pt), c2: (177.54pt, 42.00pt), end: (177.54pt, 46.00pt)), (c1: (177.54pt, 55.36pt), c2: (119.36pt, 55.36pt), end: (119.36pt, 64.71pt)), (c1: (119.36pt, 68.71pt), c2: (119.36pt, 72.71pt), end: (119.36pt, 76.71pt)))),
   ),
 )

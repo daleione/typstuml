@@ -300,18 +300,19 @@ fn segment_strictly_crosses_box(a: Point, b: Point, ob: &pathplan::Box) -> bool 
 }
 
 /// Build a smooth path from `a` to `b` whose tangent at both ends
-/// follows `src_normal` (the outward face normal). Returns one or
-/// two cubic segments:
+/// follows `src_normal` (the outward face normal).
 ///
-/// * Single cubic for short hops where a clean S-curve is enough.
-/// * Two cubics for longer hops: a sweeping cubic from `a` to a
-///   pre-arrival point that's `HEAD_STUB_PT` along the normal away
-///   from `b`, then a short straight cubic from there to `b`. The
-///   stub guarantees the line is genuinely axis-aligned for the last
-///   stretch — without it, a single cubic with perpendicular
-///   tangents at both ends would still cross the arrowhead's base
-///   off-centre, because the cubic's *trajectory* near the endpoint
-///   doesn't go straight even when its tangent does.
+/// Long enough → 3 segments: stub from a, sweeping cubic to a
+/// pre-arrival point, stub to b. The stubs guarantee the line is
+/// axis-aligned for the first / last `HEAD_STUB_PT` units, so any
+/// arrow / diamond / triangle head drawn at the endpoints sits on a
+/// genuinely straight piece of line. Without the source stub, a
+/// cubic with perpendicular tangent at a still curves immediately;
+/// for narrow heads like a composition diamond (width ≈ ⅔ height)
+/// the curve exits through the head's *side* instead of the back.
+///
+/// Too short for both stubs → fall back to 2 segments (sweep + dst
+/// stub) or 1 segment (a single S-cubic) for very short hops.
 pub(super) fn diagonal_path(
     a: Point,
     b: Point,
@@ -324,24 +325,35 @@ pub(super) fn diagonal_path(
     // Reserve room for the arrow head plus a 2pt safety margin so the
     // base of a triangle/diamond head sits inside the axis-aligned tail.
     const HEAD_STUB_PT: f64 = 12.0;
-    // No room to insert a stub — fall back to a single S-cubic.
+    // No room to insert a stub at all — fall back to a single S-cubic.
     if along <= HEAD_STUB_PT * 1.5 || perp < 1.0 {
         let handle = (along * 0.5).max(8.0).min(40.0);
         let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
         let c2 = Point::new(b.x - src_normal.x * handle, b.y - src_normal.y * handle);
         return vec![(c1, c2, b)];
     }
-    // Pre-arrival point: HEAD_STUB_PT along the *outward* normal back
-    // from b. The sweep ends here; the stub from here to b is axis
-    // aligned by construction.
-    let pre = Point::new(b.x - src_normal.x * HEAD_STUB_PT, b.y - src_normal.y * HEAD_STUB_PT);
+    let pre_b = Point::new(b.x - src_normal.x * HEAD_STUB_PT, b.y - src_normal.y * HEAD_STUB_PT);
     let along_to_pre = along - HEAD_STUB_PT;
-    let handle = (along_to_pre * 0.5).max(8.0).min(40.0);
-    let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
-    let c2 = Point::new(pre.x - src_normal.x * handle, pre.y - src_normal.y * handle);
-    let sweep = (c1, c2, pre);
-    let stub = cubic_from_straight(pre, b);
-    vec![sweep, stub]
+    // Not enough room for a source stub → keep the legacy 2-segment
+    // (sweep + dst-stub) shape.
+    if along_to_pre <= HEAD_STUB_PT * 1.5 {
+        let handle = (along_to_pre * 0.5).max(8.0).min(40.0);
+        let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
+        let c2 = Point::new(pre_b.x - src_normal.x * handle, pre_b.y - src_normal.y * handle);
+        let sweep = (c1, c2, pre_b);
+        let stub_b = cubic_from_straight(pre_b, b);
+        return vec![sweep, stub_b];
+    }
+    // 3-segment route with stubs at both ends.
+    let post_a = Point::new(a.x + src_normal.x * HEAD_STUB_PT, a.y + src_normal.y * HEAD_STUB_PT);
+    let along_sweep = along_to_pre - HEAD_STUB_PT;
+    let handle = (along_sweep * 0.5).max(8.0).min(40.0);
+    let c1 = Point::new(post_a.x + src_normal.x * handle, post_a.y + src_normal.y * handle);
+    let c2 = Point::new(pre_b.x - src_normal.x * handle, pre_b.y - src_normal.y * handle);
+    let stub_a = cubic_from_straight(a, post_a);
+    let sweep = (c1, c2, pre_b);
+    let stub_b = cubic_from_straight(pre_b, b);
+    vec![stub_a, sweep, stub_b]
 }
 
 /// Express a straight line a→b as a (c1, c2, end) cubic Bezier whose

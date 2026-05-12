@@ -55,40 +55,6 @@ pub(super) struct LayoutResult {
     pub container_bboxes: Vec<Option<(Point, Point)>>,
 }
 
-/// For each entity, the chain of containers from the outermost root
-/// down to the innermost cluster that contains it. Empty for entities
-/// outside every container.
-pub(super) fn entity_cluster_chains(diag: &CucaDiagram) -> Vec<Vec<usize>> {
-    let mut parent: Vec<Option<usize>> = vec![None; diag.containers.len()];
-    for (pi, c) in diag.containers.iter().enumerate() {
-        for &ci in &c.children_containers {
-            if ci < parent.len() {
-                parent[ci] = Some(pi);
-            }
-        }
-    }
-    diag.entities
-        .iter()
-        .map(|e| {
-            let direct = diag
-                .containers
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, c)| c.children_entities.iter().any(|cid| cid == &e.id))
-                .map(|(i, _)| i);
-            let mut chain = Vec::new();
-            let mut cur = direct;
-            while let Some(c) = cur {
-                chain.push(c);
-                cur = parent[c];
-            }
-            chain.reverse();
-            chain
-        })
-        .collect()
-}
-
 /// Single flat Sugiyama, used when there are no containers. Same shape
 /// as `compound_layout`'s output so callers don't branch.
 fn flat_layout(

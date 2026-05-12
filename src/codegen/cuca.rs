@@ -46,7 +46,7 @@ use self::geom::{
     Side, anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor,
     right_anchor, top_anchor, ClassGeom,
 };
-use self::layout::{compound_layout, entity_cluster_chains, LabelBand};
+use self::layout::{compound_layout, LabelBand};
 use self::route::{
     cubic_from_straight, diagonal_path, line_of_sight_clear, pick_edge_sides,
     side_tangent, smart_align_coord, straight_fallback, try_manhattan_route,
@@ -429,14 +429,6 @@ pub fn emit(
         emit_packages(out, &diag.containers, &container_bboxes);
     }
 
-    // M4 cross-cluster edge routing: a per-entity chain
-    // [outermost_cluster, …, innermost_cluster]. Each edge passes
-    // through the union of source-chain and destination-chain
-    // unscathed (those clusters are "transparent"); every other
-    // sibling cluster bbox is added to the obstacle list so the
-    // router detours around it.
-    let chains = entity_cluster_chains(diag);
-
     out.push_str("  edges: (\n");
     for oe in &oriented {
         let from = oe.src_idx;
@@ -489,32 +481,16 @@ pub fn emit(
         };
 
         // Entity obstacles: every entity bbox except this edge's two
-        // endpoints.
-        let mut obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
+        // endpoints. M3 ranks clusters via Sugiyama and tighten pulls
+        // them apart, so cross-cluster edges no longer need explicit
+        // cluster-bbox obstacles to detour — the rank ordering keeps
+        // the natural path from clipping through a sibling cluster.
+        // try_manhattan_route's detour-bend remains the safety net for
+        // residual obstacle-clipping cases.
+        let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
             .filter(|i| *i != from && *i != to)
             .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
             .collect();
-        // Container obstacles: any cluster bbox NOT in either endpoint's
-        // ancestor chain. Sibling clusters become walls the router has
-        // to route around; ancestor clusters are transparent (the edge
-        // is inside them and has to exit). PlantUML approximates this
-        // with the "insert special-point + bezier clip" hack
-        // (klimt/shape/DotPath::simulateCompound); pathplan supports it
-        // natively.
-        let mut transparent = std::collections::BTreeSet::new();
-        for &c in &chains[from] {
-            transparent.insert(c);
-        }
-        for &c in &chains[to] {
-            transparent.insert(c);
-        }
-        for (ci, bbox) in container_bboxes.iter().enumerate() {
-            if transparent.contains(&ci) {
-                continue;
-            }
-            let Some((tl, br)) = bbox else { continue };
-            obstacles.push(pathplan::Box::new(*tl, *br));
-        }
         // Tangents follow the actual anchor sides — bezier launch
         // direction matches the snap axis the painter will enforce,
         // otherwise the head tangent collapses to zero on edges where

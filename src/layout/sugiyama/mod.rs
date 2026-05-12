@@ -299,5 +299,23 @@ impl<'a> EdgeCrossOptimizer<'a> {
             }
         }
         *self.dag.ranks_mut() = best_rank;
+        // Once the within-cluster ordering has settled, reorder
+        // sibling top-level cluster groups by barycenter so 3+
+        // sibling clusters land in an edge-aware order instead of
+        // declaration order. Then re-run the swap loop briefly to
+        // refine within-cluster order against the new neighbours.
+        if let Some(h) = self.hierarchy {
+            if h.reorder_cluster_groups(self.dag) {
+                for _ in 0..4 {
+                    let mut changed = false;
+                    for r in 0..self.dag.num_levels() {
+                        changed |= self.swap_crossed_edges_on_row(r, true, true);
+                    }
+                    if !changed {
+                        break;
+                    }
+                }
+            }
+        }
     }
 }

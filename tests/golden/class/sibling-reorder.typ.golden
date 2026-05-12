@@ -1,0 +1,27 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  classes: (
+    (x: 184.94pt, y: 18.00pt, width: 38.54pt, height: 17.00pt, kind: "class", name: [A1], fields: (), methods: ()),
+    (x: 117.26pt, y: 18.00pt, width: 37.68pt, height: 17.00pt, kind: "class", name: [B1], fields: (), methods: ()),
+    (x: 15.06pt, y: 18.00pt, width: 38.20pt, height: 17.00pt, kind: "class", name: [C1], fields: (), methods: ()),
+    (x: 15.00pt, y: 110.48pt, width: 38.32pt, height: 17.00pt, kind: "class", name: [X1], fields: (), methods: ()),
+    (x: 117.32pt, y: 110.48pt, width: 37.38pt, height: 17.00pt, kind: "class", name: [Y1], fields: (), methods: ()),
+    (x: 218.70pt, y: 110.48pt, width: 37.38pt, height: 17.00pt, kind: "class", name: [Z1], fields: (), methods: ()),
+  ),
+  packages: (
+    (x: 158.94pt, y: -19.48pt, w: 90.54pt, h: 80.48pt, kind: "package", label: [PkgA]),
+    (x: 91.26pt, y: -19.48pt, w: 89.68pt, h: 80.48pt, kind: "package", label: [PkgB]),
+    (x: -10.94pt, y: -19.48pt, w: 90.20pt, h: 80.48pt, kind: "package", label: [PkgC]),
+    (x: -11.00pt, y: 73.00pt, w: 90.32pt, h: 80.48pt, kind: "package", label: [SinkX]),
+    (x: 91.32pt, y: 73.00pt, w: 89.38pt, h: 80.48pt, kind: "package", label: [SinkY]),
+    (x: 192.70pt, y: 73.00pt, w: 89.38pt, h: 80.48pt, kind: "package", label: [SinkZ]),
+  ),
+  edges: (
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (204.21pt, 66.74pt), c2: (237.39pt, 66.74pt), end: (237.39pt, 98.48pt)), (c1: (237.39pt, 102.48pt), c2: (237.39pt, 106.48pt), end: (237.39pt, 110.48pt)))),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 136.06pt, to-x: 136.06pt, path: ((c1: (136.06pt, 72.74pt), c2: (136.06pt, 72.74pt), end: (136.06pt, 110.48pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 34.16pt, to-x: 34.16pt, path: ((c1: (34.16pt, 72.74pt), c2: (34.16pt, 72.74pt), end: (34.16pt, 110.48pt)),)),
+  ),
+)

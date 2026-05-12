@@ -491,6 +491,17 @@ fn golden_emit_typst_class_cluster_rank_order() {
 }
 
 #[test]
+fn golden_emit_typst_class_sibling_reorder() {
+    // M3 barycenter reorder: three top-level packages PkgA / PkgB /
+    // PkgC declared in that order feed matching SinkX / SinkY / SinkZ
+    // with the deliberately reversed mapping A→Z, B→Y, C→X. The
+    // barycenter pass must re-sort row 0 to [PkgC, PkgB, PkgA] so
+    // the edges run straight down with zero crossings.
+    let actual = emit_typst_path(&fixture_in("class", "sibling-reorder.puml"));
+    assert_golden_in("class", "sibling-reorder", &actual);
+}
+
+#[test]
 fn golden_emit_typst_class_desc_family() {
     // M5-partial / M6 regression: desc-family leaf keywords
     // (component / actor / usecase / database / node / cloud) and the

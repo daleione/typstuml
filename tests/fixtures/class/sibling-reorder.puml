@@ -1,0 +1,32 @@
+@startuml
+' M3 barycenter cluster reorder: 3 sibling top-level packages
+' (PkgA / PkgB / PkgC) feed 3 matching packages (SinkX / SinkY /
+' SinkZ) with a deliberately reversed mapping A→Z, B→Y, C→X. Under
+' pure declaration order the row 0 [A, B, C] vs row 1 [X, Y, Z]
+' arrangement produces 3 edge crossings. Barycenter reorder pulls
+' row 0 into [C, B, A] (matching row 1) so every edge runs straight
+' down with zero crossings.
+package "PkgA" {
+  class A1
+}
+package "PkgB" {
+  class B1
+}
+package "PkgC" {
+  class C1
+}
+
+package "SinkX" {
+  class X1
+}
+package "SinkY" {
+  class Y1
+}
+package "SinkZ" {
+  class Z1
+}
+
+A1 --> Z1
+B1 --> Y1
+C1 --> X1
+@enduml

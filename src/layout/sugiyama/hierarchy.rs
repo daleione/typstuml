@@ -211,6 +211,131 @@ impl HierarchyMap {
         self.cluster_of(a) == self.cluster_of(b)
     }
 
+    /// Reorder sibling top-level cluster groups in each rank row by the
+    /// barycenter of their adjacent-row connections. Within a group,
+    /// intra-group order is preserved — the same-cluster mincross swap
+    /// already settled that. Returns true if any row was reordered.
+    ///
+    /// Run after the mincross swap loop converges. Two sweeps:
+    /// forward (each row ordered by successor-row positions), then
+    /// backward (by predecessor-row positions). Groups with no
+    /// adjacent connections keep their current position as fallback.
+    ///
+    /// v1 only reorders top-level cluster groups (the most visible
+    /// win for 3+ sibling clusters at the diagram's outer level).
+    /// Nested-sibling reordering inside a shared parent stays in
+    /// declaration order until a fixture demands it.
+    pub fn reorder_cluster_groups(&self, dag: &mut DAG) -> bool {
+        let num_levels = dag.num_levels();
+        if num_levels < 2 || self.is_empty() {
+            return false;
+        }
+        let mut any_change = false;
+        for forward in [true, false] {
+            let order: Vec<usize> = if forward {
+                (0..num_levels).collect()
+            } else {
+                (0..num_levels).rev().collect()
+            };
+            for r in order {
+                if self.reorder_row_by_barycenter(dag, r, forward) {
+                    any_change = true;
+                }
+            }
+        }
+        any_change
+    }
+
+    fn reorder_row_by_barycenter(&self, dag: &mut DAG, row_idx: usize, forward: bool) -> bool {
+        let row = dag.row(row_idx).clone();
+        if row.len() < 2 {
+            return false;
+        }
+        // Split the row into contiguous spans sharing the same
+        // top-level cluster (`group_rows` already grouped by ancestor
+        // chain so this scan is correct without a sort).
+        let key = |n: NodeHandle| -> Option<ClusterId> {
+            self.cluster_of(n).map(|c| self.top_ancestor(c))
+        };
+        let mut groups: Vec<(Option<ClusterId>, Vec<NodeHandle>)> = Vec::new();
+        for &n in &row {
+            let k = key(n);
+            if let Some(last) = groups.last_mut() {
+                if last.0 == k {
+                    last.1.push(n);
+                    continue;
+                }
+            }
+            groups.push((k, vec![n]));
+        }
+        if groups.len() < 2 {
+            return false;
+        }
+
+        // Reference row for barycenter lookup.
+        let ref_idx = if forward {
+            if row_idx + 1 >= dag.num_levels() {
+                return false;
+            }
+            row_idx + 1
+        } else {
+            if row_idx == 0 {
+                return false;
+            }
+            row_idx - 1
+        };
+        let ref_row = dag.row(ref_idx);
+        let mut ref_pos: std::collections::HashMap<NodeHandle, usize> =
+            std::collections::HashMap::with_capacity(ref_row.len());
+        for (i, &n) in ref_row.iter().enumerate() {
+            ref_pos.insert(n, i);
+        }
+
+        // Per-group barycenter: mean position of every member's
+        // forward-neighbour (forward) or backward-neighbour (!forward)
+        // inside `ref_row`. `None` when no neighbour lands in `ref_row`.
+        let mut barys: Vec<Option<f64>> = Vec::with_capacity(groups.len());
+        for (_, members) in &groups {
+            let mut sum = 0.0;
+            let mut count = 0usize;
+            for &n in members {
+                let adj = if forward {
+                    dag.successors(n)
+                } else {
+                    dag.predecessors(n)
+                };
+                for a in adj {
+                    if let Some(&p) = ref_pos.get(a) {
+                        sum += p as f64;
+                        count += 1;
+                    }
+                }
+            }
+            barys.push(if count == 0 { None } else { Some(sum / count as f64) });
+        }
+
+        // Stable sort: groups with a barycenter sort by it; groups
+        // without keep their original index as the sort key so they
+        // don't migrate.
+        let mut order: Vec<usize> = (0..groups.len()).collect();
+        order.sort_by(|&i, &j| {
+            let bi = barys[i].unwrap_or(i as f64);
+            let bj = barys[j].unwrap_or(j as f64);
+            bi.partial_cmp(&bj).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // No-op when sort didn't change anything.
+        if order.iter().enumerate().all(|(i, &o)| i == o) {
+            return false;
+        }
+        let new_row: Vec<NodeHandle> = order
+            .into_iter()
+            .flat_map(|i| groups[i].1.clone())
+            .collect();
+        *dag.row_mut(row_idx) = new_row;
+        true
+    }
+
     /// Recompute `rank_min` / `rank_max` for every cluster from the
     /// current DAG ranks. Called after any pass that reorders / re-ranks
     /// nodes.
@@ -306,5 +431,58 @@ mod tests {
         m.assign_node(a, inner_a);
         m.assign_node(b, inner_b);
         assert_eq!(m.common_ancestor(a, b), Some(outer));
+    }
+
+    #[test]
+    fn reorder_cluster_groups_sorts_top_level_by_barycenter() {
+        // Three top-level clusters declared in order C0, C1, C2.
+        // Row 0: one member each (n0, n1, n2). Row 1: one member each
+        // (n3, n4, n5). Edge structure forces row 0's barycenter-
+        // friendly order to be C2, C0, C1.
+        //
+        //   row 0: [C0:n0] [C1:n1] [C2:n2]
+        //   row 1: [C2:n5] [C0:n3] [C1:n4]
+        //   edges: n0→n3, n1→n4, n2→n5
+        //
+        // n0's successor (n3) sits at index 1 in row 1 → bary 1.
+        // n1's (n4) at index 2 → bary 2.
+        // n2's (n5) at index 0 → bary 0.
+        // Reorder pulls row 0 to [n2, n0, n1] (sorted by bary 0, 1, 2).
+        let mut m = HierarchyMap::new();
+        let c0 = m.add_cluster(None);
+        let c1 = m.add_cluster(None);
+        let c2 = m.add_cluster(None);
+        for i in 0..6 {
+            let h = NodeHandle::new(i);
+            let cluster = match i {
+                0 | 3 => c0,
+                1 | 4 => c1,
+                2 | 5 => c2,
+                _ => unreachable!(),
+            };
+            m.assign_node(h, cluster);
+        }
+
+        let mut dag = DAG::new();
+        for _ in 0..6 {
+            dag.new_node();
+        }
+        // Place row 0 = [0, 1, 2], row 1 = [5, 3, 4].
+        dag.add_edge(NodeHandle::new(0), NodeHandle::new(3));
+        dag.add_edge(NodeHandle::new(1), NodeHandle::new(4));
+        dag.add_edge(NodeHandle::new(2), NodeHandle::new(5));
+        dag.recompute_node_ranks();
+        // Manually set the row-1 order to [5, 3, 4] to force a
+        // non-trivial barycenter for row 0.
+        *dag.row_mut(1) = vec![NodeHandle::new(5), NodeHandle::new(3), NodeHandle::new(4)];
+
+        let changed = m.reorder_cluster_groups(&mut dag);
+        assert!(changed);
+        let new_row_0 = dag.row(0).clone();
+        assert_eq!(
+            new_row_0,
+            vec![NodeHandle::new(2), NodeHandle::new(0), NodeHandle::new(1)],
+            "row 0 should be reordered by barycenter to put C2 (n2) leftmost",
+        );
     }
 }

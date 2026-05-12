@@ -6,18 +6,18 @@
   classes: (
     (x: 59.93pt, y: 18.00pt, width: 79.01pt, height: 43.44pt, kind: "class", name: [Order], fields: ((vis: "+", body: [id: UUID]),), methods: ((vis: "+", body: [total(): Money]),)),
     (x: 15.00pt, y: 97.44pt, width: 67.23pt, height: 30.22pt, kind: "class", name: [LineItem], fields: ((vis: "+", body: [qty: int]),), methods: ()),
-    (x: 202.93pt, y: 97.44pt, width: 76.03pt, height: 17.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
-    (x: 346.58pt, y: 18.00pt, width: 59.22pt, height: 17.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
-    (x: 342.96pt, y: 71.00pt, width: 66.46pt, height: 17.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
+    (x: 202.93pt, y: 163.48pt, width: 76.03pt, height: 17.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
+    (x: 221.88pt, y: 18.00pt, width: 59.22pt, height: 17.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
+    (x: 218.26pt, y: 71.00pt, width: 66.46pt, height: 17.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
   ),
   packages: (
     (x: -11.00pt, y: -19.48pt, w: 175.93pt, h: 173.14pt, kind: "package", label: [Domain]),
-    (x: 176.93pt, y: 59.95pt, w: 128.03pt, h: 80.48pt, kind: "package", label: [Infrastructure]),
-    (x: 316.96pt, y: -19.48pt, w: 118.46pt, h: 133.48pt, kind: "package", label: [billing]),
+    (x: 176.93pt, y: 126.00pt, w: 128.03pt, h: 80.48pt, kind: "package", label: [Infrastructure]),
+    (x: 192.26pt, y: -19.48pt, w: 118.46pt, h: 133.48pt, kind: "package", label: [billing]),
   ),
   edges: (
     (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (99.43pt, 73.44pt), c2: (48.61pt, 73.44pt), end: (48.61pt, 85.44pt)), (c1: (48.61pt, 89.44pt), c2: (48.61pt, 93.44pt), end: (48.61pt, 97.44pt)))),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 376.19pt, to-x: 376.19pt, path: ((c1: (376.19pt, 53.00pt), c2: (376.19pt, 53.00pt), end: (376.19pt, 71.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (99.43pt, 73.44pt), c2: (240.95pt, 73.44pt), end: (240.95pt, 85.44pt)), (c1: (240.95pt, 89.44pt), c2: (240.95pt, 93.44pt), end: (240.95pt, 97.44pt)))),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 251.49pt, to-x: 251.49pt, path: ((c1: (251.49pt, 53.00pt), c2: (251.49pt, 53.00pt), end: (251.49pt, 71.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (99.43pt, 101.44pt), c2: (240.95pt, 111.48pt), end: (240.95pt, 151.48pt)), (c1: (240.95pt, 155.48pt), c2: (240.95pt, 159.48pt), end: (240.95pt, 163.48pt)))),
   ),
 )

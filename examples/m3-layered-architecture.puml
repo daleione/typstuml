@@ -1,0 +1,50 @@
+@startuml
+' M3 hierarchical layout showcase: a layered architecture with nested
+' clusters and cross-cluster edges. Highlights the new behaviour:
+'
+' • Nested clusters: `Application > API > Controller` and
+'   `Application > Service > {UserService, OrderService}`. The
+'   3-level tighten pass keeps each nested bbox strictly inside its
+'   parent.
+'
+' • Cross-cluster ranking inside `Application`: the
+'   `Controller --> UserService` / `--> OrderService` edges force
+'   `API` to rank above `Service` even though declaration order is
+'   the reverse-friendly default.
+'
+' • Top-level cluster ranking: `Service --> Infrastructure` (via
+'   `UserService --> Database` etc.) ranks `Application` above
+'   `Infrastructure`, instead of letting both sit side-by-side.
+'
+' Pre-M3 the cross-cluster edges were dropped from the super-graph;
+' you'd see `Application` and `Infrastructure` next to each other and
+' the API → Service block in declaration order. With M3 every edge
+' is a real ranking constraint.
+
+package "Application" {
+  package "API" {
+    class Controller {
+      + handle(req)
+    }
+  }
+  package "Service" {
+    class UserService {
+      + findUser(id)
+    }
+    class OrderService {
+      + placeOrder()
+    }
+  }
+}
+
+package "Infrastructure" {
+  class Database
+  class Cache
+}
+
+Controller --> UserService
+Controller --> OrderService
+UserService --> Database
+OrderService --> Database
+OrderService --> Cache
+@enduml

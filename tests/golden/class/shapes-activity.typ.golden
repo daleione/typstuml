@@ -4,7 +4,7 @@
 
 #align(center)[*Activity / process-flavor shapes*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 15.00pt, y: 18.00pt, width: 94.06pt, height: 32.00pt, kind: "artifact", name: [ReleaseNotes], fields: (), methods: ()),
     (x: 22.67pt, y: 86.00pt, width: 78.71pt, height: 30.00pt, kind: "collections", name: [Order Batch], fields: (), methods: ()),

@@ -4,7 +4,7 @@
 
 #align(center)[*Annotations on classes and fields*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 15.00pt, y: 18.00pt, width: 135.46pt, height: 73.99pt, kind: "class", name: [Order], stereotype: [Entity \ Table(name="orders")], fields: ((vis: "-", body: [Id orderId: Long]), (vis: "-", body: [status: String])), methods: ((vis: "+", body: [calculateTotal(): BigDecimal]),)),
     (x: 46.08pt, y: 127.99pt, width: 73.30pt, height: 50.57pt, kind: "class", name: [Customer], stereotype: [Entity], fields: ((vis: "-", body: [id: Long]), (vis: "-", body: [name: String])), methods: ()),

@@ -2,13 +2,13 @@
 //!
 //! `emit_skinparam_preamble` writes the top-of-document `#set page` /
 //! `#set text` directives and returns a `PaintOverrides` struct the
-//! emitter consults when filling in `#class-layout` arguments.
+//! emitter consults when filling in `#cuca-layout` arguments.
 
 use crate::ir::Skinparam;
 
 use super::text::typst_str_escape;
 
-/// Per-class-layout overrides resolved from `skinparam` and `!theme`
+/// Per-cuca-layout overrides resolved from `skinparam` and `!theme`
 /// directives. Values left as `None` fall through to the painter's
 /// built-in defaults.
 #[derive(Default, Clone)]

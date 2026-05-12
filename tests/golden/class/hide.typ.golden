@@ -2,7 +2,7 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 15.00pt, y: 18.00pt, width: 73.05pt, height: 50.57pt, kind: "class", name: [Order], stereotype: [aggregate root], hide-marker: true, fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [total: Money])), methods: ()),
     (x: 24.91pt, y: 104.57pt, width: 53.23pt, height: 30.22pt, kind: "class", name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),

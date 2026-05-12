@@ -14,7 +14,7 @@
 //! 5. Pick anchor sides + smart-align coord per edge (`route`), route
 //!    through line-of-sight → Manhattan → pathplan → straight cubic
 //!    fallback.
-//! 6. Emit one `#class-layout(...)` call (`emit`).
+//! 6. Emit one `#cuca-layout(...)` call (`emit`).
 //!
 //! Heuristics this file owns:
 //!
@@ -392,7 +392,7 @@ pub fn emit(
         }
     }
 
-    out.push_str("#class-layout(\n");
+    out.push_str("#cuca-layout(\n");
     if is_lr {
         out.push_str("  direction: \"lr\",\n");
     }

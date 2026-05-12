@@ -17,8 +17,9 @@
 //!   #tree(...) / #node[…] — WBS diagrams
 //!   #mindmap(...)         — mind-map diagrams
 //!                           (vendor/blockcell/src/tree.typ)
-//!   #class-layout(...)    — class diagrams
-//!                           (vendor/blockcell/src/class.typ)
+//!   #cuca-layout(...)     — cuca diagrams (class / component /
+//!                           deployment / use case)
+//!                           (vendor/blockcell/src/cuca.typ)
 //! ```
 //!
 //! `record-layout` only depends on private helpers inside `records.typ`.
@@ -43,7 +44,7 @@ const STAGED_SRC_FILES: &[&str] = &[
     "seq-puml.typ",
     "seq.typ",
     "tree.typ",
-    "class.typ",
+    "cuca.typ",
     "palettes.typ",
     "internal/metrics.typ",
 ];
@@ -58,7 +59,7 @@ const STAGED_LIB_TYP: &str = "\
 #import \"src/records.typ\": record-layout, record-probe
 #import \"src/seq-puml.typ\": seq-puml
 #import \"src/tree.typ\": tree, node, mindmap
-#import \"src/class.typ\": class-layout, class-probe, package-probe
+#import \"src/cuca.typ\": cuca-layout, cuca-probe, container-probe
 ";
 
 fn main() {

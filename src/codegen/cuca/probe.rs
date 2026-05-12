@@ -1,6 +1,6 @@
 //! Pass-1 probe emission for class diagrams.
 //!
-//! For each entity in a `CucaDiagram` we emit a `#class-probe(id:
+//! For each entity in a `CucaDiagram` we emit a `#cuca-probe(id:
 //! "mc-<diagram_idx>-<entity_id>", spec: (...))` call into the pass-1
 //! Typst source. The painter measures the natural size and emits
 //! `metadata((id, w, h)) <typstuml_measure>`; `runtime::measure::run`
@@ -35,8 +35,8 @@ pub fn has_label_band(c: &Container) -> bool {
     c.has_label_band()
 }
 
-/// Emit one `#class-probe(...)` call per entity and one
-/// `#package-probe(...)` per label-bearing container into `out`. Pushes
+/// Emit one `#cuca-probe(...)` call per entity and one
+/// `#container-probe(...)` per label-bearing container into `out`. Pushes
 /// the expected IDs into `expected_ids` so `runtime::measure::run` can
 /// verify the protocol round-trip.
 pub fn collect(
@@ -47,7 +47,7 @@ pub fn collect(
 ) {
     for entity in &diag.entities {
         let id = class_id(diagram_idx, entity);
-        out.push_str("#class-probe(id: \"");
+        out.push_str("#cuca-probe(id: \"");
         out.push_str(&id);
         out.push_str("\", spec: (");
         write_class_spec_body(out, entity, &diag.hide);
@@ -59,7 +59,7 @@ pub fn collect(
             continue;
         }
         let id = package_id(diagram_idx, ci);
-        out.push_str("#package-probe(id: \"");
+        out.push_str("#container-probe(id: \"");
         out.push_str(&id);
         out.push_str("\", label: [");
         out.push_str(&creole_to_typst(&c.label));

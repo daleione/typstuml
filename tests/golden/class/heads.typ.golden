@@ -4,7 +4,7 @@
 
 #align(center)[*Arrow head and body styles*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 139.81pt, y: 18.00pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
     (x: 15.00pt, y: 71.00pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),

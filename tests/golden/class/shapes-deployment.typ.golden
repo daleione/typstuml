@@ -4,7 +4,7 @@
 
 #align(center)[*Deployment-flavor shapes (queue / storage / hexagon / card)*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 15.00pt, y: 18.00pt, width: 78.37pt, height: 28.00pt, kind: "queue", name: [MessageBus], fields: (), methods: ()),
     (x: 20.22pt, y: 82.00pt, width: 67.94pt, height: 28.00pt, kind: "storage", name: [BlobStore], fields: (), methods: ()),

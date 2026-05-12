@@ -4,7 +4,7 @@
 
 #align(center)[*M5 core desc-family painters*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 168.94pt, y: 18.00pt, width: 24.00pt, height: 43.58pt, kind: "actor", name: [Alice], fields: (), methods: ()),
     (x: 263.28pt, y: 18.00pt, width: 69.78pt, height: 43.58pt, kind: "actor", name: [Business Analyst], fields: (), methods: ()),

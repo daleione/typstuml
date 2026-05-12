@@ -4,7 +4,7 @@
 
 #align(center)[*Members and modifiers*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 15.00pt, y: 97.44pt, width: 75.34pt, height: 56.65pt, kind: "abstract", name: [Shape], fields: ((vis: "#", body: [color: String]),), methods: ((vis: "+", body: [area(): double], abstract: true), (vis: "+", body: [count(): int], static: true))),
     (x: 64.74pt, y: 18.00pt, width: 78.80pt, height: 43.44pt, kind: "class", name: [Circle], fields: ((vis: "-", body: [radius: double]),), methods: ((vis: "+", body: [area(): double]),)),

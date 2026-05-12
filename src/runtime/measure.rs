@@ -209,8 +209,8 @@ mod tests {
     #[test]
     fn run_returns_metadata_dimensions() {
         let source = r#"
-#import "/blockcell/lib.typ": class-probe
-#class-probe(id: "test-class", spec: (kind: "class", name: [Animal]))
+#import "/blockcell/lib.typ": cuca-probe
+#cuca-probe(id: "test-class", spec: (kind: "class", name: [Animal]))
 "#;
         let set = run(source.to_string(), std::env::current_dir().unwrap(), &["test-class"])
             .expect("measure pass succeeds");
@@ -223,8 +223,8 @@ mod tests {
     #[test]
     fn run_reports_missing_expected_id() {
         let source = r#"
-#import "/blockcell/lib.typ": class-probe
-#class-probe(id: "present", spec: (kind: "class", name: [A]))
+#import "/blockcell/lib.typ": cuca-probe
+#cuca-probe(id: "present", spec: (kind: "class", name: [A]))
 "#;
         let err = run(
             source.to_string(),

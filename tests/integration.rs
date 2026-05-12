@@ -801,10 +801,10 @@ fn measure_changes_class_emit_output() {
         "measure pass should produce different bbox dimensions than the heuristic; got identical output (protocol may not be engaged)",
     );
 
-    // Both must reference the class painter — the protocol must not
+    // Both must reference the cuca painter — the protocol must not
     // strip required output.
-    assert!(measured.contains("class-layout"));
-    assert!(nomeasure.contains("class-layout"));
+    assert!(measured.contains("cuca-layout"));
+    assert!(nomeasure.contains("cuca-layout"));
 }
 
 /// Non-class diagrams (sequence/json/yaml/tree) don't have probes today.

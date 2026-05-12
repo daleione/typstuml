@@ -4,7 +4,7 @@
 
 #align(center)[*Basic class diagram*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 66.85pt, y: 97.44pt, width: 73.30pt, height: 56.65pt, kind: "class", name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
     (x: 15.00pt, y: 18.00pt, width: 73.65pt, height: 43.44pt, kind: "class", name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),

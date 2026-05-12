@@ -2,7 +2,7 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 21.08pt, y: 18.00pt, width: 79.80pt, height: 17.00pt, kind: "class", name: [Component], fields: (), methods: ()),
     (x: 15.00pt, y: 71.00pt, kind: "lollipop", width: 30.91pt, name: [Provided]),

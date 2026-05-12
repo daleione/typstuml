@@ -4,7 +4,7 @@
 
 #align(center)[*All M5 USymbol painters*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 75.81pt, y: 18.00pt, width: 24.00pt, height: 43.58pt, kind: "actor", name: [Alice], fields: (), methods: ()),
     (x: 63.81pt, y: 97.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),

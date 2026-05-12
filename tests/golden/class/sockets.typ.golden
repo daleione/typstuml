@@ -4,7 +4,7 @@
 
 #align(center)[*Component sockets and lollipop interfaces*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 15.00pt, y: 18.00pt, width: 88.11pt, height: 18.45pt, kind: "component", name: [WebService], fields: (), methods: ()),
     (x: 133.11pt, y: 18.00pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),

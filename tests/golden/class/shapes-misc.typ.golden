@@ -4,7 +4,7 @@
 
 #align(center)[*Stack / agent / person / boundary / control*]
 
-#class-layout(
+#cuca-layout(
   classes: (
     (x: 18.73pt, y: 77.39pt, width: 61.85pt, height: 30.00pt, kind: "stack", name: [DocStack], fields: (), methods: ()),
     (x: 15.00pt, y: 18.00pt, width: 69.32pt, height: 23.39pt, kind: "agent", name: [AutoBuyer], fields: (), methods: ()),

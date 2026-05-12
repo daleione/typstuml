@@ -5,7 +5,7 @@
 //! embedded virtual filesystem (`runtime::world`); from the Typst side it
 //! looks like an ordinary file at `/blockcell/lib.typ`.
 
-mod class;
+mod cuca;
 mod json;
 mod mindmap;
 mod record_graph;
@@ -42,7 +42,7 @@ pub fn emit(
             Diagram::Yaml(y) => yaml::emit(&mut out, y, measurements, idx),
             Diagram::Wbs(w) => wbs::emit(&mut out, w),
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
-            Diagram::Cuca(c) => class::emit(&mut out, c, measurements, idx),
+            Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
         }
     }
 
@@ -60,7 +60,7 @@ pub fn emit(
 /// would mean the measured size doesn't match what pass-2 renders.
 pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<String>)>> {
     let any_probes = doc.diagrams.iter().any(|d| match d {
-        Diagram::Cuca(c) => class::probe::has_probes(c),
+        Diagram::Cuca(c) => cuca::probe::has_probes(c),
         Diagram::Json(j) => record_graph::has_records(&j.root),
         Diagram::Yaml(y) => record_graph::has_records(&y.root),
         _ => false,
@@ -75,8 +75,8 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {
         match diagram {
-            Diagram::Cuca(c) if class::probe::has_probes(c) => {
-                class::probe::collect(c, idx, &mut out, &mut expected_ids);
+            Diagram::Cuca(c) if cuca::probe::has_probes(c) => {
+                cuca::probe::collect(c, idx, &mut out, &mut expected_ids);
             }
             Diagram::Json(j) if record_graph::has_records(&j.root) => {
                 record_graph::collect_probes(&j.root, idx, &mut out, &mut expected_ids);

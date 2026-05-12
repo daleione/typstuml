@@ -1,5 +1,5 @@
 //! Typst emitters: turn IR + computed geometry/segments into the
-//! `#class-layout(...)` argument tree the painter consumes.
+//! `#cuca-layout(...)` argument tree the painter consumes.
 
 use std::fmt::Write as _;
 
@@ -15,7 +15,7 @@ use super::{CoupleEdge, OrientedEdge};
 
 /// Geometry the layout pass has resolved for one entity. Used both for
 /// the `width:` / `height:` arguments passed to the blockcell painter
-/// and (via [`super::class::emit`]) by Sugiyama upstream. When the
+/// and (via [`super::emit`]) by Sugiyama upstream. When the
 /// measure protocol is enabled, these come from
 /// [`crate::runtime::MeasurementSet`] — otherwise from the heuristic
 /// `class_geom_filtered` / `note_geom` / `lollipop_geom` estimators.
@@ -54,9 +54,9 @@ pub(super) fn emit_class(
 }
 
 /// Emit the spec body (everything inside the Typst dict argument to the
-/// `class-layout` `classes:` list, minus the `x:` / `y:` / `width:` /
+/// `cuca-layout` `classes:` list, minus the `x:` / `y:` / `width:` /
 /// `height:` positional fields). The same body is reused as the
-/// argument to `#class-probe(spec: (...))` in the pass-1 measure
+/// argument to `#cuca-probe(spec: (...))` in the pass-1 measure
 /// source — see `super::probe::collect`.
 pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &HideOptions) {
     let kind_kw = entity_kind_keyword(entity);
@@ -419,7 +419,7 @@ fn entity_kind_keyword(entity: &Entity) -> &'static str {
     }
     // Desc-family Plain entities: route to the painters that exist.
     // Keep this list in sync with the `kind ==` dispatch chain in
-    // `vendor/blockcell/src/class.typ::class-layout` and `class-probe`.
+    // `vendor/blockcell/src/cuca.typ::cuca-layout` and `cuca-probe`.
     match entity.usymbol {
         USymbol::Actor => "actor",
         USymbol::Database => "database",

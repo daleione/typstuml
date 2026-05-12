@@ -134,47 +134,93 @@ fn resolve_level(vg: &mut VisualGraph, level: &[ClusterId]) {
         if siblings.len() < 2 {
             continue;
         }
-        // Iterate every unordered pair. For each overlapping pair pick
-        // the axis with the smaller correction, then shift whichever
-        // sibling is further along that axis — that preserves the
-        // Sugiyama-ordered ranks (the cluster already lower in y stays
-        // lower; the one further right stays further right).
-        for i in 0..siblings.len() {
-            for j in (i + 1)..siblings.len() {
-                let a = siblings[i];
-                let b = siblings[j];
+        sweep_siblings(vg, &siblings);
+    }
+}
+
+/// Sibling separation: iterate pairwise until stable, picking the
+/// axis per pair from the relative overlap. Direction is decided
+/// against the *original* bbox positions snapshot below so the
+/// cascade can't put a later cluster ahead of an earlier one in row
+/// order (the bug that gave PkgA·PkgB·PkgC → ACB).
+fn sweep_siblings(vg: &mut VisualGraph, siblings: &[ClusterId]) {
+    let valid: Vec<ClusterId> = siblings
+        .iter()
+        .copied()
+        .filter(|&c| vg.hierarchy.clusters[c].x_min.is_finite())
+        .collect();
+    if valid.len() < 2 {
+        return;
+    }
+
+    // Snapshot once: who's "left" and who's "top" by initial position.
+    // The cascade may move clusters past one another in current coords,
+    // but the intent (BK / barycenter order) is fixed by these
+    // snapshots.
+    let mut orig_x: std::collections::HashMap<ClusterId, f64> =
+        std::collections::HashMap::with_capacity(valid.len());
+    let mut orig_y: std::collections::HashMap<ClusterId, f64> =
+        std::collections::HashMap::with_capacity(valid.len());
+    for &c in &valid {
+        let cluster = &vg.hierarchy.clusters[c];
+        orig_x.insert(c, cluster.x_min);
+        orig_y.insert(c, cluster.y_min);
+    }
+
+    const MAX_ITER: usize = 16;
+    for _ in 0..MAX_ITER {
+        let mut any_shift = false;
+        for i in 0..valid.len() {
+            for j in (i + 1)..valid.len() {
+                let a = valid[i];
+                let b = valid[j];
                 let aa = &vg.hierarchy.clusters[a];
                 let bb = &vg.hierarchy.clusters[b];
-                if !aa.x_min.is_finite() || !bb.x_min.is_finite() {
-                    continue;
-                }
-                // Two-axis overlap = pairwise interval overlap.
                 let x_overlap = aa.x_max.min(bb.x_max) - aa.x_min.max(bb.x_min);
                 let y_overlap = aa.y_max.min(bb.y_max) - aa.y_min.max(bb.y_min);
                 if x_overlap <= 0.0 || y_overlap <= 0.0 {
                     continue;
                 }
-                let dx = x_overlap + CLUSTER_GAP_PT;
-                let dy = y_overlap + CLUSTER_GAP_PT;
-                if dx <= dy {
-                    // x-shift: move the further-right cluster right.
-                    let (target, delta) = if aa.x_min <= bb.x_min {
-                        (b, dx)
-                    } else {
-                        (a, dx)
-                    };
-                    shift_cluster_subtree(vg, target, delta, 0.0);
+                // Axis heuristic: when two clusters share a y-band
+                // (overlap covers most of the smaller cluster's y
+                // span), they sit at the same Sugiyama rank and the
+                // natural separation is along x. Otherwise they're at
+                // different ranks and should y-separate.
+                let y_span_min = (aa.y_max - aa.y_min).min(bb.y_max - bb.y_min);
+                let same_y_band = if y_span_min > 0.0 {
+                    y_overlap / y_span_min > 0.5
                 } else {
-                    // y-shift: move the further-down cluster down so
-                    // the lower-rank (smaller-y) sibling stays on top.
-                    let (target, delta) = if aa.y_min <= bb.y_min {
-                        (b, dy)
-                    } else {
-                        (a, dy)
-                    };
-                    shift_cluster_subtree(vg, target, 0.0, delta);
+                    y_overlap > 0.0
+                };
+                let (left, right) = if orig_x[&a] <= orig_x[&b] {
+                    (a, b)
+                } else {
+                    (b, a)
+                };
+                let (top, bot) = if orig_y[&a] <= orig_y[&b] {
+                    (a, b)
+                } else {
+                    (b, a)
+                };
+                if same_y_band {
+                    let dx = vg.hierarchy.clusters[left].x_max + CLUSTER_GAP_PT
+                        - vg.hierarchy.clusters[right].x_min;
+                    if dx > 0.0 {
+                        shift_cluster_subtree(vg, right, dx, 0.0);
+                        any_shift = true;
+                    }
+                } else {
+                    let dy = vg.hierarchy.clusters[top].y_max + CLUSTER_GAP_PT
+                        - vg.hierarchy.clusters[bot].y_min;
+                    if dy > 0.0 {
+                        shift_cluster_subtree(vg, bot, 0.0, dy);
+                        any_shift = true;
+                    }
                 }
             }
+        }
+        if !any_shift {
+            break;
         }
     }
 }

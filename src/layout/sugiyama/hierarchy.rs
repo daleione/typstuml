@@ -230,8 +230,14 @@ impl HierarchyMap {
         }
         let max_depth = self.max_cluster_depth();
         let mut any_change = false;
+        // Backward sweep first: rows reorder based on their predecessor
+        // row, so the top-most row (the user's declared source order)
+        // is the anchor and downstream rows align under it. The
+        // following forward sweep is a no-op when the backward pass
+        // already gave a zero-crossing layout, but it catches any
+        // residual case the backward pass couldn't.
         for depth in 0..=max_depth {
-            for forward in [true, false] {
+            for forward in [false, true] {
                 let rows: Vec<usize> = if forward {
                     (0..num_levels).collect()
                 } else {
@@ -489,20 +495,19 @@ mod tests {
     }
 
     #[test]
-    fn reorder_cluster_groups_sorts_top_level_by_barycenter() {
-        // Three top-level clusters declared in order C0, C1, C2.
-        // Row 0: one member each (n0, n1, n2). Row 1: one member each
-        // (n3, n4, n5). Edge structure forces row 0's barycenter-
-        // friendly order to be C2, C0, C1.
+    fn reorder_cluster_groups_preserves_top_row_reorders_bottom() {
+        // Three top-level clusters declared in order C0, C1, C2 with
+        // one member each per rank. The backward-first sweep keeps the
+        // top row in declaration order (the user's anchor) and pulls
+        // the bottom row into the order that minimises crossings
+        // against it.
         //
-        //   row 0: [C0:n0] [C1:n1] [C2:n2]
-        //   row 1: [C2:n5] [C0:n3] [C1:n4]
+        //   row 0 (forced declared): [n0, n1, n2]
+        //   row 1 (forced shuffled): [n5, n3, n4]
         //   edges: n0→n3, n1→n4, n2→n5
         //
-        // n0's successor (n3) sits at index 1 in row 1 → bary 1.
-        // n1's (n4) at index 2 → bary 2.
-        // n2's (n5) at index 0 → bary 0.
-        // Reorder pulls row 0 to [n2, n0, n1] (sorted by bary 0, 1, 2).
+        // After reorder: row 0 stays [n0, n1, n2]; row 1 becomes
+        // [n3, n4, n5] (n3 under n0, n4 under n1, n5 under n2).
         let mut m = HierarchyMap::new();
         let c0 = m.add_cluster(None);
         let c1 = m.add_cluster(None);
@@ -522,33 +527,38 @@ mod tests {
         for _ in 0..6 {
             dag.new_node();
         }
-        // Place row 0 = [0, 1, 2], row 1 = [5, 3, 4].
         dag.add_edge(NodeHandle::new(0), NodeHandle::new(3));
         dag.add_edge(NodeHandle::new(1), NodeHandle::new(4));
         dag.add_edge(NodeHandle::new(2), NodeHandle::new(5));
         dag.recompute_node_ranks();
-        // Manually set the row-1 order to [5, 3, 4] to force a
-        // non-trivial barycenter for row 0.
+        *dag.row_mut(0) = vec![NodeHandle::new(0), NodeHandle::new(1), NodeHandle::new(2)];
         *dag.row_mut(1) = vec![NodeHandle::new(5), NodeHandle::new(3), NodeHandle::new(4)];
 
         let changed = m.reorder_cluster_groups(&mut dag);
         assert!(changed);
-        let new_row_0 = dag.row(0).clone();
         assert_eq!(
-            new_row_0,
-            vec![NodeHandle::new(2), NodeHandle::new(0), NodeHandle::new(1)],
-            "row 0 should be reordered by barycenter to put C2 (n2) leftmost",
+            dag.row(0).clone(),
+            vec![NodeHandle::new(0), NodeHandle::new(1), NodeHandle::new(2)],
+            "top row keeps its declared order under backward-first sweep",
+        );
+        assert_eq!(
+            dag.row(1).clone(),
+            vec![NodeHandle::new(3), NodeHandle::new(4), NodeHandle::new(5)],
+            "bottom row reorders to match the top row's order",
         );
     }
 
     #[test]
-    fn reorder_cluster_groups_sorts_nested_siblings_inside_parent() {
-        // OuterSrc contains InnerA{a0}, InnerB{b0}, InnerC{c0} at rank 0.
-        // OuterDst contains SinkX{x0}, SinkY{y0}, SinkZ{z0} at rank 1.
-        // Both outers wrap their children so depth-0 finds nothing to
-        // reorder; the work belongs to depth-1's nested-sibling pass.
-        // Edges a0→z0, b0→y0, c0→x0 force the inner clusters under
-        // OuterSrc to reorder to [InnerC, InnerB, InnerA].
+    fn reorder_cluster_groups_nested_aligns_bottom_under_top() {
+        // OuterSrc{InnerA{a0}, InnerB{b0}, InnerC{c0}} at rank 0.
+        // OuterDst{SinkX{x0}, SinkY{y0}, SinkZ{z0}} at rank 1. Both
+        // outers wrap their children so depth-0 finds nothing to
+        // reorder; depth-1 backward-sweep aligns OuterDst's children
+        // under OuterSrc's declared order.
+        //
+        // Edges a0→z0, b0→y0, c0→x0. Row 0 forced to declared
+        // [a0, b0, c0]; row 1's children get pulled into the order
+        // that matches.
         let mut m = HierarchyMap::new();
         let outer_src = m.add_cluster(None);
         let inner_a = m.add_cluster(Some(outer_src));
@@ -580,8 +590,6 @@ mod tests {
         dag.add_edge(NodeHandle::new(1), NodeHandle::new(4)); // b0 → y0
         dag.add_edge(NodeHandle::new(2), NodeHandle::new(3)); // c0 → x0
         dag.recompute_node_ranks();
-        // Force row 0 to declaration order [a0, b0, c0], row 1 to
-        // [x0, y0, z0]; mincross gate keeps them stable.
         *dag.row_mut(0) = vec![NodeHandle::new(0), NodeHandle::new(1), NodeHandle::new(2)];
         *dag.row_mut(1) = vec![NodeHandle::new(3), NodeHandle::new(4), NodeHandle::new(5)];
 
@@ -589,9 +597,14 @@ mod tests {
         assert!(changed);
         assert_eq!(
             dag.row(0).clone(),
-            vec![NodeHandle::new(2), NodeHandle::new(1), NodeHandle::new(0)],
-            "Outer's inner clusters should reorder to [InnerC, InnerB, InnerA] \
-             so the cross-cluster edges run straight down",
+            vec![NodeHandle::new(0), NodeHandle::new(1), NodeHandle::new(2)],
+            "OuterSrc's children keep their declared order",
+        );
+        assert_eq!(
+            dag.row(1).clone(),
+            vec![NodeHandle::new(5), NodeHandle::new(4), NodeHandle::new(3)],
+            "OuterDst's children reorder to align under OuterSrc \
+             (sink_z under a0, sink_y under b0, sink_x under c0)",
         );
     }
 }

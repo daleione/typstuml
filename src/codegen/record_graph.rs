@@ -27,6 +27,7 @@ use serde_json::Value;
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
 use crate::layout::pathplan;
+use crate::runtime::MeasurementSet;
 
 /// Document body font size — set by the prelude `#set text(size: 10pt)`
 /// the codegen emits. All other measurements are derived from it.
@@ -59,9 +60,70 @@ const EDGE_FORCE_MAX_PT: f64 = 30.0;
 /// the visible record edge.
 const ROUTE_PADDING_PT: f64 = 1.0;
 
-pub fn emit_record_graph(out: &mut String, title: Option<&str>, root: &Value) {
+/// Stable per-record probe ID for the measure protocol.
+pub(crate) fn record_id(diagram_idx: usize, record_idx: usize) -> String {
+    format!("mr-{diagram_idx}-{record_idx}")
+}
+
+/// True iff `value` contains any non-empty record. We never emit a probe
+/// for a tree that flattens to zero records, so the protocol's
+/// expected-id sanity check stays happy.
+pub(crate) fn has_records(value: &Value) -> bool {
+    !flatten(value).is_empty()
+}
+
+/// Emit `#record-probe(...)` for every record this `Value` flattens to.
+/// IDs and order match what `emit_record_graph` consumes.
+pub(crate) fn collect_probes(
+    value: &Value,
+    diagram_idx: usize,
+    out: &mut String,
+    expected_ids: &mut Vec<String>,
+) {
+    let specs = flatten(value);
+    for (i, spec) in specs.iter().enumerate() {
+        let id = record_id(diagram_idx, i);
+        out.push_str("#record-probe(id: \"");
+        out.push_str(&id);
+        out.push_str("\", rows: (");
+        for (ri, row) in spec.rows.iter().enumerate() {
+            if ri > 0 {
+                out.push_str(", ");
+            }
+            out.push_str("(key: ");
+            match &row.key {
+                Some(k) => {
+                    out.push('[');
+                    out.push_str(&typst_markup_escape(k));
+                    out.push(']');
+                }
+                None => out.push_str("none"),
+            }
+            out.push_str(", value: [");
+            out.push_str(&row.value);
+            out.push_str("])");
+        }
+        if spec.rows.len() == 1 {
+            out.push(',');
+        }
+        out.push_str("))\n");
+        expected_ids.push(id);
+    }
+}
+
+pub fn emit_record_graph(
+    out: &mut String,
+    title: Option<&str>,
+    root: &Value,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
     let specs = flatten(root);
-    let geoms: Vec<RecordGeom> = specs.iter().map(record_geom).collect();
+    let geoms: Vec<RecordGeom> = specs
+        .iter()
+        .enumerate()
+        .map(|(i, s)| resolve_record_geom(i, s, measurements, diagram_idx))
+        .collect();
 
     let mut vg = VisualGraph::new(Orientation::LeftToRight);
     let handles: Vec<_> = geoms
@@ -277,6 +339,33 @@ struct RecordGeom {
     row_centers: Vec<f64>,
 }
 
+/// Geom for one record. Prefers the pass-1 measurement (true size +
+/// true row centres) and falls back to the heuristic when missing.
+/// Falls back per-record, not per-diagram — so a partial measurement
+/// set still gets most records right.
+fn resolve_record_geom(
+    record_idx: usize,
+    spec: &RecordSpec,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) -> RecordGeom {
+    if let Some(set) = measurements {
+        let id = record_id(diagram_idx, record_idx);
+        if let Some(m) = set.get(&id) {
+            // `row_centers` is empty only when the painter returned no
+            // rows (impossible for non-empty specs). Defensive: fall
+            // through to heuristic if so.
+            if !m.row_centers.is_empty() || spec.rows.is_empty() {
+                return RecordGeom {
+                    size: Point::new(m.width_pt, m.height_pt),
+                    row_centers: m.row_centers,
+                };
+            }
+        }
+    }
+    record_geom(spec)
+}
+
 fn record_geom(spec: &RecordSpec) -> RecordGeom {
     if spec.rows.is_empty() {
         return RecordGeom {
@@ -417,7 +506,7 @@ mod tests {
 
     fn render(title: Option<&str>, value: serde_json::Value) -> String {
         let mut out = String::new();
-        emit_record_graph(&mut out, title, &value);
+        emit_record_graph(&mut out, title, &value, None, 0);
         out
     }
 

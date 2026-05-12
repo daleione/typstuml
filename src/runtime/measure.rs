@@ -26,10 +26,25 @@ use super::world::TypstWorld;
 /// The natural width / height of a single probed content piece, in
 /// typographic points. Codegen uses these to size node bboxes before
 /// running layout.
-#[derive(Copy, Clone, Debug, PartialEq)]
+///
+/// `row_centers` is populated only for record-graph probes (one entry
+/// per row, the local-frame vertical centre used as the edge anchor).
+/// Class / package probes leave it empty.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Measurement {
     pub width_pt: f64,
     pub height_pt: f64,
+    pub row_centers: Vec<f64>,
+}
+
+impl Measurement {
+    pub fn new(width_pt: f64, height_pt: f64) -> Self {
+        Self {
+            width_pt,
+            height_pt,
+            row_centers: Vec::new(),
+        }
+    }
 }
 
 /// Map from codegen-assigned probe ID → measurement. Built once per
@@ -42,7 +57,7 @@ pub struct MeasurementSet {
 
 impl MeasurementSet {
     pub fn get(&self, id: &str) -> Option<Measurement> {
-        self.items.get(id).copied()
+        self.items.get(id).cloned()
     }
 
     pub fn len(&self) -> usize {
@@ -107,14 +122,14 @@ pub fn run(
         let id = read_str(&dict, "id")?;
         let w = read_f64(&dict, "w")?;
         let h = read_f64(&dict, "h")?;
+        let row_centers = read_f64_array_opt(&dict, "row_centers")?;
 
-        if let Some(existing) = set.items.insert(
-            id.clone(),
-            Measurement {
-                width_pt: w,
-                height_pt: h,
-            },
-        ) {
+        let measurement = Measurement {
+            width_pt: w,
+            height_pt: h,
+            row_centers,
+        };
+        if let Some(existing) = set.items.insert(id.clone(), measurement) {
             return Err(Error::MeasureProtocol(format!(
                 "duplicate probe id {id:?}: previous = {:?}",
                 existing
@@ -159,6 +174,31 @@ fn read_f64(dict: &typst::foundations::Dict, key: &str) -> Result<f64> {
         Err(e) => Err(Error::MeasureProtocol(format!(
             "metadata missing field {key}: {e}"
         ))),
+    }
+}
+
+/// Read an optional `Value::Array` of floats / ints. Returns an empty
+/// vec when the key is missing — record probes set it, class / package
+/// probes don't.
+fn read_f64_array_opt(dict: &typst::foundations::Dict, key: &str) -> Result<Vec<f64>> {
+    match dict.get(key) {
+        Ok(Value::Array(arr)) => arr
+            .iter()
+            .map(|v| match v {
+                Value::Float(f) => Ok(*f),
+                Value::Int(i) => Ok(*i as f64),
+                other => Err(Error::MeasureProtocol(format!(
+                    "expected metadata.{key}[] entry to be a number, got {:?}",
+                    other
+                ))),
+            })
+            .collect(),
+        Ok(other) => Err(Error::MeasureProtocol(format!(
+            "expected metadata.{key} to be an array, got {:?}",
+            other
+        ))),
+        // Field absent → that's fine, not all probes carry it.
+        Err(_) => Ok(Vec::new()),
     }
 }
 

@@ -51,7 +51,7 @@ use self::note::{
     parse_note_over_decl, parse_quoted_note_decl, side_to_direction,
 };
 use self::relation::parse_relation;
-use self::util::{is_comment, is_skip_directive, strip_prefix_keyword};
+use self::util::{is_comment, is_skip_directive, parse_annotation, strip_prefix_keyword};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
     let mut parser = Parser::new(&block.body, compat);
@@ -71,6 +71,11 @@ struct Parser<'a> {
     /// here; the variant tells `handle_block_member` how to dispatch.
     block_stack: Vec<(BlockFrame, usize)>,
     diagnostics: Vec<Diagnostic>,
+    /// Java-style `@Entity` / `@Table(name="x")` annotations seen since
+    /// the last declaration. Attached to the next entity (as additional
+    /// stereotype lines) or member (prepended to its body) and then
+    /// drained. Multiple annotations stack in source order.
+    pending_annotations: Vec<String>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -92,7 +97,20 @@ impl<'a> Parser<'a> {
             diag: ClassDiagram::default(),
             block_stack: Vec::new(),
             diagnostics: Vec::new(),
+            pending_annotations: Vec::new(),
         }
+    }
+
+    /// Drain pending annotations to a single newline-joined string. Empty
+    /// list returns `None`. PlantUML semantics — annotations collected
+    /// here render via the stereotype slot.
+    fn take_annotations(&mut self) -> Option<String> {
+        if self.pending_annotations.is_empty() {
+            return None;
+        }
+        let joined = self.pending_annotations.join("\\n");
+        self.pending_annotations.clear();
+        Some(joined)
     }
 
     fn run(&mut self) -> Result<()> {
@@ -106,6 +124,15 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if is_skip_directive(raw) {
+                continue;
+            }
+            // Java-style annotation lines like `@Entity` or
+            // `@Table(name="orders")`. Accumulate; commit_entity /
+            // add_member drain on the next concrete declaration.
+            // Stays out of the way of `@startuml` / `@enduml` (handled
+            // by the lexer) and `@unlinked` (handled by hide/show).
+            if let Some(name) = parse_annotation(raw) {
+                self.pending_annotations.push(name);
                 continue;
             }
             // Layout direction overrides.
@@ -213,7 +240,18 @@ impl<'a> Parser<'a> {
     }
 
     fn commit_entity(&mut self, action: EntityAction) {
-        let EntityAction { entity, has_block } = action;
+        let EntityAction { mut entity, has_block } = action;
+        // Java-style annotations accumulated since the last declaration
+        // attach to this entity. Render path is the stereotype slot,
+        // so multi-annotation classes (`@Entity\n@Table(...)`) show
+        // stacked above the name. If the source also has an explicit
+        // `<<stereotype>>`, prepend the annotations.
+        if let Some(annotations) = self.take_annotations() {
+            entity.stereotype = match entity.stereotype.take() {
+                Some(existing) => Some(format!("{annotations}\\n{existing}")),
+                None => Some(annotations),
+            };
+        }
         let line_no = entity.line;
         let idx = self.upsert_entity(entity);
         // If this entity is being declared inside a `package` / `namespace`,
@@ -301,7 +339,14 @@ impl<'a> Parser<'a> {
                 self.diag.entities.len() - 1
             }
         };
-        let member = parse_member(body, line_no);
+        let mut member = parse_member(body, line_no);
+        if let Some(ann) = self.take_annotations() {
+            // Prepend annotations to the rendered body. The split is on
+            // visibility (already extracted by parse_member), so adding
+            // text in front of `member.body` just stacks above the
+            // identifier when the painter renders it.
+            member.body = format!("{ann} {}", member.body);
+        }
         if is_method_signature(&member.body) {
             self.diag.entities[idx].methods.push(member);
         } else {
@@ -340,7 +385,10 @@ impl<'a> Parser<'a> {
             }
             BlockFrame::Entity(idx) => {
                 // Inline member inside `class A { + foo() }`.
-                let member = parse_member(raw, line_no);
+                let mut member = parse_member(raw, line_no);
+                if let Some(ann) = self.take_annotations() {
+                    member.body = format!("{ann} {}", member.body);
+                }
                 let entity = &mut self.diag.entities[idx];
                 if is_method_signature(&member.body) {
                     entity.methods.push(member);

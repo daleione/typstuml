@@ -4,20 +4,20 @@
 
 #class-layout(
   classes: (
-    (x: 29.00pt, y: 46.00pt, width: 79.01pt, height: 43.44pt, kind: "class", name: [Order], fields: ((vis: "+", body: [id: UUID]),), methods: ((vis: "+", body: [total(): Money]),)),
-    (x: 34.89pt, y: 125.44pt, width: 67.23pt, height: 30.22pt, kind: "class", name: [LineItem], fields: ((vis: "+", body: [qty: int]),), methods: ()),
-    (x: 166.01pt, y: 46.00pt, width: 76.03pt, height: 17.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
-    (x: 303.66pt, y: 46.00pt, width: 59.22pt, height: 17.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
-    (x: 300.04pt, y: 99.00pt, width: 66.46pt, height: 17.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
+    (x: 29.00pt, y: 43.48pt, width: 79.01pt, height: 43.44pt, kind: "class", name: [Order], fields: ((vis: "+", body: [id: UUID]),), methods: ((vis: "+", body: [total(): Money]),)),
+    (x: 34.89pt, y: 122.92pt, width: 67.23pt, height: 30.22pt, kind: "class", name: [LineItem], fields: ((vis: "+", body: [qty: int]),), methods: ()),
+    (x: 166.01pt, y: 43.48pt, width: 76.03pt, height: 17.00pt, kind: "class", name: [Repository], fields: (), methods: ()),
+    (x: 303.66pt, y: 43.48pt, width: 59.22pt, height: 17.00pt, kind: "class", name: [Invoice], fields: (), methods: ()),
+    (x: 300.04pt, y: 96.48pt, width: 66.46pt, height: 17.00pt, kind: "class", name: [Payment], fields: (), methods: ()),
   ),
   packages: (
-    (x: 3.00pt, y: 6.00pt, w: 131.01pt, h: 175.65pt, kind: "package", label: [Domain]),
-    (x: 140.01pt, y: 6.00pt, w: 128.03pt, h: 83.00pt, kind: "package", label: [Infrastructure]),
-    (x: 274.04pt, y: 6.00pt, w: 118.46pt, h: 136.00pt, kind: "namespace", label: [billing]),
+    (x: 3.00pt, y: 6.00pt, w: 131.01pt, h: 173.14pt, kind: "package", label: [Domain]),
+    (x: 140.01pt, y: 6.00pt, w: 128.03pt, h: 80.48pt, kind: "package", label: [Infrastructure]),
+    (x: 274.04pt, y: 6.00pt, w: 118.46pt, h: 133.48pt, kind: "namespace", label: [billing]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 68.50pt, to-x: 68.50pt, path: ((c1: (68.50pt, 107.44pt), c2: (68.50pt, 107.44pt), end: (68.50pt, 125.44pt)),)),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 333.27pt, to-x: 333.27pt, path: ((c1: (333.27pt, 81.00pt), c2: (333.27pt, 81.00pt), end: (333.27pt, 99.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (131.01pt, 67.72pt), c2: (131.01pt, 54.50pt), end: (154.01pt, 54.50pt)), (c1: (158.01pt, 54.50pt), c2: (162.01pt, 54.50pt), end: (166.01pt, 54.50pt)))),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 68.50pt, to-x: 68.50pt, path: ((c1: (68.50pt, 104.92pt), c2: (68.50pt, 104.92pt), end: (68.50pt, 122.92pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 333.27pt, to-x: 333.27pt, path: ((c1: (333.27pt, 78.48pt), c2: (333.27pt, 78.48pt), end: (333.27pt, 96.48pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (131.01pt, 65.20pt), c2: (131.01pt, 51.98pt), end: (154.01pt, 51.98pt)), (c1: (158.01pt, 51.98pt), c2: (162.01pt, 51.98pt), end: (166.01pt, 51.98pt)))),
   ),
 )

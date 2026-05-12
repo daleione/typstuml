@@ -6,7 +6,7 @@
 //! container as a single box and places non-clustered entities
 //! alongside. With no containers it degenerates to `flat_layout`.
 
-use crate::ir::{ClassDiagram, Container, ContainerKind};
+use crate::ir::{ClassDiagram, ContainerKind};
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
 
@@ -15,8 +15,32 @@ use super::geom::ClassGeom;
 /// Padding between a container's outer rectangle and its inner content.
 pub(super) const CONTAINER_PAD_PT: f64 = 14.0;
 /// Reserved band at the top of a container for the header label.
-/// `together` (anonymous) gets 0; everything else gets this band.
+/// `together` (anonymous) gets 0; everything else gets this band as a
+/// heuristic default. The measure protocol overrides this per-container
+/// with `label_h + LABEL_BAND_PADDING_PT` so long / multi-line labels
+/// get an appropriately tall band.
 pub(super) const CONTAINER_LABEL_PT: f64 = 14.0;
+/// Vertical padding around a measured package label inside its band:
+/// painter draws label at `dy: 2pt` from the band top, so 2pt above +
+/// label_h + 2pt below + 2pt buffer before content = label_h + 6pt.
+const LABEL_BAND_PADDING_PT: f64 = 6.0;
+/// Horizontal padding around a measured package label so the label
+/// (which the painter inset-places 6pt from each side) doesn't get
+/// clipped by a too-narrow outer box.
+const LABEL_BAND_INSET_PT: f64 = 6.0;
+
+/// Per-container label measurements pulled from the `MeasurementSet`.
+/// `None` for `together` (no band) or when the protocol is disabled —
+/// the caller falls back to `CONTAINER_LABEL_PT` and no min-width.
+pub(super) type LabelBands<'a> = &'a [Option<LabelBand>];
+
+#[derive(Copy, Clone, Debug)]
+pub(super) struct LabelBand {
+    /// Measured natural width of the label text content (no insets).
+    pub w_pt: f64,
+    /// Measured natural height of the label text content (no insets).
+    pub h_pt: f64,
+}
 
 /// Output of compound layout: per-entity absolute top-left position
 /// plus per-container absolute outer bbox (None for empty containers).
@@ -35,28 +59,45 @@ struct ClusterData {
     inner_size: Point,
 }
 
-fn cluster_label_band(c: &Container) -> f64 {
-    if matches!(c.kind, ContainerKind::Together) {
-        0.0
-    } else {
-        CONTAINER_LABEL_PT
+fn cluster_label_band(ci: usize, diag: &ClassDiagram, bands: LabelBands) -> f64 {
+    if matches!(diag.containers[ci].kind, ContainerKind::Together) {
+        return 0.0;
     }
+    bands
+        .get(ci)
+        .and_then(|b| b.as_ref())
+        .map(|b| b.h_pt + LABEL_BAND_PADDING_PT)
+        .unwrap_or(CONTAINER_LABEL_PT)
+}
+
+/// Minimum outer width imposed by the label, so a wide / long package
+/// title can't overflow a container with narrow contents. Zero when
+/// no measurement is available (the painter just clips).
+fn cluster_label_min_outer_w(ci: usize, bands: LabelBands) -> f64 {
+    bands
+        .get(ci)
+        .and_then(|b| b.as_ref())
+        .map(|b| b.w_pt + 2.0 * LABEL_BAND_INSET_PT)
+        .unwrap_or(0.0)
 }
 
 fn cluster_outer_size(
     ci: usize,
     diag: &ClassDiagram,
     cluster_data: &std::collections::HashMap<usize, ClusterData>,
+    bands: LabelBands,
 ) -> Point {
     let inner = cluster_data[&ci].inner_size;
     let pad = CONTAINER_PAD_PT;
-    let band = cluster_label_band(&diag.containers[ci]);
-    Point::new(inner.x + 2.0 * pad, inner.y + 2.0 * pad + band)
+    let band = cluster_label_band(ci, diag, bands);
+    let min_label_w = cluster_label_min_outer_w(ci, bands);
+    let outer_w = (inner.x + 2.0 * pad).max(min_label_w);
+    Point::new(outer_w, inner.y + 2.0 * pad + band)
 }
 
-fn cluster_content_offset(ci: usize, diag: &ClassDiagram) -> Point {
+fn cluster_content_offset(ci: usize, diag: &ClassDiagram, bands: LabelBands) -> Point {
     let pad = CONTAINER_PAD_PT;
-    let band = cluster_label_band(&diag.containers[ci]);
+    let band = cluster_label_band(ci, diag, bands);
     Point::new(pad, pad + band)
 }
 
@@ -159,6 +200,7 @@ pub(super) fn compound_layout(
     geoms: &[ClassGeom],
     orientation: Orientation,
     layout_edges: &[(usize, usize)],
+    bands: LabelBands,
 ) -> LayoutResult {
     if diag.containers.is_empty() {
         return flat_layout(diag, geoms, orientation, layout_edges);
@@ -178,6 +220,7 @@ pub(super) fn compound_layout(
             layout_edges,
             &chains,
             &mut cluster_data,
+            bands,
         );
     }
 
@@ -193,7 +236,7 @@ pub(super) fn compound_layout(
         if !cluster_data.contains_key(&ti) {
             continue;
         }
-        let outer = cluster_outer_size(ti, diag, &cluster_data);
+        let outer = cluster_outer_size(ti, diag, &cluster_data, bands);
         let h = super_vg.add_node(Element::new_box(outer, orientation));
         super_h_for_cluster.insert(ti, h);
     }
@@ -248,6 +291,7 @@ pub(super) fn compound_layout(
             &cluster_data,
             &mut top_lefts,
             &mut container_bboxes,
+            bands,
         );
     }
     for (&ei, &h) in &super_h_for_entity {
@@ -273,6 +317,7 @@ fn layout_cluster(
     layout_edges: &[(usize, usize)],
     chains: &[Vec<usize>],
     cluster_data: &mut std::collections::HashMap<usize, ClusterData>,
+    bands: LabelBands,
 ) {
     if cluster_data.contains_key(&ci) {
         return;
@@ -288,6 +333,7 @@ fn layout_cluster(
             layout_edges,
             chains,
             cluster_data,
+            bands,
         );
     }
 
@@ -305,7 +351,7 @@ fn layout_cluster(
         if !cluster_data.contains_key(&cidx) {
             continue;
         }
-        let outer = cluster_outer_size(cidx, diag, cluster_data);
+        let outer = cluster_outer_size(cidx, diag, cluster_data, bands);
         let h = sub_vg.add_node(Element::new_box(outer, orientation));
         child_h.insert(cidx, h);
     }
@@ -361,7 +407,7 @@ fn layout_cluster(
         .collect();
     children.sort_by_key(|&(c, _)| c);
     for &(cidx, p) in &children {
-        let outer = cluster_outer_size(cidx, diag, cluster_data);
+        let outer = cluster_outer_size(cidx, diag, cluster_data, bands);
         min_x = min_x.min(p.x);
         min_y = min_y.min(p.y);
         max_x = max_x.max(p.x + outer.x);
@@ -409,10 +455,11 @@ fn place_cluster(
     cluster_data: &std::collections::HashMap<usize, ClusterData>,
     top_lefts: &mut [Point],
     bboxes: &mut [Option<(Point, Point)>],
+    bands: LabelBands,
 ) {
-    let outer_size = cluster_outer_size(ci, diag, cluster_data);
+    let outer_size = cluster_outer_size(ci, diag, cluster_data, bands);
     bboxes[ci] = Some((outer_top_left, outer_top_left.add(outer_size)));
-    let content_origin = outer_top_left.add(cluster_content_offset(ci, diag));
+    let content_origin = outer_top_left.add(cluster_content_offset(ci, diag, bands));
     let data = &cluster_data[&ci];
     for &(ei, local) in &data.members {
         top_lefts[ei] = content_origin.add(local);
@@ -426,6 +473,7 @@ fn place_cluster(
             cluster_data,
             top_lefts,
             bboxes,
+            bands,
         );
     }
 }
@@ -433,7 +481,7 @@ fn place_cluster(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{ClassDiagram, ContainerKind, Entity, EntityKind};
+    use crate::ir::{ClassDiagram, Container, ContainerKind, Entity, EntityKind};
 
     fn entity(name: &str) -> Entity {
         Entity {
@@ -467,7 +515,7 @@ mod tests {
         diag.entities.push(entity("B"));
         let geoms = vec![unit_geom(), unit_geom()];
         let result =
-            compound_layout(&diag, &geoms, Orientation::TopToBottom, &[(0, 1)]);
+            compound_layout(&diag, &geoms, Orientation::TopToBottom, &[(0, 1)], &[]);
         assert_eq!(result.top_lefts.len(), 2);
         assert!(result.container_bboxes.is_empty());
     }
@@ -497,7 +545,7 @@ mod tests {
             line: 0,
         });
         let geoms = vec![unit_geom(), unit_geom()];
-        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[]);
+        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
 
         let bb_a = result.container_bboxes[0].expect("PkgA bbox");
         let bb_b = result.container_bboxes[1].expect("PkgB bbox");
@@ -541,7 +589,7 @@ mod tests {
             line: 0,
         });
         let geoms = vec![unit_geom(), unit_geom()];
-        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[]);
+        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
         let bb_a = result.container_bboxes[0].unwrap();
         let bb_b = result.container_bboxes[1].unwrap();
         // Disjoint along at least one axis.
@@ -578,7 +626,7 @@ mod tests {
             line: 0,
         });
         let geoms = vec![unit_geom()];
-        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[]);
+        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
         let outer = result.container_bboxes[0].unwrap();
         let inner = result.container_bboxes[1].unwrap();
         assert!(

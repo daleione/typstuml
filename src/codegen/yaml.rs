@@ -6,7 +6,19 @@
 
 use crate::codegen::record_graph::emit_record_graph;
 use crate::ir::YamlDiagram;
+use crate::runtime::MeasurementSet;
 
-pub fn emit(out: &mut String, yaml: &YamlDiagram) {
-    emit_record_graph(out, yaml.title.as_deref(), &yaml.root);
+pub fn emit(
+    out: &mut String,
+    yaml: &YamlDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
+    emit_record_graph(
+        out,
+        yaml.title.as_deref(),
+        &yaml.root,
+        measurements,
+        diagram_idx,
+    );
 }

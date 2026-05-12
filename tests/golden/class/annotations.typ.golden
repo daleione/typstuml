@@ -1,0 +1,15 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Annotations on classes and fields*]
+
+#class-layout(
+  classes: (
+    (x: 15.00pt, y: 18.00pt, width: 135.46pt, height: 73.99pt, kind: "class", name: [Order], stereotype: [Entity \ Table(name="orders")], fields: ((vis: "-", body: [Id orderId: Long]), (vis: "-", body: [status: String])), methods: ((vis: "+", body: [calculateTotal(): BigDecimal]),)),
+    (x: 46.08pt, y: 127.99pt, width: 73.30pt, height: 50.57pt, kind: "class", name: [Customer], stereotype: [Entity], fields: ((vis: "-", body: [id: Long]), (vis: "-", body: [name: String])), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 82.73pt, to-x: 82.73pt, label: [places], path: ((c1: (82.73pt, 109.99pt), c2: (82.73pt, 109.99pt), end: (82.73pt, 127.99pt)),)),
+  ),
+)

@@ -38,8 +38,8 @@ pub fn emit(
         }
         match diagram {
             Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
-            Diagram::Json(j) => json::emit(&mut out, j),
-            Diagram::Yaml(y) => yaml::emit(&mut out, y),
+            Diagram::Json(j) => json::emit(&mut out, j, measurements, idx),
+            Diagram::Yaml(y) => yaml::emit(&mut out, y, measurements, idx),
             Diagram::Wbs(w) => wbs::emit(&mut out, w),
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
             Diagram::Class(c) => class::emit(&mut out, c, measurements, idx),
@@ -59,10 +59,12 @@ pub fn emit(
 /// [`emit`]: text style flows through `measure()`, so any divergence
 /// would mean the measured size doesn't match what pass-2 renders.
 pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<String>)>> {
-    let any_probes = doc
-        .diagrams
-        .iter()
-        .any(|d| matches!(d, Diagram::Class(c) if class::probe::has_probes(c)));
+    let any_probes = doc.diagrams.iter().any(|d| match d {
+        Diagram::Class(c) => class::probe::has_probes(c),
+        Diagram::Json(j) => record_graph::has_records(&j.root),
+        Diagram::Yaml(y) => record_graph::has_records(&y.root),
+        _ => false,
+    });
     if !any_probes {
         return Ok(None);
     }
@@ -72,10 +74,17 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
     let mut expected_ids: Vec<String> = Vec::new();
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {
-        if let Diagram::Class(c) = diagram {
-            if class::probe::has_probes(c) {
+        match diagram {
+            Diagram::Class(c) if class::probe::has_probes(c) => {
                 class::probe::collect(c, idx, &mut out, &mut expected_ids);
             }
+            Diagram::Json(j) if record_graph::has_records(&j.root) => {
+                record_graph::collect_probes(&j.root, idx, &mut out, &mut expected_ids);
+            }
+            Diagram::Yaml(y) if record_graph::has_records(&y.root) => {
+                record_graph::collect_probes(&y.root, idx, &mut out, &mut expected_ids);
+            }
+            _ => {}
         }
     }
 

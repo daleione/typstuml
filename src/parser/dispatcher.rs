@@ -72,6 +72,16 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         {
             continue;
         }
+        // Java-style annotations sit above class declarations. Treat
+        // them as transparent so a body that begins with
+        // `@Entity\nclass Foo` is still recognized as a class diagram.
+        // The class sub-parser handles the semantics.
+        if t.starts_with('@')
+            && !t.starts_with("@start")
+            && !t.starts_with("@end")
+        {
+            continue;
+        }
 
         // Sequence — participant declaration or arrow.
         if PARTICIPANT_KEYWORDS

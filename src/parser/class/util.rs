@@ -5,6 +5,85 @@ pub(super) fn is_comment(line: &str) -> bool {
     line.starts_with('\'') || line.starts_with("/'")
 }
 
+/// Match a Java-style `@Name` or `@Name(args)` annotation line.
+/// Returns the annotation text **without** the leading `@`, e.g.
+/// `Entity` for `@Entity` or `Table(name="orders")` for
+/// `@Table(name="orders")`. Returns `None` for anything else, including
+/// trailing chars after the annotation (so `@Foo bar` doesn't consume).
+///
+/// We accept any non-empty identifier-ish run after `@`, but reject
+/// `@startuml` / `@enduml` (handled by the lexer) and the special
+/// `@unlinked` (used by `hide @unlinked …`).
+pub(super) fn parse_annotation(line: &str) -> Option<String> {
+    let rest = line.strip_prefix('@')?;
+    let bytes = rest.as_bytes();
+    if bytes.is_empty() || !is_ident_start(bytes[0]) {
+        return None;
+    }
+    let mut i = 1;
+    while i < bytes.len() && is_ident_continue(bytes[i]) {
+        i += 1;
+    }
+    let name = &rest[..i];
+    if matches!(name, "startuml" | "enduml" | "unlinked") {
+        return None;
+    }
+    let after = rest[i..].trim_start();
+    if after.is_empty() {
+        return Some(rest[..i].to_string());
+    }
+    if !after.starts_with('(') {
+        return None;
+    }
+    // Find the matching `)` honoring nested parens and quoted strings.
+    let mut depth = 0usize;
+    let mut in_quote = false;
+    let mut j = 0usize;
+    let ab = after.as_bytes();
+    while j < ab.len() {
+        let c = ab[j];
+        if in_quote {
+            if c == b'\\' && j + 1 < ab.len() {
+                j += 2;
+                continue;
+            }
+            if c == b'"' {
+                in_quote = false;
+            }
+            j += 1;
+            continue;
+        }
+        match c {
+            b'"' => in_quote = true,
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    let args_end = j + 1;
+                    let tail = after[args_end..].trim();
+                    if !tail.is_empty() {
+                        return None;
+                    }
+                    let mut out = name.to_string();
+                    out.push_str(&after[..args_end]);
+                    return Some(out);
+                }
+            }
+            _ => {}
+        }
+        j += 1;
+    }
+    None
+}
+
+fn is_ident_start(b: u8) -> bool {
+    b.is_ascii_alphabetic() || b == b'_'
+}
+
+fn is_ident_continue(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
 pub(super) fn is_skip_directive(line: &str) -> bool {
     // `hide …` / `show …` are intentionally NOT in this list — they're
     // dispatched via `try_parse_hide_show` and may flip flags on the
@@ -174,5 +253,31 @@ mod tests {
         assert_eq!(unquote("\"hello\""), "hello");
         assert_eq!(unquote("hello"), "hello");
         assert_eq!(unquote("\""), "\""); // single quote — keep as-is
+    }
+
+    #[test]
+    fn parse_annotation_basics() {
+        assert_eq!(parse_annotation("@Entity"), Some("Entity".into()));
+        assert_eq!(parse_annotation("@Id"), Some("Id".into()));
+        assert_eq!(
+            parse_annotation("@Table(name=\"orders\")"),
+            Some("Table(name=\"orders\")".into())
+        );
+        // Quoted ) inside the args list must not terminate.
+        assert_eq!(
+            parse_annotation("@A(s=\")\")"),
+            Some("A(s=\")\")".into())
+        );
+        // Trailing junk after the annotation rejects it.
+        assert!(parse_annotation("@Entity foo").is_none());
+        assert!(parse_annotation("@Table(name=\"x\") extra").is_none());
+        // Reserved tags handled elsewhere.
+        assert!(parse_annotation("@startuml").is_none());
+        assert!(parse_annotation("@enduml").is_none());
+        assert!(parse_annotation("@unlinked").is_none());
+        // Non-annotation inputs.
+        assert!(parse_annotation("class Foo").is_none());
+        assert!(parse_annotation("@").is_none());
+        assert!(parse_annotation("@123").is_none());
     }
 }

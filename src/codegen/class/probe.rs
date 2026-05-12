@@ -12,9 +12,10 @@
 //! `[A-Za-z0-9_]+` as identity (the common case) and only escapes weird
 //! IR identifiers.
 
-use crate::ir::{ClassDiagram, Entity, HideOptions};
+use crate::ir::{ClassDiagram, Container, ContainerKind, Entity, HideOptions};
 
 use super::emit::write_class_spec_body;
+use super::text::creole_to_typst;
 
 /// Build the stable probe ID for an entity. Format:
 /// `mc-{diagram_idx}-{sanitized_entity_id}`.
@@ -22,8 +23,21 @@ pub fn class_id(diagram_idx: usize, entity: &Entity) -> String {
     format!("mc-{diagram_idx}-{}", sanitize(&entity.id))
 }
 
-/// Emit one `#class-probe(...)` call per entity into `out`. Pushes the
-/// expected IDs into `expected_ids` so `runtime::measure::run` can
+/// Build the stable probe ID for a package label. `together` has no
+/// rendered label so it never gets a probe — see `has_label_band`.
+pub fn package_id(diagram_idx: usize, container_idx: usize) -> String {
+    format!("mp-{diagram_idx}-{container_idx}")
+}
+
+/// Whether a container is rendered with a label band that needs
+/// measurement. `together` (anonymous) draws no band, so we skip it.
+pub fn has_label_band(c: &Container) -> bool {
+    !matches!(c.kind, ContainerKind::Together) && !c.label.is_empty()
+}
+
+/// Emit one `#class-probe(...)` call per entity and one
+/// `#package-probe(...)` per label-bearing container into `out`. Pushes
+/// the expected IDs into `expected_ids` so `runtime::measure::run` can
 /// verify the protocol round-trip.
 pub fn collect(
     diag: &ClassDiagram,
@@ -40,13 +54,24 @@ pub fn collect(
         out.push_str("))\n");
         expected_ids.push(id);
     }
+    for (ci, c) in diag.containers.iter().enumerate() {
+        if !has_label_band(c) {
+            continue;
+        }
+        let id = package_id(diagram_idx, ci);
+        out.push_str("#package-probe(id: \"");
+        out.push_str(&id);
+        out.push_str("\", label: [");
+        out.push_str(&creole_to_typst(&c.label));
+        out.push_str("])\n");
+        expected_ids.push(id);
+    }
 }
 
-/// True iff `diag` has at least one entity that needs measurement.
-/// Today every entity does — including notes and lollipops, which have
-/// their own kind-specific layout in the painter.
+/// True iff `diag` has at least one entity (or labeled container) that
+/// needs measurement.
 pub fn has_probes(diag: &ClassDiagram) -> bool {
-    !diag.entities.is_empty()
+    !diag.entities.is_empty() || diag.containers.iter().any(has_label_band)
 }
 
 /// Sanitize an IR entity ID into a string safe to embed in a `metadata`

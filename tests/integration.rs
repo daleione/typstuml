@@ -695,3 +695,124 @@ fn measure_widths_are_forwarded_into_emit() {
         );
     }
 }
+
+// -- Annotations -----------------------------------------------------------
+
+#[test]
+fn golden_emit_typst_class_annotations() {
+    let actual = emit_typst_path(&fixture_in("class", "annotations.puml"));
+    assert_golden_in("class", "annotations", &actual);
+}
+
+#[test]
+fn annotation_lines_do_not_produce_unrecognized_warnings() {
+    // `@Entity` etc. used to flow into the catch-all warning path. The
+    // annotation parser captures them silently and attaches to the next
+    // declaration.
+    let output = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("check")
+        .arg(fixture_in("class", "annotations.puml"))
+        .assert()
+        .success()
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8(output).expect("stderr utf8");
+    assert!(
+        !stderr.contains("unrecognized class syntax"),
+        "annotations should not trigger the unrecognized-syntax diagnostic: {stderr}",
+    );
+}
+
+#[test]
+fn annotation_emit_attaches_to_stereotype_and_member_body() {
+    let src = emit_typst_path(&fixture_in("class", "annotations.puml"));
+    // Order class stereotype should carry both Entity and Table(...).
+    let order_line = src
+        .lines()
+        .find(|l| l.contains("name: [Order]"))
+        .expect("Order line");
+    assert!(
+        order_line.contains("stereotype: ["),
+        "Order should have a stereotype line: {order_line}",
+    );
+    assert!(
+        order_line.contains("Entity") && order_line.contains("Table"),
+        "Order stereotype should mention both annotations: {order_line}",
+    );
+    // Field-level @Id should land in the field body, not the stereotype.
+    assert!(
+        order_line.contains("body: [Id orderId: Long]")
+            || order_line.contains("body: [Id orderId"),
+        "@Id should prepend the field body: {order_line}",
+    );
+}
+
+#[test]
+fn package_band_heights_come_from_measurement() {
+    // Heuristic CONTAINER_LABEL_PT = 14pt; measured "Domain" at 0.85em
+    // of 10pt body font + LABEL_BAND_PADDING_PT = 6pt yields slightly
+    // less. Compare two emit runs and confirm the package h: value
+    // shifts when --no-measure flips off.
+    let measured = emit_typst_path(&fixture_in("class", "package.puml"));
+    let nomeasure_bytes = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("emit")
+        .arg("--no-measure")
+        .arg(fixture_in("class", "package.puml"))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let nomeasure = String::from_utf8(nomeasure_bytes).expect("emit utf8");
+    fn first_package_height(src: &str) -> &str {
+        let line = src
+            .lines()
+            .find(|l| l.contains("kind: \"package\""))
+            .expect("package line");
+        let after_h = line.split("h: ").nth(1).expect("h:");
+        after_h.split("pt").next().expect("pt unit")
+    }
+    assert_ne!(
+        first_package_height(&measured),
+        first_package_height(&nomeasure),
+        "measured package band height should differ from heuristic; got measured=\"{}\" nomeasure=\"{}\"",
+        first_package_height(&measured),
+        first_package_height(&nomeasure),
+    );
+}
+
+#[test]
+fn record_graph_measure_changes_emit_output() {
+    let measured = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("emit")
+        .arg(fixture_in("json", "person.puml"))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let measured = String::from_utf8(measured).unwrap();
+
+    let nomeasure = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("emit")
+        .arg("--no-measure")
+        .arg(fixture_in("json", "person.puml"))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let nomeasure = String::from_utf8(nomeasure).unwrap();
+
+    assert_ne!(
+        measured, nomeasure,
+        "measure pass should produce different record positions than the heuristic",
+    );
+    assert!(measured.contains("record-layout"));
+    assert!(nomeasure.contains("record-layout"));
+}

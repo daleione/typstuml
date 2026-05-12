@@ -46,7 +46,7 @@ use self::geom::{
     Side, anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor,
     right_anchor, top_anchor, ClassGeom,
 };
-use self::layout::compound_layout;
+use self::layout::{compound_layout, LabelBand};
 use self::route::{
     cubic_from_straight, diagonal_path, line_of_sight_clear, pick_edge_sides,
     side_tangent, smart_align_coord, straight_fallback, try_manhattan_route,
@@ -86,6 +86,31 @@ fn resolve_geom(
         // level once the diagnostic system supports it.
     }
     class_geom_filtered(entity, hide)
+}
+
+/// Per-container label band measurements from pass-1. Returns one
+/// entry per container in declaration order; `None` for `together`
+/// (anonymous, no band) or when the measurement is missing.
+fn resolve_label_bands(
+    diag: &ClassDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) -> Vec<Option<LabelBand>> {
+    let Some(set) = measurements else {
+        return vec![None; diag.containers.len()];
+    };
+    (0..diag.containers.len())
+        .map(|ci| {
+            if !probe::has_label_band(&diag.containers[ci]) {
+                return None;
+            }
+            let id = probe::package_id(diagram_idx, ci);
+            set.get(&id).map(|m| LabelBand {
+                w_pt: m.width_pt,
+                h_pt: m.height_pt,
+            })
+        })
+        .collect()
 }
 
 /// Halo added around each class bbox before Sugiyama placement so
@@ -188,13 +213,26 @@ pub fn emit(
         layout_edges.push((ce.c_idx, ce.b_idx));
     }
 
+    // Per-container label band measurements (None for `together`,
+    // None when --no-measure or pass-1 missed the probe). Layout uses
+    // these to size each container's outer rectangle: tall multi-line
+    // labels get a taller header band, wide labels enforce a minimum
+    // outer width so the title doesn't overflow narrow contents.
+    let label_bands = resolve_label_bands(diag, measurements, diagram_idx);
+
     // Compound layout: one sub-Sugiyama per cluster (recursive into
     // nested containers), then a super-Sugiyama treating every
     // top-level cluster as one box. This guarantees non-overlapping
     // cluster rectangles even when one cluster's widest member is
     // wider than another cluster's narrowest. With no containers the
     // whole thing falls back to a flat single-pass layout.
-    let layout = compound_layout(diag, &inflated_geoms, orientation, &layout_edges);
+    let layout = compound_layout(
+        diag,
+        &inflated_geoms,
+        orientation,
+        &layout_edges,
+        &label_bands,
+    );
     // Shift each top-left by half the halo so the class itself sits
     // centered inside its inflated bbox. Container bboxes returned by
     // the layout already include the halos around their members; we

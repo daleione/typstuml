@@ -55,10 +55,10 @@ const STAGED_SRC_FILES: &[&str] = &[
 /// owning file (plus its transitive deps) to `STAGED_SRC_FILES`.
 const STAGED_LIB_TYP: &str = "\
 // Slim re-export for TypstUML. See build.rs for the full rationale.
-#import \"src/records.typ\": record-layout
+#import \"src/records.typ\": record-layout, record-probe
 #import \"src/seq-puml.typ\": seq-puml
 #import \"src/tree.typ\": tree, node, mindmap
-#import \"src/class.typ\": class-layout, class-probe
+#import \"src/class.typ\": class-layout, class-probe, package-probe
 ";
 
 fn main() {

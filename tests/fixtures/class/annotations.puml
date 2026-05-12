@@ -1,0 +1,20 @@
+@startuml
+title Annotations on classes and fields
+
+@Entity
+@Table(name="orders")
+class Order {
+  @Id
+  - orderId: Long
+  - status: String
+  + calculateTotal(): BigDecimal
+}
+
+@Entity
+class Customer {
+  - id: Long
+  - name: String
+}
+
+Order --> Customer : places
+@enduml

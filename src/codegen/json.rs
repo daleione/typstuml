@@ -5,7 +5,19 @@
 
 use crate::codegen::record_graph::emit_record_graph;
 use crate::ir::JsonDiagram;
+use crate::runtime::MeasurementSet;
 
-pub fn emit(out: &mut String, json: &JsonDiagram) {
-    emit_record_graph(out, json.title.as_deref(), &json.root);
+pub fn emit(
+    out: &mut String,
+    json: &JsonDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
+    emit_record_graph(
+        out,
+        json.title.as_deref(),
+        &json.root,
+        measurements,
+        diagram_idx,
+    );
 }

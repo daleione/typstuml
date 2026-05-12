@@ -582,6 +582,29 @@ fn renders_svg_for_class_shapes_activity() {
 }
 
 #[test]
+fn golden_emit_typst_class_sockets() {
+    // M7: socket arrow heads `-(` (head_to = SocketOpen) and `)-`
+    // (head_from = SocketClosed). The painter renders the head as a
+    // half-circle arc whose open side cups the incoming line.
+    let actual = emit_typst_path(&fixture_in("class", "sockets.puml"));
+    assert_golden_in("class", "sockets", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_sockets() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-sockets.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "sockets.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
 fn golden_emit_typst_class_shapes_misc() {
     // M5 final sweep: stack / agent / person / boundary / control
     // painters. The entity-domain painter exists in blockcell but

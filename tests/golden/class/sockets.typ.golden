@@ -1,0 +1,17 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Component sockets and lollipop interfaces*]
+
+#class-layout(
+  classes: (
+    (x: 15.00pt, y: 18.00pt, width: 88.11pt, height: 18.45pt, kind: "component", name: [WebService], fields: (), methods: ()),
+    (x: 133.11pt, y: 18.00pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),
+    (x: 103.65pt, y: 72.45pt, kind: "lollipop", width: 30.42pt, name: [AuthAPI]),
+  ),
+  edges: (
+    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (178.68pt, 48.45pt), c2: (118.87pt, 48.45pt), end: (118.87pt, 60.45pt)), (c1: (118.87pt, 64.45pt), c2: (118.87pt, 68.45pt), end: (118.87pt, 72.45pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (59.05pt, 48.45pt), c2: (118.87pt, 48.45pt), end: (118.87pt, 60.45pt)), (c1: (118.87pt, 64.45pt), c2: (118.87pt, 68.45pt), end: (118.87pt, 72.45pt)))),
+  ),
+)

@@ -505,6 +505,15 @@ fn decode_head(s: &str, is_left: bool) -> ArrowHead {
         "x" => ArrowHead::Cross,
         "+" => ArrowHead::Plus,
         "#" => ArrowHead::None, // square (M2)
+        // Component-interface socket heads (PlantUML LinkDecor.PARENTHESIS).
+        // `Foo -( Bar` puts a right-facing socket on Bar; `Foo )- Bar`
+        // puts a left-facing socket on Foo.
+        "(" if !is_left => ArrowHead::SocketOpen,
+        ")" if is_left => ArrowHead::SocketClosed,
+        // Symmetric forms — sometimes seen but PlantUML's renderer
+        // treats them identically.
+        "(" if is_left => ArrowHead::SocketOpen,
+        ")" if !is_left => ArrowHead::SocketClosed,
         _ => ArrowHead::None,
     }
 }

@@ -1296,6 +1296,27 @@ mod tests {
     }
 
     #[test]
+    fn parses_socket_open_head() {
+        // `Foo -( Bar` — right-end socket (PlantUML LinkDecor.PARENTHESIS).
+        let c = parse_ok(&["class Foo", "class Bar", "Foo -( Bar"]);
+        assert_eq!(c.relations.len(), 1);
+        let r = &c.relations[0];
+        assert_eq!(r.from, "Foo");
+        assert_eq!(r.to, "Bar");
+        assert_eq!(r.head_to, ArrowHead::SocketOpen);
+        assert_eq!(r.head_from, ArrowHead::None);
+    }
+
+    #[test]
+    fn parses_socket_closed_head() {
+        // `Foo )- Bar` — left-end socket.
+        let c = parse_ok(&["class Foo", "class Bar", "Foo )- Bar"]);
+        let r = &c.relations[0];
+        assert_eq!(r.head_from, ArrowHead::SocketClosed);
+        assert_eq!(r.head_to, ArrowHead::None);
+    }
+
+    #[test]
     fn shorthand_does_not_swallow_relation_line() {
         // `[A] --> [B]` is a relation line with two component shorthand
         // endpoints. parse_inline_shorthand must reject it (trailing

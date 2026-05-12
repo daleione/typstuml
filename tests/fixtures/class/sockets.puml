@@ -1,0 +1,10 @@
+@startuml
+title Component sockets and lollipop interfaces
+
+component WebService
+component AuthService
+() AuthAPI
+
+AuthService -- AuthAPI
+WebService -( AuthAPI
+@enduml

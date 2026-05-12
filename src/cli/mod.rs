@@ -64,6 +64,16 @@ pub struct Args {
     #[arg(short = 'v', long, global = true)]
     pub verbose: bool,
 
+    /// Disable the measure double-pass protocol.
+    ///
+    /// By default, class diagrams are first compiled in a `metadata`-only
+    /// pass to measure each node's true rendered size; those sizes feed
+    /// the second compile (the actual render). `--no-measure` skips
+    /// pass-1 and falls back to the Rust-side heuristic estimator —
+    /// useful for benchmarking and regression comparison.
+    #[arg(long, global = true)]
+    pub no_measure: bool,
+
     /// Implicit-compile positional args used when no subcommand is given.
     #[command(flatten)]
     pub compile: CompileArgs,
@@ -170,6 +180,7 @@ pub struct GlobalCtx {
     pub include: Vec<PathBuf>,
     pub compat: CompatMode,
     pub verbosity: Verbosity,
+    pub measure: bool,
 }
 
 impl GlobalCtx {
@@ -185,6 +196,7 @@ impl GlobalCtx {
             include: args.include.clone(),
             compat: args.compat,
             verbosity,
+            measure: !args.no_measure,
         }
     }
 
@@ -237,7 +249,8 @@ fn run_compile(args: CompileArgs, global: &GlobalCtx) -> Result<()> {
     let theme = Theme {
         preamble: args.preamble.clone(),
     };
-    let typst_source = crate::codegen::emit(&parsed.document, &theme)?;
+    let typst_source =
+        build_typst_source(&parsed.document, &theme, parsed.source_dir.as_deref(), global)?;
 
     let format = resolve_format(args.format, args.output.as_deref());
     let rendered = runtime::render(typst_source, parsed.source_dir, format)?;
@@ -263,7 +276,8 @@ fn run_emit(args: EmitArgs, global: &GlobalCtx) -> Result<()> {
     let theme = Theme {
         preamble: args.preamble.clone(),
     };
-    let typst_source = crate::codegen::emit(&parsed.document, &theme)?;
+    let typst_source =
+        build_typst_source(&parsed.document, &theme, parsed.source_dir.as_deref(), global)?;
     write_output(args.output.as_deref(), typst_source.as_bytes())
 }
 
@@ -281,7 +295,8 @@ fn render_compile(
     let theme = Theme {
         preamble: preamble.map(Path::to_path_buf),
     };
-    let typst_source = crate::codegen::emit(&parsed.document, &theme)?;
+    let typst_source =
+        build_typst_source(&parsed.document, &theme, parsed.source_dir.as_deref(), global)?;
     let fmt = resolve_format(format, Some(output));
     let rendered = runtime::render(typst_source, parsed.source_dir, fmt)?;
     for w in &rendered.warnings {
@@ -471,6 +486,61 @@ fn print_diagrams() {
 }
 
 // -- Pipeline helpers ------------------------------------------------------
+
+/// Build the pass-2 Typst source for `doc`, running the measure
+/// double-pass when the global context has it enabled and any diagram
+/// needs probing. `source_dir` becomes the runtime root used to
+/// resolve local `#image()` / `#read()` references during pass-1; we
+/// reuse it so user-preamble paths work the same as in pass-2.
+///
+/// The orchestration intentionally lives in CLI rather than `codegen`
+/// so the codegen crate doesn't pull in `runtime::measure` (one less
+/// cycle in the module graph). Codegen exposes the two halves —
+/// `emit_probes` for pass-1 source, `emit` accepting an optional
+/// `MeasurementSet` for pass-2 — and CLI glues them together.
+fn build_typst_source(
+    doc: &crate::ir::Document,
+    theme: &Theme,
+    source_dir: Option<&Path>,
+    global: &GlobalCtx,
+) -> Result<String> {
+    let measurement_root = source_dir
+        .map(Path::to_path_buf)
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    if !global.measure {
+        return crate::codegen::emit(doc, theme, None);
+    }
+
+    let Some((probe_source, expected_ids)) = crate::codegen::emit_probes(doc, theme)? else {
+        // No measurement-aware diagrams — skip pass-1 entirely.
+        return crate::codegen::emit(doc, theme, None);
+    };
+
+    let expected_refs: Vec<&str> = expected_ids.iter().map(String::as_str).collect();
+    let start = std::time::Instant::now();
+    let set = match runtime::measure::run(probe_source, measurement_root, &expected_refs) {
+        Ok(s) => s,
+        Err(e) => {
+            // Falling back to heuristic is the safe behavior — never
+            // block rendering on a measure-protocol failure. Surface
+            // the error as a warning so misconfigurations don't go
+            // silently wrong.
+            global.print_warning(&format!(
+                "typstuml: warning: measure pass failed ({e}); falling back to heuristic",
+            ));
+            return crate::codegen::emit(doc, theme, None);
+        }
+    };
+    let elapsed_ms = start.elapsed().as_millis();
+    global.print_info(&format!(
+        "measure: {} probes, {elapsed_ms}ms",
+        set.len()
+    ));
+
+    crate::codegen::emit(doc, theme, Some(&set))
+}
 
 /// Result of `parse_input`: the document plus the bookkeeping that
 /// downstream code (codegen, watch) needs.

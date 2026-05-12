@@ -6,12 +6,12 @@
 
 #class-layout(
   classes: (
-    (x: 15.00pt, y: 108.00pt, kind: "abstract", width: 100.00pt, height: 72.00pt, name: [Shape], fields: ((vis: "#", body: [color: String]),), methods: ((vis: "+", body: [area(): double], abstract: true), (vis: "+", body: [count(): int], static: true))),
-    (x: 77.50pt, y: 18.00pt, kind: "class", width: 100.00pt, height: 54.00pt, name: [Circle], fields: ((vis: "-", body: [radius: double]),), methods: ((vis: "+", body: [area(): double]),)),
-    (x: 145.00pt, y: 108.00pt, kind: "interface", width: 90.00pt, height: 54.00pt, name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
+    (x: 15.00pt, y: 97.44pt, width: 75.34pt, height: 56.65pt, kind: "abstract", name: [Shape], fields: ((vis: "#", body: [color: String]),), methods: ((vis: "+", body: [area(): double], abstract: true), (vis: "+", body: [count(): int], static: true))),
+    (x: 64.74pt, y: 18.00pt, width: 78.80pt, height: 43.44pt, kind: "class", name: [Circle], fields: ((vis: "-", body: [radius: double]),), methods: ((vis: "+", body: [area(): double]),)),
+    (x: 120.34pt, y: 97.44pt, width: 70.56pt, height: 37.35pt, kind: "interface", name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (127.50pt, 84.00pt), c2: (65.00pt, 84.00pt), end: (65.00pt, 96.00pt)), (c1: (65.00pt, 100.00pt), c2: (65.00pt, 104.00pt), end: (65.00pt, 108.00pt)))),
-    (from: 1, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (127.50pt, 84.00pt), c2: (190.00pt, 84.00pt), end: (190.00pt, 96.00pt)), (c1: (190.00pt, 100.00pt), c2: (190.00pt, 104.00pt), end: (190.00pt, 108.00pt)))),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (104.14pt, 73.44pt), c2: (52.67pt, 73.44pt), end: (52.67pt, 85.44pt)), (c1: (52.67pt, 89.44pt), c2: (52.67pt, 93.44pt), end: (52.67pt, 97.44pt)))),
+    (from: 1, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (104.14pt, 73.44pt), c2: (155.62pt, 73.44pt), end: (155.62pt, 85.44pt)), (c1: (155.62pt, 89.44pt), c2: (155.62pt, 93.44pt), end: (155.62pt, 97.44pt)))),
   ),
 )

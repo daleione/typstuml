@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use std::path::{Component, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use include_dir::{include_dir, Dir};
 
@@ -55,25 +55,45 @@ impl FileEntry {
     }
 }
 
+/// Process-wide font index, shared by every `TypstWorld`. Discovery (the
+/// `FontSearcher::search` scan) is the expensive part and only needs to run
+/// once per process. `FontSlot` is not `Clone`, so the `Vec<FontSlot>` itself
+/// must live behind a shared `Arc` — we can't hand each world its own copy.
+struct FontCache {
+    book: LazyHash<FontBook>,
+    fonts: Vec<FontSlot>,
+}
+
+static FONTS: OnceLock<Arc<FontCache>> = OnceLock::new();
+
+fn shared_fonts() -> Arc<FontCache> {
+    FONTS
+        .get_or_init(|| {
+            let f = FontSearcher::new().include_system_fonts(true).search();
+            Arc::new(FontCache {
+                book: LazyHash::new(f.book),
+                fonts: f.fonts,
+            })
+        })
+        .clone()
+}
+
 pub struct TypstWorld {
     root: PathBuf,
     main: Source,
     library: LazyHash<Library>,
-    book: LazyHash<FontBook>,
-    fonts: Vec<FontSlot>,
+    fonts: Arc<FontCache>,
     files: Mutex<HashMap<FileId, FileEntry>>,
     time: time::OffsetDateTime,
 }
 
 impl TypstWorld {
     pub fn new(root: PathBuf, source: String) -> Self {
-        let fonts = FontSearcher::new().include_system_fonts(true).search();
         Self {
             root,
             main: Source::detached(source),
             library: LazyHash::new(Library::default()),
-            book: LazyHash::new(fonts.book),
-            fonts: fonts.fonts,
+            fonts: shared_fonts(),
             files: Mutex::new(HashMap::new()),
             time: time::OffsetDateTime::now_utc(),
         }
@@ -136,7 +156,7 @@ impl typst::World for TypstWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        &self.book
+        &self.fonts.book
     }
 
     fn main(&self) -> FileId {
@@ -162,7 +182,7 @@ impl typst::World for TypstWorld {
     }
 
     fn font(&self, id: usize) -> Option<Font> {
-        self.fonts[id].get()
+        self.fonts.fonts.get(id)?.get()
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {

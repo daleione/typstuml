@@ -12,6 +12,7 @@
 //! the binary is fully offline. Add a downloader (or accept a pre-populated
 //! cache) later if user templates need third-party packages.
 
+pub mod measure;
 mod world;
 
 use std::path::PathBuf;
@@ -21,6 +22,7 @@ use typst::ecow::EcoVec;
 
 use crate::diagnostics::{Diagnostic, Error, Level, Result};
 
+pub use measure::{Measurement, MeasurementSet};
 pub use world::TypstWorld;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -121,7 +123,7 @@ fn span_line<W: typst::World>(world: &W, span: typst::syntax::Span) -> Option<us
     Some(source.lines().byte_to_line(range.start)? + 1)
 }
 
-fn format_typst_diagnostics<W: typst::World>(
+pub(crate) fn format_typst_diagnostics<W: typst::World>(
     world: &W,
     errors: &EcoVec<SourceDiagnostic>,
 ) -> String {

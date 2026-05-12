@@ -4,14 +4,14 @@
 
 #class-layout(
   classes: (
-    (x: 103.12pt, y: 84.00pt, kind: "class", width: 100.00pt, height: 54.00pt, name: [Foo], fields: ((vis: "+", body: [name: String]),), methods: ((vis: "+", body: [render(): void]),)),
-    (x: 23.25pt, y: 174.00pt, kind: "note", body: [single-line hint]),
+    (x: 81.10pt, y: 76.71pt, width: 76.52pt, height: 43.44pt, kind: "class", name: [Foo], fields: ((vis: "+", body: [name: String]),), methods: ((vis: "+", body: [render(): void]),)),
+    (x: 24.86pt, y: 156.15pt, kind: "note", body: [single-line hint]),
     (x: 15.00pt, y: 18.00pt, kind: "note", body: [multi-line note \ with two paragraphs]),
-    (x: 169.50pt, y: 18.00pt, kind: "note", body: [free-floating note]),
+    (x: 137.35pt, y: 18.00pt, kind: "note", body: [free-floating note]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (153.12pt, 150.00pt), c2: (77.25pt, 150.00pt), end: (77.25pt, 162.00pt)), (c1: (77.25pt, 166.00pt), c2: (77.25pt, 170.00pt), end: (77.25pt, 174.00pt)))),
-    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (77.25pt, 60.00pt), c2: (153.12pt, 60.00pt), end: (153.12pt, 72.00pt)), (c1: (153.12pt, 76.00pt), c2: (153.12pt, 80.00pt), end: (153.12pt, 84.00pt)))),
-    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", label: [refers to], path: ((c1: (229.00pt, 54.00pt), c2: (153.12pt, 54.00pt), end: (153.12pt, 72.00pt)), (c1: (153.12pt, 76.00pt), c2: (153.12pt, 80.00pt), end: (153.12pt, 84.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (119.36pt, 132.15pt), c2: (61.18pt, 132.15pt), end: (61.18pt, 144.15pt)), (c1: (61.18pt, 148.15pt), c2: (61.18pt, 152.15pt), end: (61.18pt, 156.15pt)))),
+    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (61.18pt, 52.71pt), c2: (119.36pt, 52.71pt), end: (119.36pt, 64.71pt)), (c1: (119.36pt, 68.71pt), c2: (119.36pt, 72.71pt), end: (119.36pt, 76.71pt)))),
+    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", label: [refers to], path: ((c1: (177.54pt, 49.36pt), c2: (119.36pt, 49.36pt), end: (119.36pt, 64.71pt)), (c1: (119.36pt, 68.71pt), c2: (119.36pt, 72.71pt), end: (119.36pt, 76.71pt)))),
   ),
 )

@@ -599,3 +599,99 @@ fn wbs_strict_rejects_orphan_child() {
         .assert()
         .failure();
 }
+
+// -- Measure protocol -------------------------------------------------------
+
+/// The measure double-pass changes the emitted Typst source: bbox widths
+/// and heights come from the painter's `measure()` rather than the Rust
+/// heuristic. Disabling it with `--no-measure` must yield a different
+/// source (heuristic-derived). If they happen to coincide, the protocol
+/// isn't actually engaged — a regression test for "pass-1 is wired up".
+#[test]
+fn measure_changes_class_emit_output() {
+    let path = fixture_in("class", "basic.puml");
+    let measured = emit_typst_path(&path);
+
+    let nomeasure = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("emit")
+        .arg("--no-measure")
+        .arg(&path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let nomeasure = String::from_utf8(nomeasure).expect("emit utf8");
+
+    assert_ne!(
+        measured, nomeasure,
+        "measure pass should produce different bbox dimensions than the heuristic; got identical output (protocol may not be engaged)",
+    );
+
+    // Both must reference the class painter — the protocol must not
+    // strip required output.
+    assert!(measured.contains("class-layout"));
+    assert!(nomeasure.contains("class-layout"));
+}
+
+/// Non-class diagrams (sequence/json/yaml/tree) don't have probes today.
+/// Their emit output must be byte-identical with and without
+/// `--no-measure` — otherwise we're paying for a pass-1 round trip that
+/// has nothing to measure.
+#[test]
+fn measure_is_noop_for_sequence() {
+    let measured = emit_typst("hello.puml");
+    let nomeasure_bytes = Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg("emit")
+        .arg("--no-measure")
+        .arg(fixture("hello.puml"))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let nomeasure = String::from_utf8(nomeasure_bytes).expect("emit utf8");
+    assert_eq!(measured, nomeasure);
+}
+
+/// The probe-reported dimensions must equal the painter's actual
+/// rendered size to within 0.5pt — this is the §8.2 contract. We
+/// verify it indirectly: pass-2 emits `width: {x}pt, height: {y}pt`
+/// fixed values, and the painter (class-layout) honors them. So if
+/// pass-1 measured value X, pass-2 forwards X, painter renders box
+/// of size X. The risk this protects against is codegen forwarding
+/// the wrong value (e.g. rounding or unit-conversion bugs between
+/// MeasurementSet and the emitted Typst).
+#[test]
+fn measure_widths_are_forwarded_into_emit() {
+    let src = emit_typst_path(&fixture_in("class", "basic.puml"));
+    // basic.puml: Animal, Dog, Cat — three classes. Each must appear
+    // with both width and height set to a non-default value (i.e.
+    // codegen used the measurement, not "auto" or a placeholder).
+    for name in ["Animal", "Dog", "Cat"] {
+        let line = src
+            .lines()
+            .find(|l| l.contains(&format!("name: [{name}]")))
+            .unwrap_or_else(|| panic!("no class line for {name}"));
+        assert!(
+            line.contains("width: ") && line.contains("height: "),
+            "class {name} line missing width/height: {line}",
+        );
+        // Heuristic produced multiples of 0.5pt (em factor × FONT_PT,
+        // FONT_PT = 10.0). Measured values rarely land on those — so a
+        // value with two non-zero decimal digits is a positive sign
+        // the measurement actually went through. Specific to basic.puml.
+        let has_decimal = line
+            .split("width: ")
+            .nth(1)
+            .and_then(|s| s.split("pt").next())
+            .map(|w| w.contains('.') && !w.ends_with(".00"))
+            .unwrap_or(false);
+        assert!(
+            has_decimal,
+            "class {name} width looks like a heuristic round number (likely measure didn't run): {line}",
+        );
+    }
+}

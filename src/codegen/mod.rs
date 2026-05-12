@@ -16,12 +16,76 @@ mod yaml;
 
 use crate::diagnostics::{Error, Result};
 use crate::ir::{Diagram, Document};
+use crate::runtime::MeasurementSet;
 use crate::theme::Theme;
 
-/// Render a [`Document`] to a self-contained Typst source string.
-pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
+/// Render a [`Document`] to a self-contained Typst source string. When
+/// `measurements` is `Some`, every measurement-aware codegen branch
+/// (currently class) consumes the corresponding `mc-…` probe results;
+/// missing IDs fall back to the Rust-side heuristic estimator silently.
+pub fn emit(
+    doc: &Document,
+    theme: &Theme,
+    measurements: Option<&MeasurementSet>,
+) -> Result<String> {
     let mut out = String::new();
 
+    write_preamble(&mut out, theme)?;
+
+    for (idx, diagram) in doc.diagrams.iter().enumerate() {
+        if idx > 0 {
+            out.push_str("\n#pagebreak()\n\n");
+        }
+        match diagram {
+            Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
+            Diagram::Json(j) => json::emit(&mut out, j),
+            Diagram::Yaml(y) => yaml::emit(&mut out, y),
+            Diagram::Wbs(w) => wbs::emit(&mut out, w),
+            Diagram::MindMap(m) => mindmap::emit(&mut out, m),
+            Diagram::Class(c) => class::emit(&mut out, c, measurements, idx),
+        }
+    }
+
+    Ok(out)
+}
+
+/// Build the pass-1 (measure-only) Typst source. Returns the source
+/// plus the list of probe IDs every consumer is expected to encounter
+/// — used by [`crate::runtime::measure::run`] as a protocol-violation
+/// guardrail. Returns `Ok(None)` when the document has no
+/// measurement-aware diagrams (skip pass-1 entirely).
+///
+/// The pass-1 source must use the **same** theme preamble as
+/// [`emit`]: text style flows through `measure()`, so any divergence
+/// would mean the measured size doesn't match what pass-2 renders.
+pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<String>)>> {
+    let any_probes = doc
+        .diagrams
+        .iter()
+        .any(|d| matches!(d, Diagram::Class(c) if class::probe::has_probes(c)));
+    if !any_probes {
+        return Ok(None);
+    }
+
+    let mut out = String::new();
+    write_preamble(&mut out, theme)?;
+    let mut expected_ids: Vec<String> = Vec::new();
+
+    for (idx, diagram) in doc.diagrams.iter().enumerate() {
+        if let Diagram::Class(c) = diagram {
+            if class::probe::has_probes(c) {
+                class::probe::collect(c, idx, &mut out, &mut expected_ids);
+            }
+        }
+    }
+
+    Ok(Some((out, expected_ids)))
+}
+
+/// Shared preamble: page setup + import + optional user preamble.
+/// Kept byte-equivalent between pass-1 (measure) and pass-2 (render) so
+/// `measure()` reads the same text style chain in both passes.
+fn write_preamble(out: &mut String, theme: &Theme) -> Result<()> {
     out.push_str(
         "#set page(width: auto, height: auto, margin: 8pt)\n\
          #set text(size: 10pt)\n\
@@ -40,20 +104,5 @@ pub fn emit(doc: &Document, theme: &Theme) -> Result<String> {
         }
         out.push_str("// --- end user preamble ---\n\n");
     }
-
-    for (idx, diagram) in doc.diagrams.iter().enumerate() {
-        if idx > 0 {
-            out.push_str("\n#pagebreak()\n\n");
-        }
-        match diagram {
-            Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
-            Diagram::Json(j) => json::emit(&mut out, j),
-            Diagram::Yaml(y) => yaml::emit(&mut out, y),
-            Diagram::Wbs(w) => wbs::emit(&mut out, w),
-            Diagram::MindMap(m) => mindmap::emit(&mut out, m),
-            Diagram::Class(c) => class::emit(&mut out, c),
-        }
-    }
-
-    Ok(out)
+    Ok(())
 }

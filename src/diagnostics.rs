@@ -42,6 +42,12 @@ pub enum Error {
 
     #[error("invalid CLI usage: {0}")]
     Cli(String),
+
+    /// Internal protocol violation in the measure double-pass — a probe ID
+    /// was emitted by codegen but not echoed back by Typst, or the metadata
+    /// shape didn't match. Indicates a TypstUML bug, not a user error.
+    #[error("measure protocol violation: {0}")]
+    MeasureProtocol(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

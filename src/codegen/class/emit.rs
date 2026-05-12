@@ -8,41 +8,83 @@ use crate::ir::{
 };
 use crate::layout::geometry::Point;
 
-use super::geom::{Side, class_geom_filtered, lollipop_geom};
+use super::geom::Side;
 use super::text::{creole_to_typst, typst_str_escape};
 use super::theme::puml_color_to_typst;
 use super::{CoupleEdge, OrientedEdge};
 
+/// Geometry the layout pass has resolved for one entity. Used both for
+/// the `width:` / `height:` arguments passed to the blockcell painter
+/// and (via [`super::class::emit`]) by Sugiyama upstream. When the
+/// measure protocol is enabled, these come from
+/// [`crate::runtime::MeasurementSet`] — otherwise from the heuristic
+/// `class_geom_filtered` / `note_geom` / `lollipop_geom` estimators.
+pub(super) struct EmitGeom {
+    pub width_pt: f64,
+    pub height_pt: f64,
+}
+
 pub(super) fn emit_class(
     out: &mut String,
     top_left: Point,
+    geom: &EmitGeom,
     entity: &Entity,
     hide: &HideOptions,
 ) {
     if entity.kind == EntityKind::Note {
-        return emit_note(out, top_left, entity);
+        return emit_note(out, top_left, geom, entity);
     }
     if entity.kind == EntityKind::Circle {
-        return emit_lollipop(out, top_left, entity);
+        return emit_lollipop(out, top_left, geom, entity);
     }
-    let show_fields = !(hide.fields || hide.members);
-    let show_methods = !(hide.methods || hide.members);
     // Force the painter to render the box with codegen's exact width
     // and height. Without this, Typst's `measure` of the rendered text
     // gives slightly different sizes — and the resulting mid-x is what
     // the painter uses to anchor edges, so edges land off-centre
-    // relative to the codegen-computed routing.
-    let geom = class_geom_filtered(entity, hide);
+    // relative to the codegen-computed routing. With the measure
+    // protocol on, `geom` came from the painter itself so this lock
+    // is a no-op; without it, it's the safety belt that keeps the
+    // heuristic from drifting.
     out.push_str(&format!(
-        "    (x: {:.2}pt, y: {:.2}pt, kind: \"{}\", width: {:.2}pt, height: {:.2}pt, name: [",
-        top_left.x,
-        top_left.y,
-        entity.kind.keyword(),
-        geom.size.x,
-        geom.size.y,
+        "    (x: {:.2}pt, y: {:.2}pt, width: {:.2}pt, height: {:.2}pt, ",
+        top_left.x, top_left.y, geom.width_pt, geom.height_pt,
     ));
+    write_class_spec_body(out, entity, hide);
+    out.push_str("),\n");
+}
+
+/// Emit the spec body (everything inside the Typst dict argument to the
+/// `class-layout` `classes:` list, minus the `x:` / `y:` / `width:` /
+/// `height:` positional fields). The same body is reused as the
+/// argument to `#class-probe(spec: (...))` in the pass-1 measure
+/// source — see `super::probe::collect`.
+pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &HideOptions) {
+    out.push_str("kind: \"");
+    out.push_str(entity.kind.keyword());
+    out.push_str("\"");
+    if entity.kind == EntityKind::Note {
+        let body = entity.body.as_deref().unwrap_or("");
+        out.push_str(", body: [");
+        if !body.is_empty() {
+            for (i, line) in body.lines().enumerate() {
+                if i > 0 {
+                    out.push_str(" \\ ");
+                }
+                out.push_str(&creole_to_typst(line));
+            }
+        }
+        out.push(']');
+        return;
+    }
+    out.push_str(", name: [");
     out.push_str(&creole_to_typst(&entity.display));
     out.push(']');
+    if entity.kind == EntityKind::Circle {
+        return;
+    }
+
+    let show_fields = !(hide.fields || hide.members);
+    let show_methods = !(hide.methods || hide.members);
 
     if let Some(g) = &entity.generic {
         out.push_str(", generic: [");
@@ -103,21 +145,18 @@ pub(super) fn emit_class(
         out.push(',');
     }
     out.push(')');
-
-    out.push_str("),\n");
 }
 
-fn emit_lollipop(out: &mut String, top_left: Point, entity: &Entity) {
-    let geom = lollipop_geom(entity);
+fn emit_lollipop(out: &mut String, top_left: Point, geom: &EmitGeom, entity: &Entity) {
     out.push_str(&format!(
         "    (x: {:.2}pt, y: {:.2}pt, kind: \"lollipop\", width: {:.2}pt, name: [",
-        top_left.x, top_left.y, geom.size.x,
+        top_left.x, top_left.y, geom.width_pt,
     ));
     out.push_str(&creole_to_typst(&entity.display));
     out.push_str("]),\n");
 }
 
-fn emit_note(out: &mut String, top_left: Point, entity: &Entity) {
+fn emit_note(out: &mut String, top_left: Point, _geom: &EmitGeom, entity: &Entity) {
     let body = entity.body.as_deref().unwrap_or("");
     out.push_str(&format!(
         "    (x: {:.2}pt, y: {:.2}pt, kind: \"note\", body: [",

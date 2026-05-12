@@ -6,12 +6,12 @@
 
 #class-layout(
   classes: (
-    (x: 77.25pt, y: 108.00pt, kind: "class", width: 94.50pt, height: 72.00pt, name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
-    (x: 15.00pt, y: 18.00pt, kind: "class", width: 94.50pt, height: 54.00pt, name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
-    (x: 139.50pt, y: 18.00pt, kind: "class", width: 94.50pt, height: 54.00pt, name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 66.85pt, y: 97.44pt, width: 73.30pt, height: 56.65pt, kind: "class", name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 15.00pt, y: 18.00pt, width: 73.65pt, height: 43.44pt, kind: "class", name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 118.65pt, y: 18.00pt, width: 73.06pt, height: 43.44pt, kind: "class", name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.25pt, 84.00pt), c2: (124.50pt, 84.00pt), end: (124.50pt, 96.00pt)), (c1: (124.50pt, 100.00pt), c2: (124.50pt, 104.00pt), end: (124.50pt, 108.00pt)))),
-    (from: 2, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (186.75pt, 84.00pt), c2: (124.50pt, 84.00pt), end: (124.50pt, 96.00pt)), (c1: (124.50pt, 100.00pt), c2: (124.50pt, 104.00pt), end: (124.50pt, 108.00pt)))),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (51.82pt, 73.44pt), c2: (103.50pt, 73.44pt), end: (103.50pt, 85.44pt)), (c1: (103.50pt, 89.44pt), c2: (103.50pt, 93.44pt), end: (103.50pt, 97.44pt)))),
+    (from: 2, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (155.18pt, 73.44pt), c2: (103.50pt, 73.44pt), end: (103.50pt, 85.44pt)), (c1: (103.50pt, 89.44pt), c2: (103.50pt, 93.44pt), end: (103.50pt, 97.44pt)))),
   ),
 )

@@ -58,7 +58,7 @@ const STAGED_LIB_TYP: &str = "\
 #import \"src/records.typ\": record-layout
 #import \"src/seq-puml.typ\": seq-puml
 #import \"src/tree.typ\": tree, node, mindmap
-#import \"src/class.typ\": class-layout
+#import \"src/class.typ\": class-layout, class-probe
 ";
 
 fn main() {

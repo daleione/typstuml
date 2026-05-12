@@ -27,18 +27,21 @@
 mod emit;
 mod geom;
 mod layout;
+pub(super) mod probe;
 mod route;
 mod text;
 mod theme;
 
 use crate::ir::{
-    ArrowHead, ClassDiagram, Direction as IrDirection, Entity, LayoutDirection, Relation,
+    ArrowHead, ClassDiagram, Direction as IrDirection, Entity, HideOptions, LayoutDirection,
+    Relation,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::Orientation;
 use crate::layout::pathplan;
+use crate::runtime::MeasurementSet;
 
-use self::emit::{emit_class, emit_couple_edge, emit_edge, emit_packages};
+use self::emit::{emit_class, emit_couple_edge, emit_edge, emit_packages, EmitGeom};
 use self::geom::{
     Side, anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor,
     right_anchor, top_anchor, ClassGeom,
@@ -57,6 +60,34 @@ use self::theme::emit_skinparam_preamble;
 const EDGE_FORCE_MAX_PT: f64 = 30.0;
 /// Obstacle padding the pathplan router uses when routing detours.
 const ROUTE_PADDING_PT: f64 = 1.0;
+/// Per-entity geometry: prefer measurement from pass-1 when available,
+/// otherwise fall back to the Rust-side heuristic. We keep the heuristic
+/// path in tree so `--no-measure` and the unit tests still work — and
+/// so the codegen has something usable for entities whose probe failed
+/// (e.g. measure compile error on a malformed Creole label).
+fn resolve_geom(
+    entity: &Entity,
+    hide: &HideOptions,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) -> ClassGeom {
+    if let Some(set) = measurements {
+        let id = probe::class_id(diagram_idx, entity);
+        if let Some(m) = set.get(&id) {
+            return ClassGeom {
+                size: Point::new(m.width_pt, m.height_pt),
+                mid_x: m.width_pt / 2.0,
+            };
+        }
+        // Falling back is correct behavior — a probe might be missing
+        // if the pass-1 source failed to emit it (codegen bug) or the
+        // entity was added between pass-1 and pass-2 (impossible
+        // today, but a guardrail). Log once per missing ID at warn
+        // level once the diagnostic system supports it.
+    }
+    class_geom_filtered(entity, hide)
+}
+
 /// Halo added around each class bbox before Sugiyama placement so
 /// siblings end up with a real gap (the underlying simple.rs / BK
 /// pack nodes shoulder-to-shoulder). Half on each side, both axes —
@@ -66,7 +97,12 @@ const ROUTE_PADDING_PT: f64 = 1.0;
 /// and package layouts.
 const SIBLING_PAD_PT: f64 = 24.0;
 
-pub fn emit(out: &mut String, diag: &ClassDiagram) {
+pub fn emit(
+    out: &mut String,
+    diag: &ClassDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
     let overrides = emit_skinparam_preamble(out, &diag.skinparams);
 
     if let Some(title) = &diag.title {
@@ -83,7 +119,7 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     let geoms: Vec<ClassGeom> = diag
         .entities
         .iter()
-        .map(|e| class_geom_filtered(e, &diag.hide))
+        .map(|e| resolve_geom(e, &diag.hide, measurements, diagram_idx))
         .collect();
     // Sugiyama's `simple` and BK passes pack siblings shoulder-to-
     // shoulder (gap ≈ EPSILON). For class diagrams we want visible
@@ -339,7 +375,11 @@ pub fn emit(out: &mut String, diag: &ClassDiagram) {
     }
     out.push_str("  classes: (\n");
     for (i, entity) in diag.entities.iter().enumerate() {
-        emit_class(out, top_lefts[i], entity, &diag.hide);
+        let g = EmitGeom {
+            width_pt: geoms[i].size.x,
+            height_pt: geoms[i].size.y,
+        };
+        emit_class(out, top_lefts[i], &g, entity, &diag.hide);
     }
     out.push_str("  ),\n");
 
@@ -609,7 +649,7 @@ mod tests {
 
     fn render(diag: ClassDiagram) -> String {
         let mut s = String::new();
-        emit(&mut s, &diag);
+        emit(&mut s, &diag, None, 0);
         s
     }
 

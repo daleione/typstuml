@@ -1,0 +1,20 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Stack / agent / person / boundary / control*]
+
+#class-layout(
+  classes: (
+    (x: 18.73pt, y: 77.39pt, width: 61.85pt, height: 30.00pt, kind: "stack", name: [DocStack], fields: (), methods: ()),
+    (x: 15.00pt, y: 18.00pt, width: 69.32pt, height: 23.39pt, kind: "agent", name: [AutoBuyer], fields: (), methods: ()),
+    (x: 115.55pt, y: 18.00pt, width: 39.96pt, height: 45.58pt, kind: "person", name: [Customer], fields: (), methods: ()),
+    (x: 110.59pt, y: 99.58pt, width: 49.88pt, height: 25.58pt, kind: "boundary", name: [UIBoundary], fields: (), methods: ()),
+    (x: 94.76pt, y: 161.16pt, width: 81.52pt, height: 29.58pt, kind: "control", name: [CheckoutController], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.53pt, to-x: 135.53pt, path: ((c1: (135.53pt, 81.58pt), c2: (135.53pt, 81.58pt), end: (135.53pt, 99.58pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.53pt, to-x: 135.53pt, path: ((c1: (135.53pt, 143.16pt), c2: (135.53pt, 143.16pt), end: (135.53pt, 161.16pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 49.66pt, to-x: 49.66pt, path: ((c1: (49.66pt, 59.39pt), c2: (49.66pt, 59.39pt), end: (49.66pt, 77.39pt)),)),
+  ),
+)

@@ -435,6 +435,17 @@ fn entity_kind_keyword(entity: &Entity) -> &'static str {
         USymbol::Storage => "storage",
         USymbol::Hexagon => "hexagon",
         USymbol::Card => "card",
+        USymbol::Artifact => "artifact",
+        USymbol::Collections => "collections",
+        USymbol::Action => "action",
+        USymbol::Process => "process",
+        USymbol::Label => "label",
+        USymbol::Stack => "stack",
+        USymbol::Agent => "agent",
+        USymbol::Person => "person",
+        USymbol::Boundary => "boundary",
+        USymbol::Control => "control",
+        USymbol::EntityDomain => "entity-domain",
         _ => "class",
     }
 }

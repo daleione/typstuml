@@ -1,0 +1,13 @@
+@startuml
+title Stack / agent / person / boundary / control
+
+stack DocStack
+agent AutoBuyer
+person Customer
+boundary UIBoundary
+control CheckoutController
+
+Customer --> UIBoundary
+UIBoundary --> CheckoutController
+AutoBuyer --> DocStack
+@enduml

@@ -1,0 +1,21 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Activity / process-flavor shapes*]
+
+#class-layout(
+  classes: (
+    (x: 15.00pt, y: 18.00pt, width: 94.06pt, height: 32.00pt, kind: "artifact", name: [ReleaseNotes], fields: (), methods: ()),
+    (x: 22.67pt, y: 86.00pt, width: 78.71pt, height: 30.00pt, kind: "collections", name: [Order Batch], fields: (), methods: ()),
+    (x: 33.49pt, y: 152.00pt, width: 57.07pt, height: 26.00pt, kind: "action", name: [Validate], fields: (), methods: ()),
+    (x: 72.23pt, y: 214.00pt, width: 73.65pt, height: 28.00pt, kind: "process", name: [Pipeline], fields: (), methods: ()),
+    (x: 120.57pt, y: 152.00pt, width: 71.02pt, height: 6.58pt, kind: "label", name: [EXPERIMENTAL], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.03pt, to-x: 62.03pt, path: ((c1: (62.03pt, 68.00pt), c2: (62.03pt, 68.00pt), end: (62.03pt, 86.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.03pt, to-x: 62.03pt, path: ((c1: (62.03pt, 134.00pt), c2: (62.03pt, 134.00pt), end: (62.03pt, 152.00pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (62.03pt, 190.00pt), c2: (109.05pt, 190.00pt), end: (109.05pt, 202.00pt)), (c1: (109.05pt, 206.00pt), c2: (109.05pt, 210.00pt), end: (109.05pt, 214.00pt)))),
+    (from: 4, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (156.08pt, 180.29pt), c2: (109.05pt, 180.29pt), end: (109.05pt, 202.00pt)), (c1: (109.05pt, 206.00pt), c2: (109.05pt, 210.00pt), end: (109.05pt, 214.00pt)))),
+  ),
+)

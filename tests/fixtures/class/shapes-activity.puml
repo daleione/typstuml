@@ -1,0 +1,14 @@
+@startuml
+title Activity / process-flavor shapes
+
+artifact ReleaseNotes
+collections "Order Batch" as Orders
+action Validate
+process Pipeline
+label "EXPERIMENTAL" as Tag
+
+ReleaseNotes --> Orders
+Orders --> Validate
+Validate --> Pipeline
+Tag --> Pipeline
+@enduml

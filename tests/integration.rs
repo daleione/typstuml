@@ -560,6 +560,52 @@ fn golden_emit_typst_class_shapes_deployment() {
 }
 
 #[test]
+fn golden_emit_typst_class_shapes_activity() {
+    // M5 sweep cont'd: artifact / collections / action / process /
+    // label painters (the activity-and-flow leaves).
+    let actual = emit_typst_path(&fixture_in("class", "shapes-activity.puml"));
+    assert_golden_in("class", "shapes-activity", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_shapes_activity() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-shapes-activity.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "shapes-activity.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
+fn golden_emit_typst_class_shapes_misc() {
+    // M5 final sweep: stack / agent / person / boundary / control
+    // painters. The entity-domain painter exists in blockcell but
+    // needs flavor detection (M5+) to reach it — `entity Foo` in
+    // class-flavor still maps to a compartment.
+    let actual = emit_typst_path(&fixture_in("class", "shapes-misc.puml"));
+    assert_golden_in("class", "shapes-misc", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_shapes_misc() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-shapes-misc.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "shapes-misc.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
 fn renders_svg_for_class_shapes_deployment() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-shapes-deployment.svg");

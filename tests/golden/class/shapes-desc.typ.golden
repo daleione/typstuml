@@ -1,0 +1,28 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*M5 core desc-family painters*]
+
+#class-layout(
+  classes: (
+    (x: 168.94pt, y: 18.00pt, width: 24.00pt, height: 43.58pt, kind: "actor", name: [Alice], fields: (), methods: ()),
+    (x: 263.28pt, y: 18.00pt, width: 69.78pt, height: 43.58pt, kind: "actor", name: [Business Analyst], fields: (), methods: ()),
+    (x: 190.88pt, y: 97.58pt, width: 97.35pt, height: 18.45pt, kind: "component", name: [WebFrontend], fields: (), methods: ()),
+    (x: 15.00pt, y: 152.03pt, width: 93.63pt, height: 18.45pt, kind: "component", name: [Auth Service], fields: (), methods: ()),
+    (x: 95.09pt, y: 222.03pt, width: 54.07pt, height: 44.00pt, kind: "database", name: [Postgres], fields: (), methods: ()),
+    (x: 262.33pt, y: 222.03pt, width: 75.46pt, height: 44.00pt, kind: "database", name: [Analytics DB], fields: (), methods: ()),
+    (x: 138.63pt, y: 152.03pt, width: 87.62pt, height: 34.00pt, kind: "node", name: [AppServer-01], fields: (), methods: ()),
+    (x: 256.25pt, y: 152.03pt, width: 87.62pt, height: 34.00pt, kind: "node", name: [AppServer-02], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (180.94pt, 73.58pt), c2: (239.55pt, 73.58pt), end: (239.55pt, 85.58pt)), (c1: (239.55pt, 89.58pt), c2: (239.55pt, 93.58pt), end: (239.55pt, 97.58pt)))),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (298.17pt, 73.58pt), c2: (239.55pt, 73.58pt), end: (239.55pt, 85.58pt)), (c1: (239.55pt, 89.58pt), c2: (239.55pt, 93.58pt), end: (239.55pt, 97.58pt)))),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (239.55pt, 128.03pt), c2: (61.81pt, 128.03pt), end: (61.81pt, 140.03pt)), (c1: (61.81pt, 144.03pt), c2: (61.81pt, 148.03pt), end: (61.81pt, 152.03pt)))),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (61.81pt, 190.25pt), c2: (122.13pt, 190.25pt), end: (122.13pt, 210.03pt)), (c1: (122.13pt, 214.03pt), c2: (122.13pt, 218.03pt), end: (122.13pt, 222.03pt)))),
+    (from: 2, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (239.55pt, 128.03pt), c2: (182.44pt, 128.03pt), end: (182.44pt, 140.03pt)), (c1: (182.44pt, 144.03pt), c2: (182.44pt, 148.03pt), end: (182.44pt, 152.03pt)))),
+    (from: 2, to: 7, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (239.55pt, 128.03pt), c2: (300.06pt, 128.03pt), end: (300.06pt, 140.03pt)), (c1: (300.06pt, 144.03pt), c2: (300.06pt, 148.03pt), end: (300.06pt, 152.03pt)))),
+    (from: 6, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (182.44pt, 198.03pt), c2: (122.13pt, 198.03pt), end: (122.13pt, 210.03pt)), (c1: (122.13pt, 214.03pt), c2: (122.13pt, 218.03pt), end: (122.13pt, 222.03pt)))),
+    (from: 7, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 300.06pt, to-x: 300.06pt, path: ((c1: (300.06pt, 204.03pt), c2: (300.06pt, 204.03pt), end: (300.06pt, 222.03pt)),)),
+  ),
+)

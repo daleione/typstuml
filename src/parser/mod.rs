@@ -81,7 +81,7 @@ pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseO
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }
-            dispatcher::DiagramKind::Class => {
+            dispatcher::DiagramKind::Cuca => {
                 let (diagram, mut diags) = class::parse(block, compat)?;
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);

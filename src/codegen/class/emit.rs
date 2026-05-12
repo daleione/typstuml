@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 
 use crate::ir::{
-    ArrowHead, Container, ContainerKind, Entity, EntityKind, HideOptions, LineStyle, Member,
+    ArrowHead, Container, Entity, EntityKindData, HideOptions, LineStyle, Member, USymbol,
 };
 use crate::layout::geometry::Point;
 
@@ -31,10 +31,10 @@ pub(super) fn emit_class(
     entity: &Entity,
     hide: &HideOptions,
 ) {
-    if entity.kind == EntityKind::Note {
+    if matches!(entity.kind_data, EntityKindData::Note { .. }) {
         return emit_note(out, top_left, geom, entity);
     }
-    if entity.kind == EntityKind::Circle {
+    if entity.usymbol == USymbol::Interface {
         return emit_lollipop(out, top_left, geom, entity);
     }
     // Force the painter to render the box with codegen's exact width
@@ -59,11 +59,11 @@ pub(super) fn emit_class(
 /// argument to `#class-probe(spec: (...))` in the pass-1 measure
 /// source — see `super::probe::collect`.
 pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &HideOptions) {
+    let kind_kw = entity_kind_keyword(entity);
     out.push_str("kind: \"");
-    out.push_str(entity.kind.keyword());
+    out.push_str(kind_kw);
     out.push_str("\"");
-    if entity.kind == EntityKind::Note {
-        let body = entity.body.as_deref().unwrap_or("");
+    if let EntityKindData::Note { body } = &entity.kind_data {
         out.push_str(", body: [");
         if !body.is_empty() {
             for (i, line) in body.lines().enumerate() {
@@ -79,14 +79,14 @@ pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &Hi
     out.push_str(", name: [");
     out.push_str(&creole_to_typst(&entity.display));
     out.push(']');
-    if entity.kind == EntityKind::Circle {
+    if entity.usymbol == USymbol::Interface {
         return;
     }
 
     let show_fields = !(hide.fields || hide.members);
     let show_methods = !(hide.methods || hide.members);
 
-    if let Some(g) = &entity.generic {
+    if let Some(g) = entity.kind_data.generic() {
         out.push_str(", generic: [");
         out.push_str(&creole_to_typst(g));
         out.push(']');
@@ -100,12 +100,12 @@ pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &Hi
     }
     if hide.circle {
         out.push_str(", hide-marker: true");
-    } else if let Some((letter, color)) = &entity.stereotype_marker {
+    } else if let Some(marker) = &entity.stereotype_marker {
         out.push_str(&format!(
             ", marker-letter: \"{}\"",
-            typst_str_escape(letter)
+            typst_str_escape(&marker.letter)
         ));
-        if let Some(c) = color {
+        if let Some(c) = &marker.color {
             if let Some(typst_color) = puml_color_to_typst(c) {
                 out.push_str(", marker-color: ");
                 out.push_str(&typst_color);
@@ -119,8 +119,8 @@ pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &Hi
         }
     }
 
-    let fields_to_emit: &[Member] = if show_fields { &entity.fields } else { &[] };
-    let methods_to_emit: &[Member] = if show_methods { &entity.methods } else { &[] };
+    let fields_to_emit: &[Member] = if show_fields { entity.kind_data.fields() } else { &[] };
+    let methods_to_emit: &[Member] = if show_methods { entity.kind_data.methods() } else { &[] };
 
     out.push_str(", fields: (");
     for (i, m) in fields_to_emit.iter().enumerate() {
@@ -157,7 +157,7 @@ fn emit_lollipop(out: &mut String, top_left: Point, geom: &EmitGeom, entity: &En
 }
 
 fn emit_note(out: &mut String, top_left: Point, _geom: &EmitGeom, entity: &Entity) {
-    let body = entity.body.as_deref().unwrap_or("");
+    let body = entity.kind_data.note_body().unwrap_or("");
     out.push_str(&format!(
         "    (x: {:.2}pt, y: {:.2}pt, kind: \"note\", body: [",
         top_left.x, top_left.y,
@@ -361,7 +361,7 @@ pub(super) fn emit_packages(
             top_left.y,
             w,
             h,
-            container_kind_keyword(c.kind),
+            container_kind_keyword(c),
         );
         out.push_str(&creole_to_typst(&c.label));
         out.push(']');
@@ -385,6 +385,10 @@ fn head_keyword(h: ArrowHead) -> &'static str {
         ArrowHead::Cross => "cross",
         ArrowHead::Plus => "plus",
         ArrowHead::CircleConnect => "circle",
+        // SocketOpen / SocketClosed land in M7 (`Foo -( Bar`); v1
+        // painter has no socket head, fall back to plain arrow.
+        ArrowHead::SocketOpen => "socket-open",
+        ArrowHead::SocketClosed => "socket-closed",
     }
 }
 
@@ -396,14 +400,57 @@ fn line_style_keyword(s: LineStyle) -> &'static str {
     }
 }
 
-fn container_kind_keyword(k: ContainerKind) -> &'static str {
-    match k {
-        ContainerKind::Package => "package",
-        ContainerKind::Namespace => "namespace",
-        ContainerKind::Folder => "folder",
-        ContainerKind::Frame => "frame",
-        ContainerKind::Cloud => "cloud",
-        ContainerKind::Node => "node",
-        ContainerKind::Together => "together",
+/// Painter-side `kind:` keyword for an entity. Class-family
+/// compartments emit their `class` / `interface` / … keyword;
+/// notes and lollipops have dedicated keywords; recognized desc-family
+/// shapes (M5 core: `actor` / `database` / `component` / `node`) emit
+/// their USymbol keyword and the painter dispatches to a per-shape
+/// renderer. Unrecognized USymbols fall back to the compartment painter
+/// (`"class"` keyword) until M5+M8 add their painters.
+fn entity_kind_keyword(entity: &Entity) -> &'static str {
+    if matches!(entity.kind_data, EntityKindData::Note { .. }) {
+        return "note";
+    }
+    if entity.usymbol == USymbol::Interface {
+        return "lollipop";
+    }
+    if let EntityKindData::Compartment { kind, .. } = &entity.kind_data {
+        return kind.keyword();
+    }
+    // Desc-family Plain entities: route to the painters that exist.
+    // Keep this list in sync with the `kind ==` dispatch chain in
+    // `vendor/blockcell/src/class.typ::class-layout` and `class-probe`.
+    match entity.usymbol {
+        USymbol::Actor => "actor",
+        USymbol::Database => "database",
+        USymbol::Component => "component",
+        USymbol::Node => "node",
+        USymbol::UseCase => "usecase",
+        USymbol::Cloud => "cloud",
+        USymbol::Rectangle => "rectangle",
+        USymbol::Folder => "folder",
+        USymbol::Frame => "frame",
+        USymbol::File => "file",
+        USymbol::Queue => "queue",
+        USymbol::Storage => "storage",
+        USymbol::Hexagon => "hexagon",
+        USymbol::Card => "card",
+        _ => "class",
+    }
+}
+
+/// Painter-side `kind:` keyword for a container. `together` carries
+/// no border / label, so we tag it specially.
+fn container_kind_keyword(c: &Container) -> &'static str {
+    if c.together {
+        return "together";
+    }
+    match c.usymbol {
+        USymbol::Package => "package",
+        USymbol::Folder => "folder",
+        USymbol::Frame => "frame",
+        USymbol::Cloud => "cloud",
+        USymbol::Node => "node",
+        _ => "package",
     }
 }

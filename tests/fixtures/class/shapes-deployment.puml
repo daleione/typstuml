@@ -1,0 +1,16 @@
+@startuml
+title Deployment-flavor shapes (queue / storage / hexagon / card)
+
+queue MessageBus
+storage BlobStore
+hexagon GatewayFilter
+card "Quick Tile" as Tile
+
+queue "Event Queue" as EQ
+storage "Cold Storage" as Cold
+
+MessageBus --> BlobStore
+GatewayFilter --> Tile
+EQ --> Cold
+Tile --> EQ
+@enduml

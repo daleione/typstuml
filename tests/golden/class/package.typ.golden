@@ -13,7 +13,7 @@
   packages: (
     (x: 3.00pt, y: 6.00pt, w: 131.01pt, h: 173.14pt, kind: "package", label: [Domain]),
     (x: 140.01pt, y: 6.00pt, w: 128.03pt, h: 80.48pt, kind: "package", label: [Infrastructure]),
-    (x: 274.04pt, y: 6.00pt, w: 118.46pt, h: 133.48pt, kind: "namespace", label: [billing]),
+    (x: 274.04pt, y: 6.00pt, w: 118.46pt, h: 133.48pt, kind: "package", label: [billing]),
   ),
   edges: (
     (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 68.50pt, to-x: 68.50pt, path: ((c1: (68.50pt, 104.92pt), c2: (68.50pt, 104.92pt), end: (68.50pt, 122.92pt)),)),

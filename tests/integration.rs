@@ -471,6 +471,109 @@ fn golden_emit_typst_class_assoc() {
 }
 
 #[test]
+fn golden_emit_typst_class_cross_cluster() {
+    // M4 regression: edge A → B with a third sibling cluster `Middle`
+    // between them. The pathplan obstacle list must contain `Middle`'s
+    // bbox so the route detours instead of clipping through.
+    let actual = emit_typst_path(&fixture_in("class", "cross-cluster.puml"));
+    assert_golden_in("class", "cross-cluster", &actual);
+}
+
+#[test]
+fn golden_emit_typst_class_desc_family() {
+    // M5-partial / M6 regression: desc-family leaf keywords
+    // (component / actor / usecase / database / node / cloud) and the
+    // `[Foo]` / `(Foo)` / `:Foo:` inline shorthand must produce
+    // entities with the right USymbol. Painter dispatches to per-shape
+    // painters for actor / database / component / node (M5 core); the
+    // rest fall back to the compartment painter until their painters
+    // land in M8.
+    let actual = emit_typst_path(&fixture_in("class", "desc-family.puml"));
+    assert_golden_in("class", "desc-family", &actual);
+}
+
+#[test]
+fn golden_emit_typst_class_shapes_desc() {
+    // M5 core: dedicated per-USymbol painters for actor / database /
+    // component / node. Verifies each gets its own `kind:` keyword in
+    // the emit output (not the `class` fallback used for unimplemented
+    // shapes like cloud / queue / etc.).
+    let actual = emit_typst_path(&fixture_in("class", "shapes-desc.puml"));
+    assert_golden_in("class", "shapes-desc", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_shapes_desc() {
+    // End-to-end: the new actor/database/component/node painters must
+    // compile through typst-as-library without errors.
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-shapes-desc.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "shapes-desc.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 30,
+        "shapes-desc diagram expected many <path>s; got {path_count}"
+    );
+}
+
+#[test]
+fn golden_emit_typst_class_shapes_all() {
+    // M5 sweep: actor / usecase / component / database / node / cloud
+    // / rectangle / folder / frame / file painters all get used. Each
+    // gets its dedicated `kind:` keyword in the emit output (no
+    // "class" fallback for these 10 shapes).
+    let actual = emit_typst_path(&fixture_in("class", "shapes-all.puml"));
+    assert_golden_in("class", "shapes-all", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_shapes_all() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-shapes-all.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "shapes-all.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 40,
+        "shapes-all diagram expected many <path>s; got {path_count}"
+    );
+}
+
+#[test]
+fn golden_emit_typst_class_shapes_deployment() {
+    // M5 sweep cont'd: queue / storage / hexagon / card painters.
+    let actual = emit_typst_path(&fixture_in("class", "shapes-deployment.puml"));
+    assert_golden_in("class", "shapes-deployment", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_shapes_deployment() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-shapes-deployment.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "shapes-deployment.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
 fn renders_svg_for_class_hide() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-hide.svg");

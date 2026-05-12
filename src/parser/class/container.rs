@@ -1,28 +1,55 @@
 //! Container declarations: `package`, `namespace`, `together`, `folder`,
 //! `frame`, `node`, `cloud`.
 
-use crate::ir::ContainerKind;
+use crate::ir::USymbol;
 
 use super::entity::{pop_trailing_color, pop_trailing_generic, pop_trailing_stereotype};
 use super::util::{strip_leading_quoted, strip_prefix_keyword};
 
+/// Parser-side description of a container declaration. `together: true`
+/// is PlantUML's anonymous grouping block — borderless, label-less.
+pub(super) struct ContainerOpen {
+    pub usymbol: USymbol,
+    pub together: bool,
+    pub label: String,
+    pub stereotype: Option<String>,
+}
+
 /// If `raw` opens a container block (`package "Foo" {`,
 /// `namespace foo.bar {`, `together {`, `folder X {`, …), return the
-/// kind, the label (empty for `together`), and an optional `<<stereo>>`
+/// shape, the label (empty for `together`), and an optional `<<stereo>>`
 /// found between the name and the `#color`. Returns `None` otherwise.
-pub(super) fn parse_container_open(
-    raw: &str,
-) -> Option<(ContainerKind, String, Option<String>)> {
-    const KW: &[(&str, ContainerKind)] = &[
-        ("package", ContainerKind::Package),
-        ("namespace", ContainerKind::Namespace),
-        ("together", ContainerKind::Together),
-        ("folder", ContainerKind::Folder),
-        ("frame", ContainerKind::Frame),
-        ("node", ContainerKind::Node),
-        ("cloud", ContainerKind::Cloud),
+///
+/// The 17 container-capable shapes match PlantUML's
+/// `CommandPackageWithUSymbol.getRegexConcat:76` whitelist (see
+/// `docs/cuca-diagram-design.md` §3.1).
+pub(super) fn parse_container_open(raw: &str) -> Option<ContainerOpen> {
+    // `namespace` shares `USymbol::Package` with `package` — they paint
+    // identically in v1; M5+ may revisit if PlantUML adds a distinct
+    // skinparam path.
+    const KW: &[(&str, USymbol, bool)] = &[
+        ("package", USymbol::Package, false),
+        ("namespace", USymbol::Package, false),
+        ("together", USymbol::None, true),
+        // PlantUML CommandPackageWithUSymbol whitelist:
+        ("rectangle", USymbol::Rectangle, false),
+        ("hexagon", USymbol::Hexagon, false),
+        ("node", USymbol::Node, false),
+        ("artifact", USymbol::Artifact, false),
+        ("folder", USymbol::Folder, false),
+        ("file", USymbol::File, false),
+        ("frame", USymbol::Frame, false),
+        ("cloud", USymbol::Cloud, false),
+        ("action", USymbol::Action, false),
+        ("process", USymbol::Process, false),
+        ("database", USymbol::Database, false),
+        ("storage", USymbol::Storage, false),
+        ("component", USymbol::Component, false),
+        ("card", USymbol::Card, false),
+        ("queue", USymbol::Queue, false),
+        ("stack", USymbol::Stack, false),
     ];
-    for (kw, kind) in KW {
+    for (kw, usymbol, together) in KW {
         let Some(rest) = strip_prefix_keyword(raw, kw) else {
             continue;
         };
@@ -40,14 +67,19 @@ pub(super) fn parse_container_open(
         let _generic = pop_trailing_generic(&mut working);
         let label_raw = working.trim();
         // `together` doesn't take a name; everything else does.
-        let label = if matches!(kind, ContainerKind::Together) {
+        let label = if *together {
             String::new()
         } else if let Some((quoted, _)) = strip_leading_quoted(label_raw) {
             quoted
         } else {
             label_raw.split_whitespace().next().unwrap_or("").to_string()
         };
-        return Some((*kind, label, stereotype));
+        return Some(ContainerOpen {
+            usymbol: *usymbol,
+            together: *together,
+            label,
+            stereotype,
+        });
     }
     None
 }

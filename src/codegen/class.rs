@@ -33,7 +33,7 @@ mod text;
 mod theme;
 
 use crate::ir::{
-    ArrowHead, ClassDiagram, Direction as IrDirection, Entity, HideOptions, LayoutDirection,
+    ArrowHead, CucaDiagram, Direction as IrDirection, Entity, HideOptions, LayoutDirection,
     Relation,
 };
 use crate::layout::geometry::Point;
@@ -46,7 +46,7 @@ use self::geom::{
     Side, anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor,
     right_anchor, top_anchor, ClassGeom,
 };
-use self::layout::{compound_layout, LabelBand};
+use self::layout::{compound_layout, entity_cluster_chains, LabelBand};
 use self::route::{
     cubic_from_straight, diagonal_path, line_of_sight_clear, pick_edge_sides,
     side_tangent, smart_align_coord, straight_fallback, try_manhattan_route,
@@ -92,7 +92,7 @@ fn resolve_geom(
 /// entry per container in declaration order; `None` for `together`
 /// (anonymous, no band) or when the measurement is missing.
 fn resolve_label_bands(
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     measurements: Option<&MeasurementSet>,
     diagram_idx: usize,
 ) -> Vec<Option<LabelBand>> {
@@ -124,7 +124,7 @@ const SIBLING_PAD_PT: f64 = 24.0;
 
 pub fn emit(
     out: &mut String,
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     measurements: Option<&MeasurementSet>,
     diagram_idx: usize,
 ) {
@@ -429,6 +429,14 @@ pub fn emit(
         emit_packages(out, &diag.containers, &container_bboxes);
     }
 
+    // M4 cross-cluster edge routing: a per-entity chain
+    // [outermost_cluster, …, innermost_cluster]. Each edge passes
+    // through the union of source-chain and destination-chain
+    // unscathed (those clusters are "transparent"); every other
+    // sibling cluster bbox is added to the obstacle list so the
+    // router detours around it.
+    let chains = entity_cluster_chains(diag);
+
     out.push_str("  edges: (\n");
     for oe in &oriented {
         let from = oe.src_idx;
@@ -480,10 +488,33 @@ pub fn emit(
             (default_start, default_end)
         };
 
-        let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
+        // Entity obstacles: every entity bbox except this edge's two
+        // endpoints.
+        let mut obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
             .filter(|i| *i != from && *i != to)
             .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
             .collect();
+        // Container obstacles: any cluster bbox NOT in either endpoint's
+        // ancestor chain. Sibling clusters become walls the router has
+        // to route around; ancestor clusters are transparent (the edge
+        // is inside them and has to exit). PlantUML approximates this
+        // with the "insert special-point + bezier clip" hack
+        // (klimt/shape/DotPath::simulateCompound); pathplan supports it
+        // natively.
+        let mut transparent = std::collections::BTreeSet::new();
+        for &c in &chains[from] {
+            transparent.insert(c);
+        }
+        for &c in &chains[to] {
+            transparent.insert(c);
+        }
+        for (ci, bbox) in container_bboxes.iter().enumerate() {
+            if transparent.contains(&ci) {
+                continue;
+            }
+            let Some((tl, br)) = bbox else { continue };
+            obstacles.push(pathplan::Box::new(*tl, *br));
+        }
         // Tangents follow the actual anchor sides — bezier launch
         // direction matches the snap axis the painter will enforce,
         // otherwise the head tangent collapses to zero on edges where
@@ -666,26 +697,27 @@ fn orient_relation(rel: &Relation, entities: &[Entity]) -> Option<OrientedEdge> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{EntityKind, LineStyle, Member, Visibility};
+    use crate::ir::{ClassFamilyKind, EntityKindData, LineStyle, Member, USymbol, Visibility};
 
-    fn entity(id: &str, kind: EntityKind) -> Entity {
+    fn entity(id: &str, kind: ClassFamilyKind) -> Entity {
         Entity {
-            kind,
+            usymbol: USymbol::None,
             id: id.into(),
             display: id.into(),
-            generic: None,
             stereotype: None,
             stereotype_marker: None,
-            fields: Vec::new(),
-            methods: Vec::new(),
-            body: None,
             fill: None,
             line: 0,
+            kind_data: EntityKindData::Compartment {
+                kind,
+                generic: None,
+                fields: Vec::new(),
+                methods: Vec::new(),
+            },
         }
     }
 
-
-    fn render(diag: ClassDiagram) -> String {
+    fn render(diag: CucaDiagram) -> String {
         let mut s = String::new();
         emit(&mut s, &diag, None, 0);
         s
@@ -693,7 +725,7 @@ mod tests {
 
     #[test]
     fn empty_diagram_produces_placeholder() {
-        let s = render(ClassDiagram::default());
+        let s = render(CucaDiagram::default());
         assert!(s.contains("(empty class diagram)"));
     }
 
@@ -704,9 +736,9 @@ mod tests {
         // (Animal) below; the triangle is rendered at the target end
         // so it still visually points at the parent. We match that —
         // text order wins, no swap.
-        let mut diag = ClassDiagram::default();
-        diag.entities.push(entity("Dog", EntityKind::Class));
-        diag.entities.push(entity("Animal", EntityKind::Class));
+        let mut diag = CucaDiagram::default();
+        diag.entities.push(entity("Dog", ClassFamilyKind::Class));
+        diag.entities.push(entity("Animal", ClassFamilyKind::Class));
         diag.relations.push(Relation {
             from: "Dog".into(),
             to: "Animal".into(),
@@ -735,9 +767,9 @@ mod tests {
 
     #[test]
     fn association_keeps_user_order() {
-        let mut diag = ClassDiagram::default();
-        diag.entities.push(entity("A", EntityKind::Class));
-        diag.entities.push(entity("B", EntityKind::Class));
+        let mut diag = CucaDiagram::default();
+        diag.entities.push(entity("A", ClassFamilyKind::Class));
+        diag.entities.push(entity("B", ClassFamilyKind::Class));
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
@@ -765,22 +797,24 @@ mod tests {
 
     #[test]
     fn members_emit_with_visibility_glyphs() {
-        let mut e = entity("Foo", EntityKind::Class);
-        e.fields.push(Member {
-            visibility: Visibility::Public,
-            is_static: false,
-            is_abstract: false,
-            body: "name: String".into(),
-            line: 0,
-        });
-        e.methods.push(Member {
-            visibility: Visibility::Private,
-            is_static: false,
-            is_abstract: true,
-            body: "render()".into(),
-            line: 0,
-        });
-        let mut diag = ClassDiagram::default();
+        let mut e = entity("Foo", ClassFamilyKind::Class);
+        if let EntityKindData::Compartment { fields, methods, .. } = &mut e.kind_data {
+            fields.push(Member {
+                visibility: Visibility::Public,
+                is_static: false,
+                is_abstract: false,
+                body: "name: String".into(),
+                line: 0,
+            });
+            methods.push(Member {
+                visibility: Visibility::Private,
+                is_static: false,
+                is_abstract: true,
+                body: "render()".into(),
+                line: 0,
+            });
+        }
+        let mut diag = CucaDiagram::default();
         diag.entities.push(e);
         let s = render(diag);
         assert!(s.contains("(vis: \"+\", body: [name: String]),"));
@@ -789,10 +823,12 @@ mod tests {
 
     #[test]
     fn entity_emits_kind_and_stereotype() {
-        let mut e = entity("Repo", EntityKind::Interface);
+        let mut e = entity("Repo", ClassFamilyKind::Interface);
         e.stereotype = Some("Service".into());
-        e.generic = Some("T".into());
-        let mut diag = ClassDiagram::default();
+        if let EntityKindData::Compartment { generic, .. } = &mut e.kind_data {
+            *generic = Some("T".into());
+        }
+        let mut diag = CucaDiagram::default();
         diag.entities.push(e);
         let s = render(diag);
         assert!(s.contains("kind: \"interface\""));
@@ -806,9 +842,9 @@ mod tests {
         // so the rendered source is Sup (IR's `to`) and the rendered
         // target is Sub (IR's `from`). Multiplicity / role labels track
         // the rendered ends.
-        let mut diag = ClassDiagram::default();
-        diag.entities.push(entity("Sub", EntityKind::Class));
-        diag.entities.push(entity("Sup", EntityKind::Class));
+        let mut diag = CucaDiagram::default();
+        diag.entities.push(entity("Sub", ClassFamilyKind::Class));
+        diag.entities.push(entity("Sup", ClassFamilyKind::Class));
         diag.relations.push(Relation {
             from: "Sub".into(),
             to: "Sup".into(),
@@ -845,9 +881,9 @@ mod tests {
     fn direction_up_flips_rendered_edge() {
         // `A -up-> B` — user wants B above A in TB layout, so the
         // rendered edge should run from B (source/top) to A (target/bot).
-        let mut diag = ClassDiagram::default();
-        diag.entities.push(entity("A", EntityKind::Class));
-        diag.entities.push(entity("B", EntityKind::Class));
+        let mut diag = CucaDiagram::default();
+        diag.entities.push(entity("A", ClassFamilyKind::Class));
+        diag.entities.push(entity("B", ClassFamilyKind::Class));
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),
@@ -881,9 +917,9 @@ mod tests {
     fn direction_left_flips_like_up() {
         // For TB orientation `Left` is equivalent to `Up`: the target
         // should appear before (above) the source.
-        let mut diag = ClassDiagram::default();
-        diag.entities.push(entity("A", EntityKind::Class));
-        diag.entities.push(entity("B", EntityKind::Class));
+        let mut diag = CucaDiagram::default();
+        diag.entities.push(entity("A", ClassFamilyKind::Class));
+        diag.entities.push(entity("B", ClassFamilyKind::Class));
         diag.relations.push(Relation {
             from: "A".into(),
             to: "B".into(),

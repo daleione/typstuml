@@ -1,0 +1,26 @@
+@startuml
+' M5-partial / M6 fixture: parser support for the description-diagram
+' family (component / actor / usecase / database / node) plus the
+' inline shorthand `[Foo]` / `(Foo)` / `:Foo:`.
+'
+' v1 painter renders all these as class compartments (the kind keyword
+' is emitted, but the painter dispatch falls back to the class shape).
+' The full per-USymbol painter rollout is M5.
+
+actor User
+:GuestUser:
+[WebApp]
+component AuthService
+(Login)
+(Logout)
+
+database "User DB" as UDB
+node "App Server" as AS
+cloud "External SSO" as SSO
+
+User --> (Login)
+User --> (Logout)
+[WebApp] --> AuthService
+AuthService --> UDB
+AS --> SSO
+@enduml

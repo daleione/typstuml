@@ -1,0 +1,21 @@
+@startuml
+' Cross-cluster routing fixture (M4): the edge `A --> B` needs to detour
+' around `Middle` cluster. Without the M4 obstacle injection, the
+' router was happy to clip through `Middle`'s outer rectangle.
+left to right direction
+
+package "Left" {
+  class A
+}
+
+package "Middle" {
+  class M1
+  class M2
+}
+
+package "Right" {
+  class B
+}
+
+A --> B
+@enduml

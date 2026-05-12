@@ -3,11 +3,21 @@
 //! (color, stereotype + custom marker, generic) shared by container
 //! declarations.
 
-use crate::ir::{Entity, EntityKind};
+use crate::ir::{ClassFamilyKind, Entity, EntityKindData, StereotypeMarker, USymbol};
 
 use super::util::{parse_alias, strip_prefix_keyword};
 
+/// Entity-leaf keywords. Order matters: multi-word forms (`abstract
+/// class`) must precede their single-word prefixes (`abstract`) so the
+/// linear-scan dispatcher in `parse_entity_decl` doesn't pick the
+/// shorter alternative first. Within a length tier, ordering is
+/// arbitrary.
+///
+/// Class family (USymbol::None + Compartment) is grouped at the top.
+/// Desc family (USymbol::* + Plain) comes after. See
+/// `docs/cuca-diagram-design.md` §3.1 for the visual mapping.
 pub(super) const ENTITY_KEYWORDS: &[&str] = &[
+    // Class family
     "abstract class",
     "static class",
     "abstract",
@@ -23,8 +33,39 @@ pub(super) const ENTITY_KEYWORDS: &[&str] = &[
     "enum",
     "struct",
     "entity",
+    // Specials
     "circle",
     "diamond",
+    "note",
+    // Desc family (M5+: each gets its own painter; v1 falls back to
+    // the compartment painter when `usymbol.keyword()` is unknown).
+    "component",
+    "actor",
+    "usecase",
+    "node",
+    "database",
+    "cloud",
+    "queue",
+    "stack",
+    "storage",
+    "artifact",
+    "agent",
+    "person",
+    "collections",
+    "rectangle",
+    "card",
+    "folder",
+    "frame",
+    "file",
+    "hexagon",
+    "action",
+    "process",
+    "label",
+    "boundary",
+    "control",
+    "port",
+    "portin",
+    "portout",
 ];
 
 pub(super) struct EntityAction {
@@ -47,20 +88,132 @@ pub(super) fn parse_lollipop_decl(raw: &str, line_no: usize) -> Option<EntityAct
     let (id, display) = parse_alias(working)?;
     Some(EntityAction {
         entity: Entity {
-            kind: EntityKind::Circle,
+            usymbol: USymbol::Interface,
             id,
             display,
-            generic: None,
             stereotype: None,
             stereotype_marker: None,
-            fields: Vec::new(),
-            methods: Vec::new(),
-            body: None,
             fill: None,
             line: line_no,
+            kind_data: EntityKindData::Plain { members: Vec::new() },
         },
         has_block: false,
     })
+}
+
+/// Inline shorthand for desc-family entity declarations, mirroring
+/// PlantUML's `[…]` / `(…)` / `:…:` forms:
+///
+/// | Syntax          | Equivalent      |
+/// |-----------------|-----------------|
+/// | `[Foo]`         | `component Foo` |
+/// | `(Foo)`         | `usecase Foo`   |
+/// | `:Foo:`         | `actor Foo`     |
+///
+/// Trailing decorations (`as Alias`, `<<stereotype>>`, `#color`) follow
+/// the closing delimiter exactly like the longhand form. Returns
+/// `None` if `raw` doesn't open with one of the three delimiter chars
+/// or the brackets aren't balanced.
+pub(super) fn parse_inline_shorthand(raw: &str, line_no: usize) -> Option<EntityAction> {
+    let first = raw.chars().next()?;
+    let (close, usymbol) = match first {
+        '[' => (']', USymbol::Component),
+        '(' => {
+            // `()` is the lollipop syntax, handled separately. Defer.
+            if raw.starts_with("()") {
+                return None;
+            }
+            (')', USymbol::UseCase)
+        }
+        ':' => (':', USymbol::Actor),
+        _ => return None,
+    };
+    let bytes = raw.as_bytes();
+    // Find the matching close character. For balanced delimiters
+    // `[` and `(` we have to scan past nested brackets; for `:` the
+    // SECOND `:` ends the name (PlantUML semantics).
+    let close_idx = match first {
+        '[' => find_balanced(bytes, b'[', b']')?,
+        '(' => find_balanced(bytes, b'(', b')')?,
+        ':' => bytes[1..].iter().position(|&b| b == b':').map(|i| i + 1)?,
+        _ => unreachable!(),
+    };
+    let inner = raw[1..close_idx].trim();
+    if inner.is_empty() {
+        return None;
+    }
+    // Couple-link form `(A, B) .. C` looks like usecase shorthand at
+    // first glance — reject when the parens contain a comma since
+    // PlantUML uses commas only as couple separators (entity names
+    // themselves never contain commas).
+    if first == '(' && inner.contains(',') {
+        return None;
+    }
+    let trailing = raw[close_idx + 1..].trim();
+    // Trailing portion must be EMPTY or begin with `as ` / `<<` / `#`
+    // (alias / stereotype / color). Anything else — arrow operators
+    // (`..`, `--`, `->`), more text — means this isn't a pure
+    // declaration and we should fall through to the relation parser.
+    let trailing_ok = trailing.is_empty()
+        || trailing.starts_with("as ")
+        || trailing.starts_with("<<")
+        || trailing.starts_with('#');
+    if !trailing_ok {
+        return None;
+    }
+    let mut working = if trailing.is_empty() {
+        inner.to_string()
+    } else {
+        format!("{inner} {trailing}")
+    };
+    let fill = pop_trailing_color(&mut working);
+    let (stereotype, stereotype_marker) =
+        match pop_trailing_stereotype_with_marker(&mut working) {
+            Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
+            None => (None, None),
+        };
+    let _ = close; // close char captured for symmetry; not needed past parsing
+    let (id, display) = parse_alias(working.trim())?;
+    Some(EntityAction {
+        entity: Entity {
+            usymbol,
+            id,
+            display,
+            stereotype,
+            stereotype_marker,
+            fill,
+            line: line_no,
+            kind_data: EntityKindData::Plain { members: Vec::new() },
+        },
+        has_block: false,
+    })
+}
+
+/// Scan `bytes` (starting at index 0 which holds `open`) for the
+/// matching close character at depth 0. Returns the byte index of the
+/// close, or `None` if unbalanced. Quoted strings are treated as
+/// opaque so `[Foo "with ]" content]` doesn't split early.
+fn find_balanced(bytes: &[u8], open: u8, close: u8) -> Option<usize> {
+    let mut depth: i32 = 0;
+    let mut i = 0;
+    let mut in_quote = false;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'"' {
+            in_quote = !in_quote;
+        } else if !in_quote {
+            if b == open {
+                depth += 1;
+            } else if b == close {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+        }
+        i += 1;
+    }
+    None
 }
 
 /// Try to parse `raw` as an entity declaration. Returns `None` if the
@@ -69,11 +222,53 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     let (kw, rest) = ENTITY_KEYWORDS
         .iter()
         .find_map(|kw| strip_prefix_keyword(raw, kw).map(|r| (*kw, r.trim())))?;
-    let kind = match kw {
-        "abstract class" | "abstract" => EntityKind::Abstract,
-        // Aliases that fall back to plain Class — M0 doesn't distinguish.
-        "static class" | "metaclass" | "stereotype" | "dataclass" | "record" => EntityKind::Class,
-        other => EntityKind::from_keyword(other).unwrap_or(EntityKind::Class),
+    let (usymbol, kind_for_compartment) = match kw {
+        // Class family.
+        "abstract class" | "abstract" => (USymbol::None, Some(ClassFamilyKind::Abstract)),
+        "static class" | "metaclass" | "stereotype" | "dataclass" | "record" => {
+            (USymbol::None, Some(ClassFamilyKind::Class))
+        }
+        "class" => (USymbol::None, Some(ClassFamilyKind::Class)),
+        "interface" => (USymbol::None, Some(ClassFamilyKind::Interface)),
+        "annotation" => (USymbol::None, Some(ClassFamilyKind::Annotation)),
+        "protocol" => (USymbol::None, Some(ClassFamilyKind::Protocol)),
+        "exception" => (USymbol::None, Some(ClassFamilyKind::Exception)),
+        "enum" => (USymbol::None, Some(ClassFamilyKind::Enum)),
+        "struct" => (USymbol::None, Some(ClassFamilyKind::Struct)),
+        "entity" => (USymbol::None, Some(ClassFamilyKind::EntityShape)),
+        // Specials.
+        "circle" => (USymbol::Interface, None),
+        "diamond" => (USymbol::Diamond, None),
+        "note" => return None, // handled by note-specific parsers
+        // Desc family (Plain — no compartment).
+        "component" => (USymbol::Component, None),
+        "actor" => (USymbol::Actor, None),
+        "usecase" => (USymbol::UseCase, None),
+        "node" => (USymbol::Node, None),
+        "database" => (USymbol::Database, None),
+        "cloud" => (USymbol::Cloud, None),
+        "queue" => (USymbol::Queue, None),
+        "stack" => (USymbol::Stack, None),
+        "storage" => (USymbol::Storage, None),
+        "artifact" => (USymbol::Artifact, None),
+        "agent" => (USymbol::Agent, None),
+        "person" => (USymbol::Person, None),
+        "collections" => (USymbol::Collections, None),
+        "rectangle" => (USymbol::Rectangle, None),
+        "card" => (USymbol::Card, None),
+        "folder" => (USymbol::Folder, None),
+        "frame" => (USymbol::Frame, None),
+        "file" => (USymbol::File, None),
+        "hexagon" => (USymbol::Hexagon, None),
+        "action" => (USymbol::Action, None),
+        "process" => (USymbol::Process, None),
+        "label" => (USymbol::Label, None),
+        "boundary" => (USymbol::Boundary, None),
+        "control" => (USymbol::Control, None),
+        "port" => (USymbol::Port, None),
+        "portin" => (USymbol::PortIn, None),
+        "portout" => (USymbol::PortOut, None),
+        _ => (USymbol::None, Some(ClassFamilyKind::Class)),
     };
 
     let mut rest = rest.to_string();
@@ -95,19 +290,26 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     let generic = pop_trailing_generic(&mut working);
     let (id, display) = parse_alias(working.trim())?;
 
-    Some(EntityAction {
-        entity: Entity {
+    let kind_data = match kind_for_compartment {
+        Some(kind) => EntityKindData::Compartment {
             kind,
-            id,
-            display,
             generic,
-            stereotype,
-            stereotype_marker,
             fields: Vec::new(),
             methods: Vec::new(),
-            body: None,
+        },
+        None => EntityKindData::Plain { members: Vec::new() },
+    };
+
+    Some(EntityAction {
+        entity: Entity {
+            usymbol,
+            id,
+            display,
+            stereotype,
+            stereotype_marker,
             fill,
             line: line_no,
+            kind_data,
         },
         has_block,
     })
@@ -139,7 +341,7 @@ pub(super) fn pop_trailing_color(rest: &mut String) -> Option<String> {
 /// has the prefix stripped.
 pub(super) fn pop_trailing_stereotype_with_marker(
     rest: &mut String,
-) -> Option<(String, Option<(String, Option<String>)>)> {
+) -> Option<(String, Option<StereotypeMarker>)> {
     let trimmed = rest.trim_end();
     let body = trimmed.strip_suffix(">>")?;
     let lt_idx = body.rfind("<<")?;
@@ -154,10 +356,10 @@ pub(super) fn pop_trailing_stereotype(rest: &mut String) -> Option<String> {
     pop_trailing_stereotype_with_marker(rest).map(|(text, _)| text)
 }
 
-/// Split `(L, color) text` into (text, Some((L, color))) or treat the
-/// whole thing as plain text. The color is optional: `(L) text` is
+/// Split `(L, color) text` into (text, Some(StereotypeMarker)) or treat
+/// the whole thing as plain text. The color is optional: `(L) text` is
 /// also valid and produces marker `(L, None)`.
-fn parse_stereotype_inner(s: String) -> (String, Option<(String, Option<String>)>) {
+fn parse_stereotype_inner(s: String) -> (String, Option<StereotypeMarker>) {
     let s_trim = s.trim();
     if !s_trim.starts_with('(') {
         return (s, None);
@@ -177,7 +379,7 @@ fn parse_stereotype_inner(s: String) -> (String, Option<(String, Option<String>)
         return (s, None);
     }
     let after = s_trim[close + 1..].trim().to_string();
-    (after, Some((letter, color)))
+    (after, Some(StereotypeMarker { letter, color }))
 }
 
 /// Strip a trailing `<T, U>` generic parameter list, balancing nested `<>`

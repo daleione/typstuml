@@ -38,13 +38,13 @@ mod util;
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::{
-    ArrowHead, ClassDiagram, Container, ContainerKind, Diagram, Entity, EntityKind,
-    LayoutDirection, LineStyle, Relation, Skinparam,
+    ArrowHead, ClassFamilyKind, Container, CucaDiagram, Diagram, Entity, EntityKindData,
+    LayoutDirection, LineStyle, Member, Relation, Skinparam, USymbol,
 };
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
-use self::container::parse_container_open;
-use self::entity::{EntityAction, parse_entity_decl, parse_lollipop_decl};
+use self::container::{ContainerOpen, parse_container_open};
+use self::entity::{EntityAction, parse_entity_decl, parse_inline_shorthand, parse_lollipop_decl};
 use self::member::{is_method_signature, parse_member, split_member_line};
 use self::note::{
     parse_anchored_note_decl, parse_freestanding_note_decl, parse_note_on_link_decl,
@@ -58,14 +58,14 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
     parser.run()?;
     let mut diag = parser.diag;
     diag.name = block.name.clone();
-    Ok((Diagram::Class(diag), parser.diagnostics))
+    Ok((Diagram::Cuca(diag), parser.diagnostics))
 }
 
 struct Parser<'a> {
     lines: &'a [BodyLine],
     pos: usize,
     compat: CompatMode,
-    diag: ClassDiagram,
+    diag: CucaDiagram,
     /// Frame stack for nested `{ … }` blocks. Both `class A { … }`
     /// (entity members) and `package "X" { … }` (cluster children) push
     /// here; the variant tells `handle_block_member` how to dispatch.
@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
             lines,
             pos: 0,
             compat,
-            diag: ClassDiagram::default(),
+            diag: CucaDiagram::default(),
             block_stack: Vec::new(),
             diagnostics: Vec::new(),
             pending_annotations: Vec::new(),
@@ -197,7 +197,31 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            // Entity declaration: `class A`, `interface I`, `abstract X`, etc.
+            // Inline shorthand (M6): `[Foo]` / `(Foo)` / `:Foo:`.
+            // Must come BEFORE relation parsing so `[Foo] --> [Bar]`
+            // doesn't get torn apart by the arrow scanner. Lollipop
+            // parsing above already handles `() Foo` so the `(…)` case
+            // here is unambiguous.
+            if let Some(action) = parse_inline_shorthand(raw, line_no) {
+                self.commit_entity(action);
+                continue;
+            }
+
+            // `package "Foo" {` / `namespace foo {` / `together { … }` /
+            // `database "Cluster" {` / `node "Box" {` etc. Container-
+            // open must beat entity-decl because keywords like
+            // `database`, `node`, `cloud`, `component` are both
+            // container-capable AND valid leaf keywords — the trailing
+            // `{` disambiguates. `class Foo { … }` (entity-with-members
+            // block) doesn't trigger this branch because `class` is
+            // not in the container whitelist.
+            if let Some(open) = parse_container_open(raw) {
+                self.commit_container(open, line_no);
+                continue;
+            }
+
+            // Entity declaration: `class A`, `interface I`, `abstract X`,
+            // `component Foo`, `actor Bob`, `database X`, etc.
             if let Some(action) = parse_entity_decl(raw, line_no) {
                 self.commit_entity(action);
                 continue;
@@ -213,14 +237,6 @@ impl<'a> Parser<'a> {
             // Relation: `A --|> B`, `A *-- "*" B : owns`, etc.
             if let Some(rp) = parse_relation(raw, line_no) {
                 self.commit_relation_with_hints(rp.rel, rp.from_lollipop, rp.to_lollipop);
-                continue;
-            }
-
-            // `package "Foo" {` / `namespace foo {` / `together { … }` /
-            // similar. Pushes a new container frame; following entities
-            // and nested containers register as children.
-            if let Some((kind, label, stereotype)) = parse_container_open(raw) {
-                self.commit_container(kind, label, stereotype, line_no);
                 continue;
             }
 
@@ -269,18 +285,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn commit_container(
-        &mut self,
-        kind: ContainerKind,
-        label: String,
-        stereotype: Option<String>,
-        line_no: usize,
-    ) {
+    fn commit_container(&mut self, open: ContainerOpen, line_no: usize) {
         let new_idx = self.diag.containers.len();
         self.diag.containers.push(Container {
-            kind,
-            label,
-            stereotype,
+            usymbol: open.usymbol,
+            together: open.together,
+            label: open.label,
+            stereotype: open.stereotype,
             children_entities: Vec::new(),
             children_containers: Vec::new(),
             line: line_no,
@@ -295,15 +306,32 @@ impl<'a> Parser<'a> {
 
     fn upsert_entity(&mut self, entity: Entity) -> usize {
         if let Some(i) = self.diag.entities.iter().position(|e| e.id == entity.id) {
-            // Merge: prefer the new declaration's kind / generic /
-            // stereotype if it has them, and append nothing else (members
-            // are added line-by-line so they don't double up).
+            // Merge: prefer the new declaration's class-family kind /
+            // generic / stereotype if it has them, and append nothing
+            // else (members are added line-by-line so they don't double
+            // up). Only meaningful when both old and new declarations
+            // are compartment-shaped — otherwise we just keep the
+            // first.
             let existing = &mut self.diag.entities[i];
-            if existing.kind == EntityKind::Class && entity.kind != EntityKind::Class {
-                existing.kind = entity.kind;
-            }
-            if existing.generic.is_none() && entity.generic.is_some() {
-                existing.generic = entity.generic;
+            if let (
+                EntityKindData::Compartment {
+                    kind: ex_kind,
+                    generic: ex_generic,
+                    ..
+                },
+                EntityKindData::Compartment {
+                    kind: new_kind,
+                    generic: new_generic,
+                    ..
+                },
+            ) = (&mut existing.kind_data, &entity.kind_data)
+            {
+                if *ex_kind == ClassFamilyKind::Class && *new_kind != ClassFamilyKind::Class {
+                    *ex_kind = *new_kind;
+                }
+                if ex_generic.is_none() && new_generic.is_some() {
+                    *ex_generic = new_generic.clone();
+                }
             }
             if existing.stereotype.is_none() && entity.stereotype.is_some() {
                 existing.stereotype = entity.stereotype;
@@ -323,17 +351,19 @@ impl<'a> Parser<'a> {
             Some(i) => i,
             None => {
                 let entity = Entity {
-                    kind: EntityKind::Class,
+                    usymbol: USymbol::None,
                     id: id.to_string(),
                     display: id.to_string(),
-                    generic: None,
                     stereotype: None,
                     stereotype_marker: None,
-                    fields: Vec::new(),
-                    methods: Vec::new(),
-                    body: None,
                     fill: None,
                     line: line_no,
+                    kind_data: EntityKindData::Compartment {
+                        kind: ClassFamilyKind::Class,
+                        generic: None,
+                        fields: Vec::new(),
+                        methods: Vec::new(),
+                    },
                 };
                 self.diag.entities.push(entity);
                 self.diag.entities.len() - 1
@@ -347,11 +377,7 @@ impl<'a> Parser<'a> {
             // identifier when the painter renders it.
             member.body = format!("{ann} {}", member.body);
         }
-        if is_method_signature(&member.body) {
-            self.diag.entities[idx].methods.push(member);
-        } else {
-            self.diag.entities[idx].fields.push(member);
-        }
+        push_member(&mut self.diag.entities[idx], member);
     }
 
     fn handle_block_member(&mut self, raw: &str, line_no: usize) -> Result<()> {
@@ -361,7 +387,13 @@ impl<'a> Parser<'a> {
                 // Inside `package`/`namespace` — re-dispatch as if at top
                 // level. Entity declarations and nested containers are
                 // automatically wired to the current container by their
-                // commit_* functions.
+                // commit_* functions. Container-open beats entity-decl
+                // for the same reason as in `run`: keywords like
+                // `database` / `node` / `component` can be either.
+                if let Some(open) = parse_container_open(raw) {
+                    self.commit_container(open, line_no);
+                    return Ok(());
+                }
                 if let Some(action) = parse_entity_decl(raw, line_no) {
                     self.commit_entity(action);
                     return Ok(());
@@ -377,10 +409,6 @@ impl<'a> Parser<'a> {
                     self.commit_relation_with_hints(rp.rel, rp.from_lollipop, rp.to_lollipop);
                     return Ok(());
                 }
-                if let Some((kind, label, stereotype)) = parse_container_open(raw) {
-                    self.commit_container(kind, label, stereotype, line_no);
-                    return Ok(());
-                }
                 self.unsupported(raw, line_no)
             }
             BlockFrame::Entity(idx) => {
@@ -389,12 +417,7 @@ impl<'a> Parser<'a> {
                 if let Some(ann) = self.take_annotations() {
                     member.body = format!("{ann} {}", member.body);
                 }
-                let entity = &mut self.diag.entities[idx];
-                if is_method_signature(&member.body) {
-                    entity.methods.push(member);
-                } else {
-                    entity.fields.push(member);
-                }
+                push_member(&mut self.diag.entities[idx], member);
                 Ok(())
             }
         }
@@ -425,23 +448,31 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if !self.diag.entities.iter().any(|e| e.id == *id) {
-                let kind = if lollipop {
-                    EntityKind::Circle
+                let (usymbol, kind_data) = if lollipop {
+                    (
+                        USymbol::Interface,
+                        EntityKindData::Plain { members: Vec::new() },
+                    )
                 } else {
-                    EntityKind::Class
+                    (
+                        USymbol::None,
+                        EntityKindData::Compartment {
+                            kind: ClassFamilyKind::Class,
+                            generic: None,
+                            fields: Vec::new(),
+                            methods: Vec::new(),
+                        },
+                    )
                 };
                 self.diag.entities.push(Entity {
-                    kind,
+                    usymbol,
                     id: id.clone(),
                     display: id.clone(),
-                    generic: None,
                     stereotype: None,
                     stereotype_marker: None,
-                    fields: Vec::new(),
-                    methods: Vec::new(),
-                    body: None,
                     fill: None,
                     line: rel.line,
+                    kind_data,
                 });
             }
         }
@@ -583,17 +614,14 @@ impl<'a> Parser<'a> {
 
     fn push_note(&mut self, id: String, body: String, line_no: usize) {
         self.diag.entities.push(Entity {
-            kind: EntityKind::Note,
+            usymbol: USymbol::Note,
             id: id.clone(),
             display: id,
-            generic: None,
             stereotype: None,
             stereotype_marker: None,
-            fields: Vec::new(),
-            methods: Vec::new(),
-            body: Some(body),
             fill: None,
             line: line_no,
+            kind_data: EntityKindData::Note { body },
         });
     }
 
@@ -682,10 +710,31 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// Append `member` to the appropriate compartment of `entity`. For
+/// compartment-shaped entities, `is_method_signature` decides which
+/// list; for plain (desc-family) entities, members live in
+/// `EntityKindData::Plain.members`; for Note / Object the call is a
+/// no-op (a note's body is fixed at declaration time).
+fn push_member(entity: &mut Entity, member: Member) {
+    match &mut entity.kind_data {
+        EntityKindData::Compartment { fields, methods, .. } => {
+            if is_method_signature(&member.body) {
+                methods.push(member);
+            } else {
+                fields.push(member);
+            }
+        }
+        EntityKindData::Plain { members } => {
+            members.push(member);
+        }
+        EntityKindData::Note { .. } | EntityKindData::Object { .. } => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{Direction, LineStyle, Visibility};
+    use crate::ir::{Direction, LineStyle, Member, Visibility};
 
     fn block(body: &[&str]) -> UmlBlock {
         UmlBlock {
@@ -703,11 +752,22 @@ mod tests {
         }
     }
 
-    fn parse_ok(body: &[&str]) -> ClassDiagram {
+    fn parse_ok(body: &[&str]) -> CucaDiagram {
         let (diagram, _) = parse(&block(body), CompatMode::Warn).expect("parse ok");
         match diagram {
-            Diagram::Class(c) => c,
-            _ => panic!("expected class diagram"),
+            Diagram::Cuca(c) => c,
+            _ => panic!("expected cuca diagram"),
+        }
+    }
+
+    /// Helper: pattern-match the entity's compartment data and panic
+    /// loudly if it isn't a class-family entity.
+    fn compartment(e: &Entity) -> (ClassFamilyKind, &Option<String>, &[Member], &[Member]) {
+        match &e.kind_data {
+            EntityKindData::Compartment { kind, generic, fields, methods } => {
+                (*kind, generic, fields.as_slice(), methods.as_slice())
+            }
+            other => panic!("expected compartment entity, got {other:?}"),
         }
     }
 
@@ -723,12 +783,13 @@ mod tests {
         assert_eq!(c.entities.len(), 1);
         let foo = &c.entities[0];
         assert_eq!(foo.id, "Foo");
-        assert_eq!(foo.kind, EntityKind::Class);
-        assert_eq!(foo.fields.len(), 2);
-        assert_eq!(foo.methods.len(), 1);
-        assert_eq!(foo.fields[0].visibility, Visibility::Public);
-        assert_eq!(foo.fields[1].visibility, Visibility::Private);
-        assert_eq!(foo.methods[0].body, "getName(): String");
+        let (kind, _, fields, methods) = compartment(foo);
+        assert_eq!(kind, ClassFamilyKind::Class);
+        assert_eq!(fields.len(), 2);
+        assert_eq!(methods.len(), 1);
+        assert_eq!(fields[0].visibility, Visibility::Public);
+        assert_eq!(fields[1].visibility, Visibility::Private);
+        assert_eq!(methods[0].body, "getName(): String");
     }
 
     #[test]
@@ -766,8 +827,9 @@ mod tests {
     #[test]
     fn parses_member_add_line() {
         let c = parse_ok(&["class A", "A : + foo()"]);
-        assert_eq!(c.entities[0].methods.len(), 1);
-        assert_eq!(c.entities[0].methods[0].body, "foo()");
+        let (_, _, _, methods) = compartment(&c.entities[0]);
+        assert_eq!(methods.len(), 1);
+        assert_eq!(methods[0].body, "foo()");
     }
 
     #[test]
@@ -778,11 +840,11 @@ mod tests {
             "  {abstract} render(): void",
             "}",
         ]);
-        let a = &c.entities[0];
-        assert_eq!(a.fields.len(), 1);
-        assert!(a.fields[0].is_static);
-        assert_eq!(a.methods.len(), 1);
-        assert!(a.methods[0].is_abstract);
+        let (_, _, fields, methods) = compartment(&c.entities[0]);
+        assert_eq!(fields.len(), 1);
+        assert!(fields[0].is_static);
+        assert_eq!(methods.len(), 1);
+        assert!(methods[0].is_abstract);
     }
 
     #[test]
@@ -790,7 +852,8 @@ mod tests {
         let c = parse_ok(&[r#"class Repo<T> <<Service>> #LightBlue"#]);
         let e = &c.entities[0];
         assert_eq!(e.id, "Repo");
-        assert_eq!(e.generic.as_deref(), Some("T"));
+        let (_, generic, _, _) = compartment(e);
+        assert_eq!(generic.as_deref(), Some("T"));
         assert_eq!(e.stereotype.as_deref(), Some("Service"));
         assert_eq!(e.fill.as_deref(), Some("#LightBlue"));
     }
@@ -829,9 +892,9 @@ mod tests {
             "  ~ helper(): void",
             "}",
         ]);
-        let m = &c.entities[0].methods[0];
-        assert_eq!(m.visibility, Visibility::Package);
-        assert_eq!(m.body, "helper(): void");
+        let (_, _, _, methods) = compartment(&c.entities[0]);
+        assert_eq!(methods[0].visibility, Visibility::Package);
+        assert_eq!(methods[0].body, "helper(): void");
     }
 
     #[test]
@@ -841,8 +904,8 @@ mod tests {
             "  {classifier} factory(): A",
             "}",
         ]);
-        let m = &c.entities[0].methods[0];
-        assert!(m.is_static, "{{classifier}} should set is_static");
+        let (_, _, _, methods) = compartment(&c.entities[0]);
+        assert!(methods[0].is_static, "{{classifier}} should set is_static");
     }
 
     #[test]
@@ -892,8 +955,8 @@ mod tests {
             "class B",
             "note over A, B : shared invariant",
         ]);
-        let note = c.entities.iter().find(|e| e.kind == EntityKind::Note).unwrap();
-        assert_eq!(note.body.as_deref(), Some("shared invariant"));
+        let note = c.entities.iter().find(|e| e.usymbol == USymbol::Note).unwrap();
+        assert_eq!(note.kind_data.note_body(), Some("shared invariant"));
         // Two auto-relations, one for each target.
         assert_eq!(c.relations.len(), 2);
         assert!(c.relations.iter().any(|r| r.to == "A"));
@@ -909,8 +972,8 @@ mod tests {
         let c = parse_ok(&["class Foo", "note left of Foo : just a hint"]);
         // Entities: Foo + the auto-generated note.
         assert_eq!(c.entities.len(), 2);
-        let note = c.entities.iter().find(|e| e.kind == EntityKind::Note).unwrap();
-        assert_eq!(note.body.as_deref(), Some("just a hint"));
+        let note = c.entities.iter().find(|e| e.usymbol == USymbol::Note).unwrap();
+        assert_eq!(note.kind_data.note_body(), Some("just a hint"));
         // Auto-generated id starts with `__note_`.
         assert!(note.id.starts_with("__note_"));
         // Auto-relation: dashed, no heads, direction Left.
@@ -933,8 +996,8 @@ mod tests {
             "  second line",
             "end note",
         ]);
-        let note = c.entities.iter().find(|e| e.kind == EntityKind::Note).unwrap();
-        let body = note.body.as_deref().unwrap();
+        let note = c.entities.iter().find(|e| e.usymbol == USymbol::Note).unwrap();
+        let body = note.kind_data.note_body().unwrap();
         assert!(body.contains("first line"));
         assert!(body.contains("second line"));
         assert_eq!(c.relations[0].direction, Some(Direction::Right));
@@ -948,8 +1011,8 @@ mod tests {
             "N1 .. Foo",
         ]);
         let note = c.entities.iter().find(|e| e.id == "N1").unwrap();
-        assert_eq!(note.kind, EntityKind::Note);
-        assert_eq!(note.body.as_deref(), Some("hello world"));
+        assert_eq!(note.usymbol, USymbol::Note);
+        assert_eq!(note.kind_data.note_body(), Some("hello world"));
         // User-written N1 .. Foo should produce one relation; no auto-rel.
         assert_eq!(c.relations.len(), 1);
         let r = &c.relations[0];
@@ -970,7 +1033,8 @@ mod tests {
         assert_eq!(c.entities.len(), 3);
         assert_eq!(c.containers.len(), 1);
         let pkg = &c.containers[0];
-        assert_eq!(pkg.kind, ContainerKind::Package);
+        assert_eq!(pkg.usymbol, USymbol::Package);
+        assert!(!pkg.together);
         assert_eq!(pkg.label, "Domain");
         assert_eq!(pkg.children_entities, vec!["Order", "LineItem"]);
     }
@@ -1005,7 +1069,7 @@ mod tests {
         ]);
         assert_eq!(c.containers.len(), 1);
         let t = &c.containers[0];
-        assert_eq!(t.kind, ContainerKind::Together);
+        assert!(t.together);
         assert!(t.label.is_empty());
         assert_eq!(t.children_entities, vec!["A", "B"]);
     }
@@ -1047,17 +1111,17 @@ mod tests {
         let c = parse_ok(&["() Foo"]);
         assert_eq!(c.entities.len(), 1);
         let e = &c.entities[0];
-        assert_eq!(e.kind, EntityKind::Circle);
+        assert_eq!(e.usymbol, USymbol::Interface);
         assert_eq!(e.id, "Foo");
     }
 
     #[test]
     fn lollipop_in_relation_auto_creates_circle() {
-        // `(Iface)` references a lollipop — auto-create as Circle, not
-        // Class. `class A` declared explicitly stays Class.
+        // `(Iface)` references a lollipop — auto-create as Interface
+        // (lollipop). `class A` declared explicitly stays Class.
         let c = parse_ok(&["class A", "A --> (Iface)"]);
         let iface = c.entities.iter().find(|e| e.id == "Iface").unwrap();
-        assert_eq!(iface.kind, EntityKind::Circle);
+        assert_eq!(iface.usymbol, USymbol::Interface);
     }
 
     #[test]
@@ -1066,8 +1130,8 @@ mod tests {
         let e = &c.entities[0];
         assert_eq!(e.stereotype.as_deref(), Some("Service"));
         let marker = e.stereotype_marker.as_ref().unwrap();
-        assert_eq!(marker.0, "R");
-        assert_eq!(marker.1.as_deref(), Some("#FF8800"));
+        assert_eq!(marker.letter, "R");
+        assert_eq!(marker.color.as_deref(), Some("#FF8800"));
     }
 
     #[test]
@@ -1076,8 +1140,8 @@ mod tests {
         let e = &c.entities[0];
         assert_eq!(e.stereotype.as_deref(), Some("something"));
         let marker = e.stereotype_marker.as_ref().unwrap();
-        assert_eq!(marker.0, "X");
-        assert!(marker.1.is_none());
+        assert_eq!(marker.letter, "X");
+        assert!(marker.color.is_none());
     }
 
     #[test]
@@ -1162,10 +1226,96 @@ mod tests {
             "end note",
         ]);
         let note = &c.entities[0];
-        assert_eq!(note.kind, EntityKind::Note);
+        assert_eq!(note.usymbol, USymbol::Note);
         assert_eq!(note.id, "N1");
-        assert_eq!(note.body.as_deref().unwrap().trim(), "body line");
+        assert_eq!(note.kind_data.note_body().unwrap().trim(), "body line");
         // No auto relation for freestanding form.
         assert!(c.relations.is_empty());
+    }
+
+    // --- M5-partial / M6: desc family + inline shorthand ---
+
+    #[test]
+    fn parses_component_keyword() {
+        let c = parse_ok(&["component Foo"]);
+        assert_eq!(c.entities.len(), 1);
+        assert_eq!(c.entities[0].usymbol, USymbol::Component);
+        assert_eq!(c.entities[0].id, "Foo");
+        assert!(matches!(c.entities[0].kind_data, EntityKindData::Plain { .. }));
+    }
+
+    #[test]
+    fn parses_actor_keyword() {
+        let c = parse_ok(&["actor Bob"]);
+        assert_eq!(c.entities[0].usymbol, USymbol::Actor);
+    }
+
+    #[test]
+    fn parses_usecase_keyword() {
+        let c = parse_ok(&["usecase Login"]);
+        assert_eq!(c.entities[0].usymbol, USymbol::UseCase);
+    }
+
+    #[test]
+    fn parses_database_as_leaf() {
+        let c = parse_ok(&[r#"database "User DB" as UDB"#]);
+        assert_eq!(c.entities[0].usymbol, USymbol::Database);
+        assert_eq!(c.entities[0].id, "UDB");
+        assert_eq!(c.entities[0].display, "User DB");
+    }
+
+    #[test]
+    fn parses_database_as_container() {
+        // `database "X" {` opens a cluster, not a leaf.
+        let c = parse_ok(&[r#"database "Cluster" {"#, "class Inner", "}"]);
+        assert_eq!(c.containers.len(), 1);
+        assert_eq!(c.containers[0].usymbol, USymbol::Database);
+        assert_eq!(c.containers[0].label, "Cluster");
+        assert_eq!(c.containers[0].children_entities, vec!["Inner"]);
+    }
+
+    #[test]
+    fn parses_component_shorthand() {
+        let c = parse_ok(&["[WebApp]"]);
+        assert_eq!(c.entities[0].usymbol, USymbol::Component);
+        assert_eq!(c.entities[0].id, "WebApp");
+    }
+
+    #[test]
+    fn parses_usecase_shorthand() {
+        let c = parse_ok(&["(Login)"]);
+        assert_eq!(c.entities[0].usymbol, USymbol::UseCase);
+        assert_eq!(c.entities[0].id, "Login");
+    }
+
+    #[test]
+    fn parses_actor_shorthand() {
+        let c = parse_ok(&[":Bob:"]);
+        assert_eq!(c.entities[0].usymbol, USymbol::Actor);
+        assert_eq!(c.entities[0].id, "Bob");
+    }
+
+    #[test]
+    fn shorthand_does_not_swallow_relation_line() {
+        // `[A] --> [B]` is a relation line with two component shorthand
+        // endpoints. parse_inline_shorthand must reject it (trailing
+        // `--> [B]` isn't `as`/`<<`/`#`) so parse_relation gets to run.
+        // The endpoint-cleanup (strip `[…]` brackets from auto-created
+        // ids and tag them as USymbol::Component) is a follow-up — for
+        // now we just confirm the inline-shorthand parser bows out so
+        // the relation parser can take the line.
+        let c = parse_ok(&["[A] --> [B]"]);
+        assert_eq!(c.relations.len(), 1, "relation must still be parsed");
+    }
+
+    #[test]
+    fn couple_form_not_misread_as_shorthand() {
+        // `(A, B) .. C` is the association-class couple form. The comma
+        // inside parens disambiguates it from `(Foo)` usecase shorthand.
+        let c = parse_ok(&["class A", "class B", "class C", "(A, B) .. C"]);
+        assert_eq!(c.entities.len(), 3);
+        assert_eq!(c.relations.len(), 1);
+        assert_eq!(c.relations[0].from_couple, Some(("A".into(), "B".into())));
+        assert_eq!(c.relations[0].to, "C");
     }
 }

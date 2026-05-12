@@ -1,6 +1,6 @@
 //! Pass-1 probe emission for class diagrams.
 //!
-//! For each entity in a `ClassDiagram` we emit a `#class-probe(id:
+//! For each entity in a `CucaDiagram` we emit a `#class-probe(id:
 //! "mc-<diagram_idx>-<entity_id>", spec: (...))` call into the pass-1
 //! Typst source. The painter measures the natural size and emits
 //! `metadata((id, w, h)) <typstuml_measure>`; `runtime::measure::run`
@@ -12,7 +12,7 @@
 //! `[A-Za-z0-9_]+` as identity (the common case) and only escapes weird
 //! IR identifiers.
 
-use crate::ir::{ClassDiagram, Container, ContainerKind, Entity, HideOptions};
+use crate::ir::{Container, CucaDiagram, Entity, HideOptions};
 
 use super::emit::write_class_spec_body;
 use super::text::creole_to_typst;
@@ -32,7 +32,7 @@ pub fn package_id(diagram_idx: usize, container_idx: usize) -> String {
 /// Whether a container is rendered with a label band that needs
 /// measurement. `together` (anonymous) draws no band, so we skip it.
 pub fn has_label_band(c: &Container) -> bool {
-    !matches!(c.kind, ContainerKind::Together) && !c.label.is_empty()
+    c.has_label_band()
 }
 
 /// Emit one `#class-probe(...)` call per entity and one
@@ -40,7 +40,7 @@ pub fn has_label_band(c: &Container) -> bool {
 /// the expected IDs into `expected_ids` so `runtime::measure::run` can
 /// verify the protocol round-trip.
 pub fn collect(
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     diagram_idx: usize,
     out: &mut String,
     expected_ids: &mut Vec<String>,
@@ -70,7 +70,7 @@ pub fn collect(
 
 /// True iff `diag` has at least one entity (or labeled container) that
 /// needs measurement.
-pub fn has_probes(diag: &ClassDiagram) -> bool {
+pub fn has_probes(diag: &CucaDiagram) -> bool {
     !diag.entities.is_empty() || diag.containers.iter().any(has_label_band)
 }
 
@@ -105,21 +105,23 @@ pub(crate) fn probes_for(_entity: &Entity, _hide: &HideOptions) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::EntityKind;
+    use crate::ir::{ClassFamilyKind, EntityKindData, USymbol};
 
     fn ent(id: &str) -> Entity {
         Entity {
-            kind: EntityKind::Class,
+            usymbol: USymbol::None,
             id: id.into(),
             display: id.into(),
-            generic: None,
             stereotype: None,
             stereotype_marker: None,
-            fields: Vec::new(),
-            methods: Vec::new(),
-            body: None,
             fill: None,
             line: 0,
+            kind_data: EntityKindData::Compartment {
+                kind: ClassFamilyKind::Class,
+                generic: None,
+                fields: Vec::new(),
+                methods: Vec::new(),
+            },
         }
     }
 
@@ -137,7 +139,7 @@ mod tests {
 
     #[test]
     fn empty_diagram_has_no_probes() {
-        let d = ClassDiagram::default();
+        let d = CucaDiagram::default();
         assert!(!has_probes(&d));
     }
 }

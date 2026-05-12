@@ -175,17 +175,68 @@ pub(super) fn try_manhattan_route(
         return Some(vec![(c1, c2, end)]);
     }
 
-    // Z-route. For vertical: turn at mid-y; for horizontal: turn at mid-x.
-    let (p2, p3) = if vertical {
-        let mid_y = (start.y + end.y) / 2.0;
-        (Point::new(start.x, mid_y), Point::new(end.x, mid_y))
-    } else {
-        let mid_x = (start.x + end.x) / 2.0;
-        (Point::new(mid_x, start.y), Point::new(mid_x, end.y))
-    };
+    // Z-route. For vertical: turn at mid-y. For horizontal: turn at
+    // mid-x. If the mid bend clips an obstacle, retry with bends
+    // placed just outside each blocking obstacle — this is the
+    // detour-around-sibling-cluster case introduced by M4 (the cluster
+    // bbox is now part of `obstacles`, so the original mid bend often
+    // passes through the cluster's interior).
     let p1 = start;
     let p4 = end;
 
+    let mid = if vertical {
+        (start.y + end.y) / 2.0
+    } else {
+        (start.x + end.x) / 2.0
+    };
+
+    if let Some(segs) = try_z_with_bend(p1, p4, mid, vertical, obstacles) {
+        return Some(segs);
+    }
+
+    // mid bend blocked — enumerate fallback bend coordinates just
+    // outside every obstacle's blocking axis. Padding nudges the bend
+    // off the obstacle face so the segment runs along the outside
+    // rather than tangent to the wall.
+    const BEND_PAD: f64 = 8.0;
+    let mut candidates: Vec<f64> = Vec::new();
+    for ob in obstacles {
+        if vertical {
+            candidates.push(ob.min.y - BEND_PAD);
+            candidates.push(ob.max.y + BEND_PAD);
+        } else {
+            candidates.push(ob.min.x - BEND_PAD);
+            candidates.push(ob.max.x + BEND_PAD);
+        }
+    }
+    // Sort by closeness to mid so we prefer least-deviating routes.
+    candidates.sort_by(|a, b| (a - mid).abs().partial_cmp(&(b - mid).abs()).unwrap());
+    for c in candidates {
+        if let Some(segs) = try_z_with_bend(p1, p4, c, vertical, obstacles) {
+            return Some(segs);
+        }
+    }
+
+    None
+}
+
+/// Build a 3-segment Z route with the bend on the cross axis at
+/// coordinate `bend`. `vertical = true` means the long edge runs
+/// vertically (bend is a y-coordinate, segments are vert/horiz/vert);
+/// `vertical = false` flips the axes. Returns `None` if any segment
+/// clips an obstacle.
+fn try_z_with_bend(
+    p1: Point,
+    p4: Point,
+    bend: f64,
+    vertical: bool,
+    obstacles: &[pathplan::Box],
+) -> Option<Vec<(Point, Point, Point)>> {
+    let (p2, p3) = if vertical {
+        (Point::new(p1.x, bend), Point::new(p4.x, bend))
+    } else {
+        (Point::new(bend, p1.y), Point::new(bend, p4.y))
+    };
     for ob in obstacles {
         if seg_intersects_box(p1, p2, ob)
             || seg_intersects_box(p2, p3, ob)
@@ -194,7 +245,6 @@ pub(super) fn try_manhattan_route(
             return None;
         }
     }
-
     Some(vec![
         cubic_from_straight(p1, p2),
         cubic_from_straight(p2, p3),
@@ -494,17 +544,47 @@ mod tests {
     }
 
     #[test]
-    fn try_manhattan_route_blocked_returns_none() {
-        // Z-route turns at mid-y = 50. The midline at y=50 from x=0 to
-        // x=100 passes through this obstacle.
+    fn try_manhattan_route_blocked_falls_back_to_detour_bend() {
+        // Mid-bend Z (mid-y = 50) would clip this obstacle (40-60).
+        // Improved router falls back to a bend just outside the
+        // obstacle's top or bottom edge instead of giving up.
         let ob = pathplan::Box::new(Point::new(20.0, 40.0), Point::new(80.0, 60.0));
         let segs = try_manhattan_route(
             Point::new(0.0, 0.0),
             Point::new(100.0, 100.0),
             &[ob],
             true,
+        )
+        .expect("must find a detour bend (above or below the obstacle)");
+        assert_eq!(segs.len(), 3);
+        // The middle segment runs horizontally at the bend y — it must
+        // be above or below the obstacle, not through it.
+        let bend_y = segs[1].2.y; // end of segment 2 = bend point
+        assert!(
+            bend_y < 40.0 || bend_y > 60.0,
+            "detour bend y={bend_y} should be outside obstacle [40, 60]"
         );
-        assert!(segs.is_none(), "blocked Z must return None");
+    }
+
+    #[test]
+    fn try_manhattan_route_truly_unreachable_returns_none() {
+        // Two stacked obstacles that completely cover every horizontal
+        // band a Z bend could occupy: no horizontal line from x=0 to
+        // x=100 is clear, so even the detour-bend fallback can't find
+        // a route.
+        let ob_a = pathplan::Box::new(Point::new(-100.0, -100.0), Point::new(200.0, 50.0));
+        let ob_b = pathplan::Box::new(Point::new(-100.0, 50.0), Point::new(200.0, 200.0));
+        let segs = try_manhattan_route(
+            Point::new(0.0, 0.0),
+            Point::new(100.0, 100.0),
+            &[ob_a, ob_b],
+            true,
+        );
+        // Note: start/end are INSIDE the obstacles in this contrived
+        // test — every candidate bend will still clip one of them.
+        // The function returns None and the caller falls back to
+        // pathplan (or the straight-cubic last resort).
+        assert!(segs.is_none(), "fully-blocked Z must return None");
     }
 
     #[test]

@@ -6,7 +6,7 @@
 //! container as a single box and places non-clustered entities
 //! alongside. With no containers it degenerates to `flat_layout`.
 
-use crate::ir::{ClassDiagram, ContainerKind};
+use crate::ir::CucaDiagram;
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
 
@@ -59,8 +59,8 @@ struct ClusterData {
     inner_size: Point,
 }
 
-fn cluster_label_band(ci: usize, diag: &ClassDiagram, bands: LabelBands) -> f64 {
-    if matches!(diag.containers[ci].kind, ContainerKind::Together) {
+fn cluster_label_band(ci: usize, diag: &CucaDiagram, bands: LabelBands) -> f64 {
+    if diag.containers[ci].together {
         return 0.0;
     }
     bands
@@ -83,7 +83,7 @@ fn cluster_label_min_outer_w(ci: usize, bands: LabelBands) -> f64 {
 
 fn cluster_outer_size(
     ci: usize,
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     cluster_data: &std::collections::HashMap<usize, ClusterData>,
     bands: LabelBands,
 ) -> Point {
@@ -95,7 +95,7 @@ fn cluster_outer_size(
     Point::new(outer_w, inner.y + 2.0 * pad + band)
 }
 
-fn cluster_content_offset(ci: usize, diag: &ClassDiagram, bands: LabelBands) -> Point {
+fn cluster_content_offset(ci: usize, diag: &CucaDiagram, bands: LabelBands) -> Point {
     let pad = CONTAINER_PAD_PT;
     let band = cluster_label_band(ci, diag, bands);
     Point::new(pad, pad + band)
@@ -103,7 +103,7 @@ fn cluster_content_offset(ci: usize, diag: &ClassDiagram, bands: LabelBands) -> 
 
 /// Top-level container indices: those not registered as a child of any
 /// other container.
-fn top_level_containers(diag: &ClassDiagram) -> Vec<usize> {
+fn top_level_containers(diag: &CucaDiagram) -> Vec<usize> {
     let mut is_child = vec![false; diag.containers.len()];
     for c in &diag.containers {
         for &cc in &c.children_containers {
@@ -120,7 +120,7 @@ fn top_level_containers(diag: &ClassDiagram) -> Vec<usize> {
 /// For each entity, the chain of containers from the outermost root
 /// down to the innermost cluster that contains it. Empty for entities
 /// outside every container.
-fn entity_cluster_chains(diag: &ClassDiagram) -> Vec<Vec<usize>> {
+pub(super) fn entity_cluster_chains(diag: &CucaDiagram) -> Vec<Vec<usize>> {
     let mut parent: Vec<Option<usize>> = vec![None; diag.containers.len()];
     for (pi, c) in diag.containers.iter().enumerate() {
         for &ci in &c.children_containers {
@@ -154,7 +154,7 @@ fn entity_cluster_chains(diag: &ClassDiagram) -> Vec<Vec<usize>> {
 /// Single flat Sugiyama, used when there are no containers. Same shape
 /// as `compound_layout`'s output so callers don't branch.
 fn flat_layout(
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     geoms: &[ClassGeom],
     orientation: Orientation,
     layout_edges: &[(usize, usize)],
@@ -196,7 +196,7 @@ fn flat_layout(
 /// the post-Sugiyama "regroup by rank" hack the previous codegen used
 /// could not enforce that.
 pub(super) fn compound_layout(
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     geoms: &[ClassGeom],
     orientation: Orientation,
     layout_edges: &[(usize, usize)],
@@ -311,7 +311,7 @@ pub(super) fn compound_layout(
 /// direct child).
 fn layout_cluster(
     ci: usize,
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     geoms: &[ClassGeom],
     orientation: Orientation,
     layout_edges: &[(usize, usize)],
@@ -451,7 +451,7 @@ fn layout_cluster(
 fn place_cluster(
     ci: usize,
     outer_top_left: Point,
-    diag: &ClassDiagram,
+    diag: &CucaDiagram,
     cluster_data: &std::collections::HashMap<usize, ClusterData>,
     top_lefts: &mut [Point],
     bboxes: &mut [Option<(Point, Point)>],
@@ -481,20 +481,50 @@ fn place_cluster(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{ClassDiagram, Container, ContainerKind, Entity, EntityKind};
+    use crate::ir::{ClassFamilyKind, Container, CucaDiagram, Entity, EntityKindData, USymbol};
 
     fn entity(name: &str) -> Entity {
         Entity {
-            kind: EntityKind::Class,
+            usymbol: USymbol::None,
             id: name.into(),
             display: name.into(),
-            generic: None,
             stereotype: None,
             stereotype_marker: None,
-            fields: Vec::new(),
-            methods: Vec::new(),
-            body: None,
             fill: None,
+            line: 0,
+            kind_data: EntityKindData::Compartment {
+                kind: ClassFamilyKind::Class,
+                generic: None,
+                fields: Vec::new(),
+                methods: Vec::new(),
+            },
+        }
+    }
+
+    fn pkg(label: &str, children: Vec<String>) -> Container {
+        Container {
+            usymbol: USymbol::Package,
+            together: false,
+            label: label.into(),
+            stereotype: None,
+            children_entities: children,
+            children_containers: Vec::new(),
+            line: 0,
+        }
+    }
+
+    fn pkg_with_children(
+        label: &str,
+        entities: Vec<String>,
+        containers: Vec<usize>,
+    ) -> Container {
+        Container {
+            usymbol: USymbol::Package,
+            together: false,
+            label: label.into(),
+            stereotype: None,
+            children_entities: entities,
+            children_containers: containers,
             line: 0,
         }
     }
@@ -510,7 +540,7 @@ mod tests {
     fn flat_layout_when_no_containers() {
         // No containers → falls back to flat_layout, container_bboxes
         // is all-None, every entity gets a top-left.
-        let mut diag = ClassDiagram::default();
+        let mut diag = CucaDiagram::default();
         diag.entities.push(entity("A"));
         diag.entities.push(entity("B"));
         let geoms = vec![unit_geom(), unit_geom()];
@@ -525,25 +555,11 @@ mod tests {
         // Two sibling containers, one entity each, no relations.
         // Both clusters should get a bbox; each entity must sit inside
         // its declared cluster's bbox.
-        let mut diag = ClassDiagram::default();
+        let mut diag = CucaDiagram::default();
         diag.entities.push(entity("A"));
         diag.entities.push(entity("B"));
-        diag.containers.push(Container {
-            kind: ContainerKind::Package,
-            label: "PkgA".into(),
-            stereotype: None,
-            children_entities: vec!["A".into()],
-            children_containers: Vec::new(),
-            line: 0,
-        });
-        diag.containers.push(Container {
-            kind: ContainerKind::Package,
-            label: "PkgB".into(),
-            stereotype: None,
-            children_entities: vec!["B".into()],
-            children_containers: Vec::new(),
-            line: 0,
-        });
+        diag.containers.push(pkg("PkgA", vec!["A".into()]));
+        diag.containers.push(pkg("PkgB", vec!["B".into()]));
         let geoms = vec![unit_geom(), unit_geom()];
         let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
 
@@ -569,25 +585,11 @@ mod tests {
         // Same setup as above; verify cluster bboxes don't overlap.
         // This is the property the "drop cluster-to-cluster super-edges"
         // rule + super-Sugiyama is meant to enforce.
-        let mut diag = ClassDiagram::default();
+        let mut diag = CucaDiagram::default();
         diag.entities.push(entity("A"));
         diag.entities.push(entity("B"));
-        diag.containers.push(Container {
-            kind: ContainerKind::Package,
-            label: "PkgA".into(),
-            stereotype: None,
-            children_entities: vec!["A".into()],
-            children_containers: Vec::new(),
-            line: 0,
-        });
-        diag.containers.push(Container {
-            kind: ContainerKind::Package,
-            label: "PkgB".into(),
-            stereotype: None,
-            children_entities: vec!["B".into()],
-            children_containers: Vec::new(),
-            line: 0,
-        });
+        diag.containers.push(pkg("PkgA", vec!["A".into()]));
+        diag.containers.push(pkg("PkgB", vec!["B".into()]));
         let geoms = vec![unit_geom(), unit_geom()];
         let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
         let bb_a = result.container_bboxes[0].unwrap();
@@ -607,24 +609,12 @@ mod tests {
     fn compound_layout_nested_cluster_contained_in_parent() {
         // outer { inner { Inner } } — the inner cluster's bbox must
         // sit inside the outer cluster's bbox.
-        let mut diag = ClassDiagram::default();
+        let mut diag = CucaDiagram::default();
         diag.entities.push(entity("Inner"));
-        diag.containers.push(Container {
-            kind: ContainerKind::Namespace,
-            label: "outer".into(),
-            stereotype: None,
-            children_entities: Vec::new(),
-            children_containers: vec![1],
-            line: 0,
-        });
-        diag.containers.push(Container {
-            kind: ContainerKind::Namespace,
-            label: "inner".into(),
-            stereotype: None,
-            children_entities: vec!["Inner".into()],
-            children_containers: Vec::new(),
-            line: 0,
-        });
+        diag.containers
+            .push(pkg_with_children("outer", Vec::new(), vec![1]));
+        diag.containers
+            .push(pkg("inner", vec!["Inner".into()]));
         let geoms = vec![unit_geom()];
         let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
         let outer = result.container_bboxes[0].unwrap();

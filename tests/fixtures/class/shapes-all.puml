@@ -1,0 +1,23 @@
+@startuml
+title All M5 USymbol painters
+
+actor Alice
+usecase Login
+component WebApp
+database Postgres
+node "App Host" as AS
+cloud "Public Internet" as Net
+rectangle Plain
+folder "Source Tree" as Src
+frame "UI Layer" as UI
+file Readme
+
+Alice --> Login
+Login --> WebApp
+WebApp --> Postgres
+WebApp --> AS
+AS --> Net
+Plain --> Src
+Src --> UI
+UI --> Readme
+@enduml

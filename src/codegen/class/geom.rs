@@ -6,7 +6,7 @@
 //! closely enough that an edge anchor lands on the box face the
 //! painter draws.
 
-use crate::ir::{Entity, EntityKind, HideOptions, Member, Visibility};
+use crate::ir::{Entity, EntityKindData, HideOptions, Member, USymbol, Visibility};
 use crate::layout::geometry::Point;
 
 pub(super) const FONT_PT: f64 = 10.0;
@@ -60,24 +60,27 @@ impl Side {
 }
 
 pub(super) fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassGeom {
-    if entity.kind == EntityKind::Note {
+    if matches!(entity.kind_data, EntityKindData::Note { .. }) {
         return note_geom(entity);
     }
-    if entity.kind == EntityKind::Circle {
+    if entity.usymbol == USymbol::Interface {
         return lollipop_geom(entity);
     }
+    let fields = entity.kind_data.fields();
+    let methods = entity.kind_data.methods();
+
     let show_fields = !(hide.fields || hide.members);
     let show_methods = !(hide.methods || hide.members);
     let show_marker = !hide.circle;
     let show_stereo = !hide.stereotype;
     let name_w = name_width_pt_filtered(entity, show_marker, show_stereo);
     let field_w = if show_fields {
-        entity.fields.iter().map(member_width_pt).fold(0., f64::max)
+        fields.iter().map(member_width_pt).fold(0., f64::max)
     } else {
         0.0
     };
     let method_w = if show_methods {
-        entity.methods.iter().map(member_width_pt).fold(0., f64::max)
+        methods.iter().map(member_width_pt).fold(0., f64::max)
     } else {
         0.0
     };
@@ -92,12 +95,12 @@ pub(super) fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassG
     };
     let name_h = name_lines * row_h;
     let fields_h = if show_fields {
-        entity.fields.len() as f64 * row_h
+        fields.len() as f64 * row_h
     } else {
         0.0
     };
     let methods_h = if show_methods {
-        entity.methods.len() as f64 * row_h
+        methods.len() as f64 * row_h
     } else {
         0.0
     };
@@ -120,7 +123,7 @@ pub(super) fn lollipop_geom(entity: &Entity) -> ClassGeom {
 }
 
 pub(super) fn note_geom(entity: &Entity) -> ClassGeom {
-    let body = entity.body.as_deref().unwrap_or("");
+    let body = entity.kind_data.note_body().unwrap_or("");
     let line_widths: Vec<f64> = if body.is_empty() {
         vec![0.0]
     } else {
@@ -153,12 +156,25 @@ pub(super) fn name_width_pt_filtered(
         0.0
     };
     let title_w = text_width_pt(&name, NAME_EM);
-    let marker = if show_marker && entity.kind.marker_letter().is_some() {
+    let marker = if show_marker && entity_marker_letter(entity).is_some() {
         MARKER_W_PT
     } else {
         0.
     };
     title_w.max(stereo_w) + marker
+}
+
+/// Marker glyph for this entity, mirroring the painter's chip. Returns
+/// `None` for shapes that don't get a chip (lollipops, notes, plain
+/// desc shapes). Class-family compartments delegate to
+/// [`ClassFamilyKind::marker_letter`].
+pub(super) fn entity_marker_letter(entity: &Entity) -> Option<char> {
+    match &entity.kind_data {
+        EntityKindData::Compartment { kind, .. } => kind.marker_letter(),
+        EntityKindData::Note { .. }
+        | EntityKindData::Object { .. }
+        | EntityKindData::Plain { .. } => None,
+    }
 }
 
 pub(super) fn member_width_pt(member: &Member) -> f64 {
@@ -215,21 +231,35 @@ pub(super) fn anchor_for_side(g: &ClassGeom, top_left: Point, side: Side) -> Poi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{Entity, EntityKind};
+    use crate::ir::{ClassFamilyKind, Entity};
 
     fn plain_entity(name: &str) -> Entity {
         Entity {
-            kind: EntityKind::Class,
+            usymbol: USymbol::None,
             id: name.into(),
             display: name.into(),
-            generic: None,
             stereotype: None,
             stereotype_marker: None,
-            fields: Vec::new(),
-            methods: Vec::new(),
-            body: None,
             fill: None,
             line: 0,
+            kind_data: EntityKindData::Compartment {
+                kind: ClassFamilyKind::Class,
+                generic: None,
+                fields: Vec::new(),
+                methods: Vec::new(),
+            },
+        }
+    }
+
+    fn push_method(entity: &mut Entity, body: &str) {
+        if let EntityKindData::Compartment { methods, .. } = &mut entity.kind_data {
+            methods.push(crate::ir::Member {
+                visibility: crate::ir::Visibility::Public,
+                is_static: false,
+                is_abstract: false,
+                body: body.into(),
+                line: 0,
+            });
         }
     }
 
@@ -252,13 +282,7 @@ mod tests {
     #[test]
     fn class_geom_drops_methods_when_hidden() {
         let mut e = plain_entity("A");
-        e.methods.push(crate::ir::Member {
-            visibility: crate::ir::Visibility::Public,
-            is_static: false,
-            is_abstract: false,
-            body: "foo()".into(),
-            line: 0,
-        });
+        push_method(&mut e, "foo()");
         let shown = class_geom_filtered(&e, &Default::default());
         let hidden = class_geom_filtered(
             &e,

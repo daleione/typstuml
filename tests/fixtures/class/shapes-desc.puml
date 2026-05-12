@@ -1,0 +1,24 @@
+@startuml
+title M5 core desc-family painters
+
+actor Alice
+actor "Business Analyst" as Analyst
+
+component WebFrontend
+component "Auth Service" as Auth
+
+database Postgres
+database "Analytics DB" as ADB
+
+node "AppServer-01" as AS1
+node "AppServer-02" as AS2
+
+Alice --> WebFrontend
+Analyst --> WebFrontend
+WebFrontend --> Auth
+Auth --> Postgres
+WebFrontend --> AS1
+WebFrontend --> AS2
+AS1 --> Postgres
+AS2 --> ADB
+@enduml

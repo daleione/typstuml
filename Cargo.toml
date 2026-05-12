@@ -35,5 +35,10 @@ notify-debouncer-full = "0.7"
 
 [dev-dependencies]
 assert_cmd = "2"
+criterion = "0.5"
 predicates = "3"
 tempfile = "3"
+
+[[bench]]
+name = "cuca_layout"
+harness = false

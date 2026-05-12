@@ -1,0 +1,17 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  classes: (
+    (x: 15.00pt, y: 71.00pt, width: 42.54pt, height: 17.00pt, kind: "class", name: [Foo], fields: (), methods: ()),
+    (x: 121.54pt, y: 18.00pt, width: 41.88pt, height: 17.00pt, kind: "class", name: [Bar], fields: (), methods: ()),
+  ),
+  packages: (
+    (x: -11.00pt, y: 33.52pt, w: 94.54pt, h: 80.48pt, kind: "package", label: [PkgA]),
+    (x: 95.54pt, y: -19.48pt, w: 93.88pt, h: 80.48pt, kind: "package", label: [PkgB]),
+  ),
+  edges: (
+    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (142.48pt, 47.00pt), c2: (36.27pt, 47.00pt), end: (36.27pt, 59.00pt)), (c1: (36.27pt, 63.00pt), c2: (36.27pt, 67.00pt), end: (36.27pt, 71.00pt)))),
+  ),
+)

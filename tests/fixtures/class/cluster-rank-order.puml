@@ -1,0 +1,15 @@
+@startuml
+' M3: cross-cluster edges participate in Sugiyama ranking. PkgA is
+' declared first but the edge runs Bar → Foo (B → A), so PkgB must
+' rank ABOVE PkgA. Before M3 the cross-cluster edge was dropped and
+' sibling clusters fell back to declaration order side-by-side.
+package "PkgA" {
+  class Foo
+}
+
+package "PkgB" {
+  class Bar
+}
+
+Bar --> Foo
+@enduml

@@ -153,6 +153,10 @@ pub struct VisualGraph {
     self_edges: Vec<(Edge, NodeHandle)>,
     pub dag: DAG,
     orientation: Orientation,
+    /// Optional cluster annotation. When present, the Sugiyama passes
+    /// keep each cluster's members contiguous in row order and inside a
+    /// shared x-extent. Empty by default → original flat behaviour.
+    pub hierarchy: crate::layout::sugiyama::HierarchyMap,
 }
 
 impl VisualGraph {
@@ -163,7 +167,12 @@ impl VisualGraph {
             self_edges: Vec::new(),
             dag: DAG::new(),
             orientation,
+            hierarchy: crate::layout::sugiyama::HierarchyMap::new(),
         }
+    }
+
+    pub fn set_hierarchy(&mut self, h: crate::layout::sugiyama::HierarchyMap) {
+        self.hierarchy = h;
     }
 
     pub fn orientation(&self) -> Orientation {
@@ -294,6 +303,13 @@ impl VisualGraph {
                 }
                 let dir = self.element(prev).orientation;
                 let conn = self.add_node(Element::new_connector(dir));
+                // Long edges spanning a cluster: connector dummies
+                // inherit their source's cluster so the cluster's rank
+                // span stays contiguous and cluster_bubble doesn't see
+                // a "stranger" node at an interior rank.
+                if !self.hierarchy.is_empty() {
+                    self.hierarchy.inherit_node(prev, conn);
+                }
                 lst.insert(i, conn);
                 self.dag.remove_edge(prev, curr);
                 self.dag.add_edge(prev, conn);
@@ -303,7 +319,16 @@ impl VisualGraph {
         }
         self.edges = edges;
 
-        crate::layout::sugiyama::EdgeCrossOptimizer::new(&mut self.dag).optimize();
+        // Hierarchy-aware passes: group each row by cluster (outermost
+        // ancestor first) so cluster members start contiguous, then run
+        // mincross with the same-cluster swap gate. Without a hierarchy
+        // these are no-ops and behaviour is identical to the flat path.
+        if !self.hierarchy.is_empty() {
+            self.hierarchy.group_rows(&mut self.dag);
+        }
+        crate::layout::sugiyama::EdgeCrossOptimizer::new(&mut self.dag)
+            .with_hierarchy(&self.hierarchy)
+            .optimize();
         self.expand_self_edges();
     }
 

@@ -12,9 +12,13 @@
 mod bk;
 mod compact;
 mod edge_fix;
+pub mod hierarchy;
 mod port_align;
 mod simple;
+pub mod tighten;
 mod verify;
+
+pub use hierarchy::{ClusterId, HCluster, HierarchyMap};
 
 use crate::layout::dag::{NodeHandle, DAG};
 use crate::layout::graph::VisualGraph;
@@ -51,9 +55,20 @@ impl<'a> Placer<'a> {
         verify::do_it(self.vg);
         edge_fix::do_it(self.vg);
         compact::do_it(self.vg);
+        // Tighten runs in the internal TB working frame (x = row axis,
+        // y = rank axis). The post-transpose step below also flips
+        // cluster bbox coords so codegen sees them in the user's
+        // original orientation.
+        tighten::do_it(self.vg);
 
         if need_transpose {
             self.vg.transpose();
+            // Mirror node-position transpose on cluster bboxes so they
+            // stay in the same frame as entity positions.
+            for c in &mut self.vg.hierarchy.clusters {
+                std::mem::swap(&mut c.x_min, &mut c.y_min);
+                std::mem::swap(&mut c.x_max, &mut c.y_max);
+            }
         }
     }
 }
@@ -111,11 +126,21 @@ impl<'a> RankOptimizer<'a> {
 /// times with periodic perturbation; keeps the best ordering seen.
 pub struct EdgeCrossOptimizer<'a> {
     dag: &'a mut DAG,
+    /// When set, refuse swaps that would cross a cluster boundary so
+    /// each cluster's members stay contiguous in row order.
+    hierarchy: Option<&'a HierarchyMap>,
 }
 
 impl<'a> EdgeCrossOptimizer<'a> {
     pub fn new(dag: &'a mut DAG) -> Self {
-        Self { dag }
+        Self { dag, hierarchy: None }
+    }
+
+    pub fn with_hierarchy(mut self, h: &'a HierarchyMap) -> Self {
+        if !h.is_empty() {
+            self.hierarchy = Some(h);
+        }
+        self
     }
 
     fn num_crossing(&self, a: NodeHandle, b: NodeHandle, row: &[NodeHandle]) -> usize {
@@ -183,6 +208,16 @@ impl<'a> EdgeCrossOptimizer<'a> {
         for i in 0..row.len() - 1 {
             let a = row[i];
             let b = row[i + 1];
+            // Cluster gate: each cluster's row span stays contiguous, so
+            // strangers and other clusters' members never get swapped
+            // between two members of the same cluster. Sibling-cluster
+            // relative order is fixed by `HierarchyMap::group_rows`
+            // before mincross starts.
+            if let Some(h) = self.hierarchy {
+                if !h.same_family(a, b) {
+                    continue;
+                }
+            }
             let ab = self.num_crossing(a, b, &prev_row) + self.num_crossing(a, b, &next_row);
             let ba = self.num_crossing(b, a, &prev_row) + self.num_crossing(b, a, &next_row);
             if ab > ba {
@@ -251,9 +286,16 @@ impl<'a> EdgeCrossOptimizer<'a> {
                 best_rank = self.dag.ranks().clone();
                 best_cnt = new_cnt;
             }
-            self.rotate_rank();
-            if i % 10 == 0 {
-                self.perturb_rank();
+            // Rotation / perturbation shuffles each row wholesale, which
+            // would break the cluster contiguity the same-family gate is
+            // protecting. In hierarchy mode we rely on `group_rows`
+            // having set a sane initial order and just let the gated
+            // swap pass refine within each cluster.
+            if self.hierarchy.is_none() {
+                self.rotate_rank();
+                if i % 10 == 0 {
+                    self.perturb_rank();
+                }
             }
         }
         *self.dag.ranks_mut() = best_rank;

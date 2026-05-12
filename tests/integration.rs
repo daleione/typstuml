@@ -480,6 +480,17 @@ fn golden_emit_typst_class_cross_cluster() {
 }
 
 #[test]
+fn golden_emit_typst_class_cluster_rank_order() {
+    // M3 regression: PkgA is declared before PkgB but the edge runs
+    // Bar → Foo (B → A). With cluster-to-cluster edges participating
+    // in Sugiyama ranking, PkgB must end up above PkgA in TB —
+    // declaration order alone is not the tiebreaker once an edge
+    // exists.
+    let actual = emit_typst_path(&fixture_in("class", "cluster-rank-order.puml"));
+    assert_golden_in("class", "cluster-rank-order", &actual);
+}
+
+#[test]
 fn golden_emit_typst_class_desc_family() {
     // M5-partial / M6 regression: desc-family leaf keywords
     // (component / actor / usecase / database / node / cloud) and the

@@ -34,7 +34,7 @@ mod theme;
 
 use crate::ir::{
     ArrowHead, CucaDiagram, Direction as IrDirection, Entity, HideOptions, LayoutDirection,
-    Relation,
+    LineStyle, Relation,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::Orientation;
@@ -190,7 +190,8 @@ pub fn emit(
             });
             continue;
         }
-        let Some(oe) = orient_relation(rel, &diag.entities) else {
+        let normalized = normalize_use_case_relation(rel.clone());
+        let Some(oe) = orient_relation(&normalized, &diag.entities) else {
             continue;
         };
         oriented.push(oe);
@@ -631,6 +632,27 @@ struct OrientedEdge {
     /// `mult_from`/`mult_to` (and roles) onto the rendered ends.
     swapped: bool,
     relation: Relation,
+}
+
+/// Force use-case stereotype semantics on a relation. PlantUML draws
+/// `<<include>>` and `<<extend>>` / `<<extends>>` as a dashed open
+/// arrow regardless of which arrow token the user wrote — `A --> B :
+/// <<include>>` is visually identical to `A ..> B : <<include>>`.
+/// `rel.stereotype` is populated by the parser when the label
+/// contains one of those tokens. No-op for any other (or absent)
+/// stereotype.
+fn normalize_use_case_relation(mut rel: Relation) -> Relation {
+    let Some(st) = rel.stereotype.as_deref() else {
+        return rel;
+    };
+    if !matches!(st, "include" | "extend" | "extends") {
+        return rel;
+    }
+    rel.line_style = LineStyle::Dashed;
+    if rel.head_from == ArrowHead::None && rel.head_to == ArrowHead::None {
+        rel.head_to = ArrowHead::ArrowOpen;
+    }
+    rel
 }
 
 /// Pick an orientation for the rendered edge.

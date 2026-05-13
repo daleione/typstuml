@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  classes: (
+    (x: 27.00pt, y: 18.00pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [Bob], fields: (), methods: ()),
+    (x: 113.06pt, y: 18.00pt, width: 47.16pt, height: 47.58pt, kind: "actor", name: [Power User], fields: (), methods: ()),
+    (x: 15.00pt, y: 101.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
+    (x: 93.00pt, y: 101.58pt, width: 87.28pt, height: 28.00pt, kind: "usecase", name: [Reset Password], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 39.00pt, to-x: 39.00pt, path: ((c1: (39.00pt, 83.58pt), c2: (39.00pt, 83.58pt), end: (39.00pt, 101.58pt)),)),
+    (from: 1, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 136.64pt, to-x: 136.64pt, path: ((c1: (136.64pt, 83.58pt), c2: (136.64pt, 83.58pt), end: (136.64pt, 101.58pt)),)),
+  ),
+)

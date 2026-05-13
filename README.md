@@ -110,7 +110,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | Object                        |   ✅   | Instance cards with underlined name + `name = value` field rows                         |
 | Component                     |   ⏳   | Components, interfaces, ports                                                           |
 | Deployment                    |   ⏳   | Nodes, artifacts, devices                                                               |
-| Use case                      |   ⏳   | Actors + ellipses inside a system boundary                                              |
+| Use case                      |   ✅   | Actors + ellipses inside a system boundary                                              |
 | State                         |   ⏳   | UML state machines with transitions — planned via `blockcell.state-chain`               |
 | Activity (`activitydiagram3`) |   ✅   | Structured flow: `if`/`while`/`repeat`/`fork`/`switch`, partitions, notes, swimlanes, 4 SDL shapes |
 | Timing                        |   ⏳   | Concurrent lifelines + state transitions over time                                      |

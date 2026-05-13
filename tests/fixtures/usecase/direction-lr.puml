@@ -1,0 +1,14 @@
+@startuml
+left to right direction
+
+actor Customer
+actor Admin
+
+usecase "Browse Catalog" as Browse
+usecase "Place Order" as Order
+usecase "Manage Inventory" as Manage
+
+Customer --> Browse
+Customer --> Order
+Admin --> Manage
+@enduml

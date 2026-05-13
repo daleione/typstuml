@@ -1,6 +1,17 @@
 //! Shared low-level parsing utilities: directive detection, keyword
 //! prefix stripping, quoted-string handling, alias parsing.
 
+/// Cuca-family flavor. Determines how ambiguous shorthand resolves:
+/// `(Foo)` in a relation is a lollipop interface under `Class`, a
+/// usecase ellipse under `UseCase`. `:Foo:` is treated as an actor
+/// reference only under `UseCase`. Sniffed from the body before
+/// the main parse pass.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(super) enum Flavor {
+    Class,
+    UseCase,
+}
+
 pub(super) fn is_comment(line: &str) -> bool {
     line.starts_with('\'') || line.starts_with("/'")
 }

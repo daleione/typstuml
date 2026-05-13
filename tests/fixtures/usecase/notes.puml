@@ -1,0 +1,12 @@
+@startuml
+actor User
+usecase Login
+
+User --> Login
+
+note right of Login : Main entry point
+note left of User
+  External actor
+  (a human)
+end note
+@enduml

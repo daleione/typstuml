@@ -1,0 +1,20 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  direction: "lr",
+  classes: (
+    (x: 18.00pt, y: 34.21pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
+    (x: 138.15pt, y: 44.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
+    (x: 246.05pt, y: 15.00pt, width: 79.33pt, height: 28.00pt, kind: "usecase", name: [Validate Card], fields: (), methods: ()),
+    (x: 18.00pt, y: 111.79pt, width: 84.15pt, height: 28.00pt, kind: "usecase", name: [Apply Coupon], fields: (), methods: ()),
+    (x: 246.05pt, y: 75.45pt, width: 93.85pt, height: 28.00pt, kind: "usecase", name: [Generate Receipt], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 58.00pt, path: ((c1: (82.00pt, 58.00pt), c2: (98.15pt, 58.00pt), end: (138.15pt, 58.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", label: [\<\<include\>\>], path: ((c1: (214.05pt, 58.00pt), c2: (218.05pt, 58.00pt), end: (222.05pt, 58.00pt)), (c1: (230.05pt, 58.00pt), c2: (226.05pt, 29.00pt), end: (234.05pt, 29.00pt)), (c1: (238.05pt, 29.00pt), c2: (242.05pt, 29.00pt), end: (246.05pt, 29.00pt)))),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", label: [\<\<include\>\>], path: ((c1: (214.05pt, 58.00pt), c2: (218.05pt, 58.00pt), end: (222.05pt, 58.00pt)), (c1: (230.05pt, 58.00pt), c2: (226.05pt, 89.45pt), end: (234.05pt, 89.45pt)), (c1: (238.05pt, 89.45pt), c2: (242.05pt, 89.45pt), end: (246.05pt, 89.45pt)))),
+    (from: 3, to: 1, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", label: [\<\<extends\>\>], path: ((c1: (106.15pt, 125.79pt), c2: (110.15pt, 125.79pt), end: (114.15pt, 125.79pt)), (c1: (122.15pt, 125.79pt), c2: (118.15pt, 58.00pt), end: (126.15pt, 58.00pt)), (c1: (130.15pt, 58.00pt), c2: (134.15pt, 58.00pt), end: (138.15pt, 58.00pt)))),
+  ),
+)

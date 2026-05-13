@@ -1,0 +1,21 @@
+@startuml
+' M2: stereotype `<<include>>` and `<<extend>>` / `<<extends>>` force a
+' dashed open arrow regardless of whether the user wrote `-->` (solid)
+' or `..>` (dashed). The visible `<<include>>` text stays as a label.
+left to right direction
+actor User
+
+usecase "Place Order" as Order
+usecase "Validate Card" as Validate
+usecase "Apply Coupon" as Coupon
+usecase "Generate Receipt" as Receipt
+
+User --> Order
+
+' Solid `-->` with stereotype → normalizes to dashed.
+Order --> Validate : <<include>>
+' Already-dashed `..>` with stereotype — idempotent normalize.
+Order ..> Receipt : <<include>>
+' `<<extends>>` (plural form PlantUML accepts).
+Coupon --> Order : <<extends>>
+@enduml

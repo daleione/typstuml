@@ -1,0 +1,8 @@
+@startuml
+title Basic use case diagram
+
+actor User
+usecase Login
+
+User --> Login
+@enduml

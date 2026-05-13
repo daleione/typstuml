@@ -50,8 +50,8 @@ use self::note::{
     parse_anchored_note_decl, parse_freestanding_note_decl, parse_note_on_link_decl,
     parse_note_over_decl, parse_quoted_note_decl, side_to_direction,
 };
-use self::relation::parse_relation;
-use self::util::{is_comment, is_skip_directive, parse_annotation, strip_prefix_keyword};
+use self::relation::{EndpointHint, parse_relation};
+use self::util::{Flavor, is_comment, is_skip_directive, parse_annotation, strip_prefix_keyword};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
     let mut parser = Parser::new(&block.body, compat);
@@ -61,11 +61,116 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
     Ok((Diagram::Cuca(diag), parser.diagnostics))
 }
 
+/// Decide cuca flavor from the body before parsing starts. Use case
+/// signals (`actor` / `usecase` / `actorStyle` / `usecaseStyle`) carry
+/// the most weight; explicit class-family keywords (`class` / `interface`
+/// / `enum` / `abstract`) push the score the other way. Standalone
+/// `:Foo:` / `(Foo)` shorthand on a line is a weak signal — it counts
+/// for use case only when the line has nothing else on it (which
+/// `parse_inline_shorthand` would have handled). Default is `Class`.
+fn sniff_flavor(lines: &[BodyLine]) -> Flavor {
+    let mut score: i32 = 0;
+    for bl in lines {
+        let raw = bl.text.trim();
+        if raw.is_empty() || is_comment(raw) {
+            continue;
+        }
+        // Hard signals.
+        if strip_prefix_keyword(raw, "actor").is_some()
+            || strip_prefix_keyword(raw, "usecase").is_some()
+        {
+            score += 2;
+            continue;
+        }
+        // Skinparam carries use case style hints too.
+        if let Some(rest) = strip_prefix_keyword(raw, "skinparam") {
+            let lower = rest.trim().to_ascii_lowercase();
+            if lower.starts_with("actorstyle") || lower.starts_with("usecasestyle") {
+                score += 2;
+                continue;
+            }
+        }
+        // `:Word:` anywhere on the line is a use case actor reference —
+        // class diagrams never use this form (member ports use `::` not
+        // single `:`, member-add lines have `Class : member` with the
+        // colon followed by whitespace + body). Strong signal.
+        if has_actor_colon_token(raw) {
+            score += 2;
+            continue;
+        }
+        // Hard class signals.
+        if strip_prefix_keyword(raw, "class").is_some()
+            || strip_prefix_keyword(raw, "interface").is_some()
+            || strip_prefix_keyword(raw, "enum").is_some()
+            || strip_prefix_keyword(raw, "abstract").is_some()
+            || strip_prefix_keyword(raw, "struct").is_some()
+            || strip_prefix_keyword(raw, "annotation").is_some()
+            || strip_prefix_keyword(raw, "protocol").is_some()
+            || strip_prefix_keyword(raw, "exception").is_some()
+        {
+            score -= 2;
+        }
+    }
+    if score >= 1 {
+        Flavor::UseCase
+    } else {
+        Flavor::Class
+    }
+}
+
+/// Detect a `:Word:` token anywhere on `line` (with whitespace / start
+/// / end of line on the outside). Skips `::` runs (member ports like
+/// `B::value`) and `: body` (member-add line, where the colon is
+/// followed by whitespace). Returns true on the first match.
+fn has_actor_colon_token(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        // Skip `::` runs entirely.
+        if bytes[i] == b':' && i + 1 < bytes.len() && bytes[i + 1] == b':' {
+            i += 2;
+            continue;
+        }
+        if bytes[i] == b':'
+            && (i == 0 || bytes[i - 1].is_ascii_whitespace())
+            && i + 1 < bytes.len()
+        {
+            // Find a closing `:` that is also at a word boundary
+            // (followed by whitespace or end of line). Stop at
+            // whitespace / arrow-body chars in between — those
+            // would indicate this isn't the `:Foo:` shape.
+            let mut j = i + 1;
+            while j < bytes.len() {
+                let c = bytes[j];
+                if c == b':' {
+                    let right_ok = j + 1 == bytes.len() || bytes[j + 1].is_ascii_whitespace();
+                    if right_ok && j > i + 1 {
+                        return true;
+                    }
+                    break;
+                }
+                // Bail out on arrow-body chars or other punctuation
+                // that would indicate this isn't a clean identifier.
+                if matches!(c, b'\n' | b'-' | b'.' | b'=' | b'<' | b'>') {
+                    break;
+                }
+                j += 1;
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
 struct Parser<'a> {
     lines: &'a [BodyLine],
     pos: usize,
     compat: CompatMode,
     diag: CucaDiagram,
+    /// Sniffed from the body before the main pass. Selects flavor-
+    /// sensitive behavior in `parse_relation` (e.g. `:Foo:` is an
+    /// actor reference only when `flavor == UseCase`).
+    flavor: Flavor,
     /// Frame stack for nested `{ … }` blocks. Both `class A { … }`
     /// (entity members) and `package "X" { … }` (cluster children) push
     /// here; the variant tells `handle_block_member` how to dispatch.
@@ -94,11 +199,13 @@ enum BlockFrame {
 
 impl<'a> Parser<'a> {
     fn new(lines: &'a [BodyLine], compat: CompatMode) -> Self {
+        let flavor = sniff_flavor(lines);
         Self {
             lines,
             pos: 0,
             compat,
             diag: CucaDiagram::default(),
+            flavor,
             block_stack: Vec::new(),
             diagnostics: Vec::new(),
             pending_annotations: Vec::new(),
@@ -251,8 +358,8 @@ impl<'a> Parser<'a> {
             }
 
             // Relation: `A --|> B`, `A *-- "*" B : owns`, etc.
-            if let Some(rp) = parse_relation(raw, line_no) {
-                self.commit_relation_with_hints(rp.rel, rp.from_lollipop, rp.to_lollipop);
+            if let Some(rp) = parse_relation(raw, line_no, self.flavor) {
+                self.commit_relation_with_hints(rp.rel, rp.from_hint, rp.to_hint);
                 continue;
             }
 
@@ -502,8 +609,8 @@ impl<'a> Parser<'a> {
                     self.add_member(&id, body, line_no);
                     return Ok(());
                 }
-                if let Some(rp) = parse_relation(raw, line_no) {
-                    self.commit_relation_with_hints(rp.rel, rp.from_lollipop, rp.to_lollipop);
+                if let Some(rp) = parse_relation(raw, line_no, self.flavor) {
+                    self.commit_relation_with_hints(rp.rel, rp.from_hint, rp.to_hint);
                     return Ok(());
                 }
                 self.unsupported(raw, line_no)
@@ -521,22 +628,19 @@ impl<'a> Parser<'a> {
     }
 
     fn commit_relation(&mut self, rel: Relation) {
-        self.commit_relation_with_hints(rel, false, false);
+        self.commit_relation_with_hints(rel, EndpointHint::None, EndpointHint::None);
     }
 
-    /// Like `commit_relation` but uses `from_lollipop` / `to_lollipop`
-    /// to pick `Circle` over `Class` when auto-creating an endpoint
-    /// that hasn't been declared yet.
+    /// Like `commit_relation` but consults per-endpoint hints to pick
+    /// the right `USymbol` when auto-creating an endpoint that the
+    /// user referenced but didn't declare.
     fn commit_relation_with_hints(
         &mut self,
         rel: Relation,
-        from_lollipop: bool,
-        to_lollipop: bool,
+        from_hint: EndpointHint,
+        to_hint: EndpointHint,
     ) {
-        for (id, lollipop) in [
-            (&rel.from, from_lollipop),
-            (&rel.to, to_lollipop),
-        ] {
+        for (id, hint) in [(&rel.from, from_hint), (&rel.to, to_hint)] {
             // Couple form (`(A, B) .. C`) leaves the `from` id empty —
             // the real endpoints A and B are tracked separately in
             // `rel.from_couple`. Don't auto-create a phantom empty
@@ -545,13 +649,20 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if !self.diag.entities.iter().any(|e| e.id == *id) {
-                let (usymbol, kind_data) = if lollipop {
-                    (
+                let (usymbol, kind_data) = match hint {
+                    EndpointHint::Lollipop => (
                         USymbol::Interface,
                         EntityKindData::Plain { members: Vec::new() },
-                    )
-                } else {
-                    (
+                    ),
+                    EndpointHint::Actor => (
+                        USymbol::Actor,
+                        EntityKindData::Plain { members: Vec::new() },
+                    ),
+                    EndpointHint::UseCase => (
+                        USymbol::UseCase,
+                        EntityKindData::Plain { members: Vec::new() },
+                    ),
+                    EndpointHint::None => (
                         USymbol::None,
                         EntityKindData::Compartment {
                             kind: ClassFamilyKind::Class,
@@ -559,7 +670,7 @@ impl<'a> Parser<'a> {
                             fields: Vec::new(),
                             methods: Vec::new(),
                         },
-                    )
+                    ),
                 };
                 self.diag.entities.push(Entity {
                     usymbol,

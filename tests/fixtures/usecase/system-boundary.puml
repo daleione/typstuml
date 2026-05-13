@@ -1,0 +1,14 @@
+@startuml
+left to right direction
+actor Customer
+
+rectangle "Shop System" {
+  usecase "Browse Catalog" as Browse
+  usecase "Place Order" as Order
+  usecase "View Receipt" as Receipt
+}
+
+Customer --> Browse
+Customer --> Order
+Order --> Receipt
+@enduml

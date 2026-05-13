@@ -4,20 +4,20 @@
 
 #cuca-layout(
   classes: (
-    (x: 67.21pt, y: 18.00pt, width: 24.00pt, height: 43.58pt, kind: "actor", name: [User], fields: (), methods: ()),
-    (x: 121.21pt, y: 18.00pt, width: 42.39pt, height: 43.58pt, kind: "actor", name: [GuestUser], fields: (), methods: ()),
+    (x: 67.21pt, y: 18.00pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
+    (x: 121.21pt, y: 18.00pt, width: 42.39pt, height: 47.58pt, kind: "actor", name: [GuestUser], fields: (), methods: ()),
     (x: 193.60pt, y: 18.00pt, width: 74.61pt, height: 18.45pt, kind: "component", name: [WebApp], fields: (), methods: ()),
     (x: 288.92pt, y: 72.45pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),
-    (x: 15.00pt, y: 97.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
-    (x: 111.22pt, y: 97.58pt, width: 52.83pt, height: 28.00pt, kind: "usecase", name: [Logout], fields: (), methods: ()),
+    (x: 15.00pt, y: 101.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
+    (x: 111.22pt, y: 101.58pt, width: 52.83pt, height: 28.00pt, kind: "usecase", name: [Logout], fields: (), methods: ()),
     (x: 307.91pt, y: 126.90pt, width: 53.14pt, height: 44.00pt, kind: "database", name: [User DB], fields: (), methods: ()),
     (x: 412.75pt, y: 18.00pt, width: 76.26pt, height: 34.00pt, kind: "node", name: [App Server], fields: (), methods: ()),
     (x: 410.05pt, y: 88.00pt, width: 81.67pt, height: 40.00pt, kind: "cloud", name: [External SSO], fields: (), methods: ()),
     (x: 298.21pt, y: 18.00pt, width: 72.55pt, height: 17.00pt, kind: "class", name: [\[WebApp\]], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (79.21pt, 65.58pt), c2: (79.21pt, 69.58pt), end: (79.21pt, 73.58pt)), (c1: (79.21pt, 81.58pt), c2: (39.00pt, 77.58pt), end: (39.00pt, 85.58pt)), (c1: (39.00pt, 89.58pt), c2: (39.00pt, 93.58pt), end: (39.00pt, 97.58pt)))),
-    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (79.21pt, 65.58pt), c2: (79.21pt, 69.58pt), end: (79.21pt, 73.58pt)), (c1: (79.21pt, 81.58pt), c2: (137.63pt, 77.58pt), end: (137.63pt, 85.58pt)), (c1: (137.63pt, 89.58pt), c2: (137.63pt, 93.58pt), end: (137.63pt, 97.58pt)))),
+    (from: 0, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (79.21pt, 69.58pt), c2: (79.21pt, 73.58pt), end: (79.21pt, 77.58pt)), (c1: (79.21pt, 85.58pt), c2: (39.00pt, 81.58pt), end: (39.00pt, 89.58pt)), (c1: (39.00pt, 93.58pt), c2: (39.00pt, 97.58pt), end: (39.00pt, 101.58pt)))),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (79.21pt, 69.58pt), c2: (79.21pt, 73.58pt), end: (79.21pt, 77.58pt)), (c1: (79.21pt, 85.58pt), c2: (137.63pt, 81.58pt), end: (137.63pt, 89.58pt)), (c1: (137.63pt, 93.58pt), c2: (137.63pt, 97.58pt), end: (137.63pt, 101.58pt)))),
     (from: 9, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 334.48pt, to-x: 334.48pt, path: ((c1: (334.48pt, 53.72pt), c2: (334.48pt, 53.72pt), end: (334.48pt, 72.45pt)),)),
     (from: 3, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 334.48pt, to-x: 334.48pt, path: ((c1: (334.48pt, 108.90pt), c2: (334.48pt, 108.90pt), end: (334.48pt, 126.90pt)),)),
     (from: 7, to: 8, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 450.88pt, to-x: 450.88pt, path: ((c1: (450.88pt, 70.00pt), c2: (450.88pt, 70.00pt), end: (450.88pt, 88.00pt)),)),

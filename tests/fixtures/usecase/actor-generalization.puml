@@ -1,0 +1,14 @@
+@startuml
+' Actor specialization via `--|>`. Admin inherits from User, so any
+' use case User can perform, Admin can too.
+actor User
+actor Admin
+
+Admin --|> User
+
+usecase "View Profile" as ViewProfile
+usecase "Manage Accounts" as ManageAccounts
+
+User --> ViewProfile
+Admin --> ManageAccounts
+@enduml

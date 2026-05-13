@@ -1,0 +1,12 @@
+@startuml
+' Top-level shorthand: `:Foo:` for actors, `(Foo)` for use cases.
+' Each appears on its own line, so parse_inline_shorthand handles them
+' before relation parsing kicks in.
+:Bob:
+:"Power User" as PU:
+(Login)
+("Reset Password" as ResetPwd)
+
+Bob --> Login
+PU --> ResetPwd
+@enduml

@@ -1,0 +1,19 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  direction: "lr",
+  classes: (
+    (x: 18.00pt, y: 34.21pt, width: 39.96pt, height: 47.58pt, kind: "actor", name: [Customer], fields: (), methods: ()),
+    (x: 18.00pt, y: 131.00pt, width: 27.92pt, height: 47.58pt, kind: "actor", name: [Admin], fields: (), methods: ()),
+    (x: 93.96pt, y: 15.00pt, width: 88.27pt, height: 28.00pt, kind: "usecase", name: [Browse Catalog], fields: (), methods: ()),
+    (x: 93.96pt, y: 73.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
+    (x: 81.92pt, y: 140.79pt, width: 99.31pt, height: 28.00pt, kind: "usecase", name: [Manage Inventory], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (61.96pt, 58.00pt), c2: (65.96pt, 58.00pt), end: (69.96pt, 58.00pt)), (c1: (77.96pt, 58.00pt), c2: (73.96pt, 29.00pt), end: (81.96pt, 29.00pt)), (c1: (85.96pt, 29.00pt), c2: (89.96pt, 29.00pt), end: (93.96pt, 29.00pt)))),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (61.96pt, 58.00pt), c2: (65.96pt, 58.00pt), end: (69.96pt, 58.00pt)), (c1: (77.96pt, 58.00pt), c2: (73.96pt, 87.00pt), end: (81.96pt, 87.00pt)), (c1: (85.96pt, 87.00pt), c2: (89.96pt, 87.00pt), end: (93.96pt, 87.00pt)))),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 154.79pt, to-y: 154.79pt, path: ((c1: (63.92pt, 154.79pt), c2: (63.92pt, 154.79pt), end: (81.92pt, 154.79pt)),)),
+  ),
+)

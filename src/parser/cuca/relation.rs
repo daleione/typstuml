@@ -14,7 +14,20 @@
 
 use crate::ir::{ArrowHead, Direction, LineStyle};
 
-use super::util::unquote;
+use super::util::{Flavor, unquote};
+
+/// Per-endpoint shape hint used by the caller when auto-creating an
+/// entity that the user referenced but didn't declare. Distinct from
+/// the bare lollipop `bool` of earlier revisions because in use-case
+/// flavor `(Foo)` means a usecase ellipse, not a small interface
+/// circle, and `:Foo:` means an actor.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(super) enum EndpointHint {
+    None,
+    Lollipop,
+    Actor,
+    UseCase,
+}
 
 /// Locate the arrow token in `line`. An arrow has shape
 /// `[head]<body>[direction-kw][body][head]` where:
@@ -162,7 +175,7 @@ fn validate_arrow_borders(bytes: &[u8], start: usize, end: usize) -> bool {
     left_ok && right_ok
 }
 
-pub(super) fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse> {
+pub(super) fn parse_relation(raw: &str, line_no: usize, flavor: Flavor) -> Option<RelationParse> {
     let (start, end) = find_arrow_span(raw)?;
     // Arrow string itself.
     let arrow = &raw[start..end];
@@ -170,9 +183,11 @@ pub(super) fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse>
     let left = raw[..start].trim_end();
     let right = raw[end..].trim_start();
 
-    // Find the `:` that introduces the label. `::` (member port like
-    // `B::value`) must be skipped — treat the colon as part of the
-    // identifier when it's immediately followed by another colon.
+    // Find the `:` that introduces the label. PlantUML requires the
+    // label colon to be preceded by whitespace (e.g. `B : owns`), so
+    // we skip any leading `:` belonging to a `:Actor:` shorthand
+    // endpoint or a member port `B::value` (the latter via the `::`
+    // run skip).
     let label_colon = {
         let bytes = right.as_bytes();
         let mut i = 0;
@@ -181,6 +196,10 @@ pub(super) fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse>
             if bytes[i] == b':' {
                 if i + 1 < bytes.len() && bytes[i + 1] == b':' {
                     i += 2; // skip `::`
+                    continue;
+                }
+                if i == 0 || !bytes[i - 1].is_ascii_whitespace() {
+                    i += 1;
                     continue;
                 }
                 found = Some(i);
@@ -195,10 +214,10 @@ pub(super) fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse>
         None => (None, right),
     };
 
-    let (from_id, mult_from, role_from, from_port, from_lollipop, from_couple_l) =
-        parse_endpoint_left(left)?;
-    let (to_id, mult_to, role_to, to_port, to_lollipop, to_couple) =
-        parse_endpoint_right(right)?;
+    let (from_id, mult_from, role_from, from_port, from_hint, from_couple_l) =
+        parse_endpoint_left(left, flavor)?;
+    let (to_id, mult_to, role_to, to_port, to_hint, to_couple) =
+        parse_endpoint_right(right, flavor)?;
     // If the user wrote `C -- (A, B)`, the couple is on the right; we
     // normalize to from_couple by swapping. After normalization, `to`
     // is the lone class and `from_couple` is the (A, B) pair.
@@ -211,6 +230,7 @@ pub(super) fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse>
     let to_id = final_to;
 
     let (head_from, head_to, line_style, direction, color) = decode_arrow(arrow);
+    let stereotype = label.as_deref().and_then(extract_stereotype);
 
     Some(RelationParse {
         rel: crate::ir::Relation {
@@ -229,25 +249,25 @@ pub(super) fn parse_relation(raw: &str, line_no: usize) -> Option<RelationParse>
             note: None,
             role_from,
             role_to,
-            stereotype: None,
+            stereotype,
             color,
             line: line_no,
         },
-        from_lollipop,
-        to_lollipop,
+        from_hint,
+        to_hint,
     })
 }
 
-/// Parsed relation plus per-endpoint lollipop hints. The caller uses
+/// Parsed relation plus per-endpoint shape hints. The caller uses
 /// the hints when auto-creating endpoints (so `(Foo) --> Bar` makes
-/// Foo a Circle, not a Class).
+/// Foo a Circle / Usecase / Actor instead of a default Class).
 pub(super) struct RelationParse {
     pub rel: crate::ir::Relation,
-    pub from_lollipop: bool,
-    pub to_lollipop: bool,
+    pub from_hint: EndpointHint,
+    pub to_hint: EndpointHint,
 }
 
-/// Endpoint parse result: (id, mult, role, port, is_lollipop, couple).
+/// Endpoint parse result: (id, mult, role, port, hint, couple).
 /// `couple` is `Some((A, B))` when the user wrote `(A, B)` —
 /// PlantUML's association-class syntax: the edge anchors at the
 /// midpoint of the existing A-B edge instead of a single entity.
@@ -256,11 +276,11 @@ type EndpointTuple = (
     Option<String>,
     Option<String>,
     Option<String>,
-    bool,
+    EndpointHint,
     Option<(String, String)>,
 );
 
-fn parse_endpoint_left(s: &str) -> Option<EndpointTuple> {
+fn parse_endpoint_left(s: &str, flavor: Flavor) -> Option<EndpointTuple> {
     let s = s.trim();
     if s.is_empty() {
         return None;
@@ -268,7 +288,7 @@ fn parse_endpoint_left(s: &str) -> Option<EndpointTuple> {
     // Couple form has top priority — the comma inside `()` is what
     // distinguishes it from a lollipop reference.
     if let Some(couple) = parse_couple_parens(s) {
-        return Some((String::new(), None, None, None, false, Some(couple)));
+        return Some((String::new(), None, None, None, EndpointHint::None, Some(couple)));
     }
     let (id_part, mult) = pop_trailing_quoted(s);
     let id_part = id_part.trim();
@@ -276,18 +296,18 @@ fn parse_endpoint_left(s: &str) -> Option<EndpointTuple> {
     if id.is_empty() {
         return None;
     }
-    let (id, is_lollipop) = strip_lollipop_parens(unquote(id));
+    let (id, hint) = classify_endpoint_id(unquote(id), flavor);
     let (id, port) = split_member_port(id);
-    Some((id, mult, role, port, is_lollipop, None))
+    Some((id, mult, role, port, hint, None))
 }
 
-fn parse_endpoint_right(s: &str) -> Option<EndpointTuple> {
+fn parse_endpoint_right(s: &str, flavor: Flavor) -> Option<EndpointTuple> {
     let s = s.trim();
     if s.is_empty() {
         return None;
     }
     if let Some(couple) = parse_couple_parens(s) {
-        return Some((String::new(), None, None, None, false, Some(couple)));
+        return Some((String::new(), None, None, None, EndpointHint::None, Some(couple)));
     }
     let (rest, mult) = pop_leading_quoted(s);
     let rest = rest.trim();
@@ -295,9 +315,67 @@ fn parse_endpoint_right(s: &str) -> Option<EndpointTuple> {
     if id.is_empty() {
         return None;
     }
-    let (id, is_lollipop) = strip_lollipop_parens(unquote(id));
+    let (id, hint) = classify_endpoint_id(unquote(id), flavor);
     let (id, port) = split_member_port(id);
-    Some((id, mult, role, port, is_lollipop, None))
+    Some((id, mult, role, port, hint, None))
+}
+
+/// Strip shorthand brackets off an endpoint id and report the
+/// implied shape. In `Class` flavor `(Foo)` is a lollipop interface
+/// (PlantUML's default for class context) and `:Foo:` is left
+/// untouched. In `UseCase` flavor `(Foo)` is a usecase ellipse and
+/// `:Foo:` is an actor.
+fn classify_endpoint_id(id: String, flavor: Flavor) -> (String, EndpointHint) {
+    match flavor {
+        Flavor::Class => {
+            let (id, is_lollipop) = strip_lollipop_parens(id);
+            (id, if is_lollipop { EndpointHint::Lollipop } else { EndpointHint::None })
+        }
+        Flavor::UseCase => {
+            let (id, is_actor) = strip_actor_colons(id);
+            if is_actor {
+                return (id, EndpointHint::Actor);
+            }
+            let (id, is_usecase) = strip_lollipop_parens(id);
+            (id, if is_usecase { EndpointHint::UseCase } else { EndpointHint::None })
+        }
+    }
+}
+
+/// `:Name:` → ("Name", true); plain id → (id, false). The inner part
+/// must be non-empty and free of further colons (which would mean
+/// `A::field` or a member-port form, not an actor reference).
+fn strip_actor_colons(id: String) -> (String, bool) {
+    let t = id.trim();
+    if t.starts_with(':') && t.ends_with(':') && t.len() >= 2 {
+        let inner = t[1..t.len() - 1].trim();
+        if !inner.is_empty() && !inner.contains(':') {
+            return (inner.to_string(), true);
+        }
+    }
+    (id, false)
+}
+
+/// Scan a relation label for `<<include>>` / `<<extend>>` /
+/// `<<extends>>` and return the normalized lowercase token (or
+/// `None` if no recognized stereotype is present). Does not modify
+/// the label — the visible `<<…>>` text stays for the painter.
+pub(super) fn extract_stereotype(label: &str) -> Option<String> {
+    let mut idx = 0usize;
+    loop {
+        let start = label[idx..].find("<<")?;
+        let s = idx + start;
+        let after = s + 2;
+        let end_rel = match label[after..].find(">>") {
+            Some(e) => e,
+            None => return None,
+        };
+        let token = label[after..after + end_rel].trim().to_ascii_lowercase();
+        if matches!(token.as_str(), "include" | "extend" | "extends") {
+            return Some(token);
+        }
+        idx = after + end_rel + 2;
+    }
 }
 
 /// Detect `(A, B)` couple form. Returns `(A, B)` on success.
@@ -579,7 +657,7 @@ mod tests {
         // `A::name --> B::value` — the `::` runs are part of the
         // endpoints, not arrows. The colon in `:` (label intro) is
         // skipped iff followed by another colon.
-        let rp = parse_relation("A::name --> B::value", 1).unwrap();
+        let rp = parse_relation("A::name --> B::value", 1, Flavor::Class).unwrap();
         assert_eq!(rp.rel.from, "A");
         assert_eq!(rp.rel.from_port.as_deref(), Some("name"));
         assert_eq!(rp.rel.to, "B");
@@ -589,10 +667,50 @@ mod tests {
 
     #[test]
     fn relation_with_member_port_and_label() {
-        let rp = parse_relation("A::field --> B : carries", 2).unwrap();
+        let rp = parse_relation("A::field --> B : carries", 2, Flavor::Class).unwrap();
         assert_eq!(rp.rel.from, "A");
         assert_eq!(rp.rel.from_port.as_deref(), Some("field"));
         assert_eq!(rp.rel.label.as_deref(), Some("carries"));
+    }
+
+    #[test]
+    fn relation_actor_colons_in_use_case_flavor() {
+        // `:Bob: --> :Alice:` — both endpoints carry Actor hints under
+        // UseCase flavor. Under Class flavor the colons stay literal.
+        let rp = parse_relation(":Bob: --> :Alice:", 1, Flavor::UseCase).unwrap();
+        assert_eq!(rp.rel.from, "Bob");
+        assert_eq!(rp.rel.to, "Alice");
+        assert_eq!(rp.from_hint, EndpointHint::Actor);
+        assert_eq!(rp.to_hint, EndpointHint::Actor);
+        let rp = parse_relation(":Bob: --> :Alice:", 1, Flavor::Class).unwrap();
+        assert_eq!(rp.rel.from, ":Bob:");
+        assert_eq!(rp.from_hint, EndpointHint::None);
+    }
+
+    #[test]
+    fn relation_usecase_parens_in_use_case_flavor() {
+        let rp = parse_relation("Bob --> (Login)", 1, Flavor::UseCase).unwrap();
+        assert_eq!(rp.rel.to, "Login");
+        assert_eq!(rp.to_hint, EndpointHint::UseCase);
+        let rp = parse_relation("Bob --> (Iface)", 1, Flavor::Class).unwrap();
+        assert_eq!(rp.rel.to, "Iface");
+        assert_eq!(rp.to_hint, EndpointHint::Lollipop);
+    }
+
+    #[test]
+    fn stereotype_extracted_from_label() {
+        // `<<include>>` / `<<extend>>` / `<<extends>>` populate
+        // rel.stereotype; the visible label keeps the original text
+        // so the painter renders `<<include>>` next to the edge.
+        let rp = parse_relation("A ..> B : <<include>>", 1, Flavor::Class).unwrap();
+        assert_eq!(rp.rel.stereotype.as_deref(), Some("include"));
+        assert_eq!(rp.rel.label.as_deref(), Some("<<include>>"));
+        let rp = parse_relation("A ..> B : <<extends>>", 1, Flavor::UseCase).unwrap();
+        assert_eq!(rp.rel.stereotype.as_deref(), Some("extends"));
+        let rp = parse_relation("A ..> B : <<unrelated>>", 1, Flavor::Class).unwrap();
+        assert!(rp.rel.stereotype.is_none());
+        let rp = parse_relation("A --> B : owns", 1, Flavor::Class).unwrap();
+        assert!(rp.rel.stereotype.is_none());
     }
 
     #[test]
@@ -627,7 +745,7 @@ mod tests {
         // panic in `match_direction_keyword` when it sliced
         // `text[..kw.len()]` and landed inside the UTF-8 boundary
         // of the leading CJK char.
-        let r = parse_relation("电商领域模型 ..> 基础设施层 : 依赖", 1)
+        let r = parse_relation("电商领域模型 ..> 基础设施层 : 依赖", 1, Flavor::Class)
             .expect("parses without panic");
         assert_eq!(r.rel.from, "电商领域模型");
         assert_eq!(r.rel.to, "基础设施层");

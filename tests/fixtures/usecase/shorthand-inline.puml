@@ -1,0 +1,10 @@
+@startuml
+' Endpoints written as `:Actor:` / `(UseCase)` shorthand directly inside
+' relation lines, with no prior declaration. M1 flavor sniff classifies
+' this body as UseCase based on the shorthand-heavy content, so:
+'   `:Bob:`   → auto-created actor (stickman)
+'   `(Login)` → auto-created usecase (ellipse), not a lollipop circle
+:Bob: --> (Login)
+:Admin: --> (Configure)
+:Admin: --> (Login)
+@enduml

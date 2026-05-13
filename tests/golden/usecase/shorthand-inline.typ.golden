@@ -1,0 +1,17 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#cuca-layout(
+  classes: (
+    (x: 15.00pt, y: 18.00pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [Bob], fields: (), methods: ()),
+    (x: 38.61pt, y: 101.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
+    (x: 84.25pt, y: 18.00pt, width: 27.92pt, height: 47.58pt, kind: "actor", name: [Admin], fields: (), methods: ()),
+    (x: 108.98pt, y: 101.58pt, width: 64.94pt, height: 28.00pt, kind: "usecase", name: [Configure], fields: (), methods: ()),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (27.00pt, 69.58pt), c2: (27.00pt, 73.58pt), end: (27.00pt, 77.58pt)), (c1: (27.00pt, 85.58pt), c2: (62.61pt, 81.58pt), end: (62.61pt, 89.58pt)), (c1: (62.61pt, 93.58pt), c2: (62.61pt, 97.58pt), end: (62.61pt, 101.58pt)))),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (98.22pt, 69.58pt), c2: (98.22pt, 73.58pt), end: (98.22pt, 77.58pt)), (c1: (98.22pt, 85.58pt), c2: (141.45pt, 81.58pt), end: (141.45pt, 89.58pt)), (c1: (141.45pt, 93.58pt), c2: (141.45pt, 97.58pt), end: (141.45pt, 101.58pt)))),
+    (from: 2, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (98.22pt, 69.58pt), c2: (98.22pt, 73.58pt), end: (98.22pt, 77.58pt)), (c1: (98.22pt, 85.58pt), c2: (62.61pt, 81.58pt), end: (62.61pt, 89.58pt)), (c1: (62.61pt, 93.58pt), c2: (62.61pt, 97.58pt), end: (62.61pt, 101.58pt)))),
+  ),
+)

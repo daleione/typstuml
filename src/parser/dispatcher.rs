@@ -61,6 +61,7 @@ const UNAMBIGUOUS_CUCA: &[&str] = &[
     "struct ",
     "exception ",
     "protocol ",
+    "object ",
     "package ",
     "namespace ",
     "together ",

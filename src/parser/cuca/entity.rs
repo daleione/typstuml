@@ -7,6 +7,16 @@ use crate::ir::{ClassFamilyKind, Entity, EntityKindData, StereotypeMarker, USymb
 
 use super::util::{parse_alias, strip_prefix_keyword};
 
+/// What body-row grammar a declared entity uses. Class-family entities
+/// take `+ method()` / `- field: T` rows; objects take `name = value`
+/// rows; desc-family ("Plain") entities take inline `{ + foo }` rows.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(super) enum BodyKind {
+    Compartment(ClassFamilyKind),
+    Object,
+    Plain,
+}
+
 /// Entity-leaf keywords. Order matters: multi-word forms (`abstract
 /// class`) must precede their single-word prefixes (`abstract`) so the
 /// linear-scan dispatcher in `parse_entity_decl` doesn't pick the
@@ -33,6 +43,11 @@ pub(super) const ENTITY_KEYWORDS: &[&str] = &[
     "enum",
     "struct",
     "entity",
+    // Object diagrams (PlantUML's `objectdiagram`): same name+alias /
+    // stereotype / color / `{ … }` block grammar as class-family, but
+    // body rows are `name = value` instead of `+ method()`. The painter
+    // draws a 2-compartment card with the name underlined on top.
+    "object",
     // Specials
     "circle",
     "diamond",
@@ -236,53 +251,57 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     let (kw, rest) = ENTITY_KEYWORDS
         .iter()
         .find_map(|kw| strip_prefix_keyword(raw, kw).map(|r| (*kw, r.trim())))?;
-    let (usymbol, kind_for_compartment) = match kw {
+    let (usymbol, body_kind) = match kw {
         // Class family.
-        "abstract class" | "abstract" => (USymbol::None, Some(ClassFamilyKind::Abstract)),
-        "static class" | "metaclass" | "stereotype" | "dataclass" | "record" => {
-            (USymbol::None, Some(ClassFamilyKind::Class))
+        "abstract class" | "abstract" => {
+            (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Abstract))
         }
-        "class" => (USymbol::None, Some(ClassFamilyKind::Class)),
-        "interface" => (USymbol::None, Some(ClassFamilyKind::Interface)),
-        "annotation" => (USymbol::None, Some(ClassFamilyKind::Annotation)),
-        "protocol" => (USymbol::None, Some(ClassFamilyKind::Protocol)),
-        "exception" => (USymbol::None, Some(ClassFamilyKind::Exception)),
-        "enum" => (USymbol::None, Some(ClassFamilyKind::Enum)),
-        "struct" => (USymbol::None, Some(ClassFamilyKind::Struct)),
-        "entity" => (USymbol::None, Some(ClassFamilyKind::EntityShape)),
+        "static class" | "metaclass" | "stereotype" | "dataclass" | "record" => {
+            (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Class))
+        }
+        "class" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Class)),
+        "interface" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Interface)),
+        "annotation" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Annotation)),
+        "protocol" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Protocol)),
+        "exception" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Exception)),
+        "enum" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Enum)),
+        "struct" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Struct)),
+        "entity" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::EntityShape)),
+        // Object (instance-level) — name=value rows, no method compartment.
+        "object" => (USymbol::None, BodyKind::Object),
         // Specials.
-        "circle" => (USymbol::Interface, None),
-        "diamond" => (USymbol::Diamond, None),
+        "circle" => (USymbol::Interface, BodyKind::Plain),
+        "diamond" => (USymbol::Diamond, BodyKind::Plain),
         "note" => return None, // handled by note-specific parsers
         // Desc family (Plain — no compartment).
-        "component" => (USymbol::Component, None),
-        "actor" => (USymbol::Actor, None),
-        "usecase" => (USymbol::UseCase, None),
-        "node" => (USymbol::Node, None),
-        "database" => (USymbol::Database, None),
-        "cloud" => (USymbol::Cloud, None),
-        "queue" => (USymbol::Queue, None),
-        "stack" => (USymbol::Stack, None),
-        "storage" => (USymbol::Storage, None),
-        "artifact" => (USymbol::Artifact, None),
-        "agent" => (USymbol::Agent, None),
-        "person" => (USymbol::Person, None),
-        "collections" => (USymbol::Collections, None),
-        "rectangle" => (USymbol::Rectangle, None),
-        "card" => (USymbol::Card, None),
-        "folder" => (USymbol::Folder, None),
-        "frame" => (USymbol::Frame, None),
-        "file" => (USymbol::File, None),
-        "hexagon" => (USymbol::Hexagon, None),
-        "action" => (USymbol::Action, None),
-        "process" => (USymbol::Process, None),
-        "label" => (USymbol::Label, None),
-        "boundary" => (USymbol::Boundary, None),
-        "control" => (USymbol::Control, None),
-        "port" => (USymbol::Port, None),
-        "portin" => (USymbol::PortIn, None),
-        "portout" => (USymbol::PortOut, None),
-        _ => (USymbol::None, Some(ClassFamilyKind::Class)),
+        "component" => (USymbol::Component, BodyKind::Plain),
+        "actor" => (USymbol::Actor, BodyKind::Plain),
+        "usecase" => (USymbol::UseCase, BodyKind::Plain),
+        "node" => (USymbol::Node, BodyKind::Plain),
+        "database" => (USymbol::Database, BodyKind::Plain),
+        "cloud" => (USymbol::Cloud, BodyKind::Plain),
+        "queue" => (USymbol::Queue, BodyKind::Plain),
+        "stack" => (USymbol::Stack, BodyKind::Plain),
+        "storage" => (USymbol::Storage, BodyKind::Plain),
+        "artifact" => (USymbol::Artifact, BodyKind::Plain),
+        "agent" => (USymbol::Agent, BodyKind::Plain),
+        "person" => (USymbol::Person, BodyKind::Plain),
+        "collections" => (USymbol::Collections, BodyKind::Plain),
+        "rectangle" => (USymbol::Rectangle, BodyKind::Plain),
+        "card" => (USymbol::Card, BodyKind::Plain),
+        "folder" => (USymbol::Folder, BodyKind::Plain),
+        "frame" => (USymbol::Frame, BodyKind::Plain),
+        "file" => (USymbol::File, BodyKind::Plain),
+        "hexagon" => (USymbol::Hexagon, BodyKind::Plain),
+        "action" => (USymbol::Action, BodyKind::Plain),
+        "process" => (USymbol::Process, BodyKind::Plain),
+        "label" => (USymbol::Label, BodyKind::Plain),
+        "boundary" => (USymbol::Boundary, BodyKind::Plain),
+        "control" => (USymbol::Control, BodyKind::Plain),
+        "port" => (USymbol::Port, BodyKind::Plain),
+        "portin" => (USymbol::PortIn, BodyKind::Plain),
+        "portout" => (USymbol::PortOut, BodyKind::Plain),
+        _ => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Class)),
     };
 
     let mut rest = rest.to_string();
@@ -311,14 +330,17 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     let generic = pop_trailing_generic(&mut working);
     let (id, display) = parse_alias(working.trim())?;
 
-    let kind_data = match kind_for_compartment {
-        Some(kind) => EntityKindData::Compartment {
+    let kind_data = match body_kind {
+        BodyKind::Compartment(kind) => EntityKindData::Compartment {
             kind,
             generic,
             fields: Vec::new(),
             methods: Vec::new(),
         },
-        None => EntityKindData::Plain { members: Vec::new() },
+        BodyKind::Object => EntityKindData::Object { fields: Vec::new() },
+        BodyKind::Plain => EntityKindData::Plain {
+            members: Vec::new(),
+        },
     };
 
     Some(EntityAction {

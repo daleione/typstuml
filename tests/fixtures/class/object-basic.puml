@@ -1,0 +1,14 @@
+@startuml
+title Object diagram — instance state
+object alice {
+  name = "Alice"
+  age = 30
+  active = true
+}
+object bob as b {
+  name = "Bob"
+  age = 28
+}
+object empty
+alice .. b : friend
+@enduml

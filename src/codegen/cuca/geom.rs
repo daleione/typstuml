@@ -63,6 +63,9 @@ pub(super) fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassG
     if matches!(entity.kind_data, EntityKindData::Note { .. }) {
         return note_geom(entity);
     }
+    if matches!(entity.kind_data, EntityKindData::Object { .. }) {
+        return object_geom(entity, hide);
+    }
     if entity.usymbol == USymbol::Interface {
         return lollipop_geom(entity);
     }
@@ -116,6 +119,57 @@ pub(super) fn lollipop_geom(entity: &Entity) -> ClassGeom {
     let label_w = text_width_pt(&entity.display, BODY_EM);
     let total_w = label_w.max(LOLLIPOP_DIAMETER_PT);
     let total_h = LOLLIPOP_DIAMETER_PT + LOLLIPOP_LABEL_GAP_PT + LINE_HEIGHT_PT;
+    ClassGeom {
+        size: Point::new(total_w, total_h),
+        mid_x: total_w / 2.0,
+    }
+}
+
+/// Geometry estimator for object instances: a 2-compartment card with
+/// an underlined name on top and `name = value` rows below. No marker
+/// chip, no generic corner box, no method compartment. Stereotype line
+/// stacks above the name like the class card.
+pub(super) fn object_geom(entity: &Entity, hide: &HideOptions) -> ClassGeom {
+    let fields = match &entity.kind_data {
+        EntityKindData::Object { fields } => fields.as_slice(),
+        _ => &[],
+    };
+    let name_w = text_width_pt(&entity.display, NAME_EM);
+    let show_stereo = !hide.stereotype;
+    let stereo_w = if show_stereo {
+        entity
+            .stereotype
+            .as_deref()
+            .map(|s| text_width_pt(&format!("«{s}»"), BODY_EM))
+            .unwrap_or(0.0)
+    } else {
+        0.0
+    };
+    // `name = value` row width — single-space-separated `=` is rendered
+    // verbatim, so estimate width as if the row body were `name = value`.
+    let field_w = fields
+        .iter()
+        .map(|f| {
+            if f.value.is_empty() {
+                text_width_pt(&f.name, BODY_EM)
+            } else {
+                text_width_pt(&format!("{} = {}", f.name, f.value), BODY_EM)
+            }
+        })
+        .fold(0.0_f64, f64::max);
+    let content_w = name_w.max(stereo_w).max(field_w);
+    let total_w = content_w + 2. * PAD_X_PT;
+
+    let row_h = LINE_HEIGHT_PT + 2. * PAD_Y_PT;
+    let name_lines = if show_stereo && entity.stereotype.is_some() {
+        2.0
+    } else {
+        1.0
+    };
+    let name_h = name_lines * row_h;
+    let fields_h = fields.len() as f64 * row_h;
+    let total_h = name_h + fields_h;
+
     ClassGeom {
         size: Point::new(total_w, total_h),
         mid_x: total_w / 2.0,

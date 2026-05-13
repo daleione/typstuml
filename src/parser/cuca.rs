@@ -810,8 +810,8 @@ impl<'a> Parser<'a> {
 /// Append `member` to the appropriate compartment of `entity`. For
 /// compartment-shaped entities, `is_method_signature` decides which
 /// list; for plain (desc-family) entities, members live in
-/// `EntityKindData::Plain.members`; for Note / Object the call is a
-/// no-op (a note's body is fixed at declaration time).
+/// `EntityKindData::Plain.members`. Objects re-parse the body as
+/// `name = value` and store the pair in `ObjectField`. Notes ignore.
 fn push_member(entity: &mut Entity, member: Member) {
     match &mut entity.kind_data {
         EntityKindData::Compartment { fields, methods, .. } => {
@@ -824,7 +824,24 @@ fn push_member(entity: &mut Entity, member: Member) {
         EntityKindData::Plain { members } => {
             members.push(member);
         }
-        EntityKindData::Note { .. } | EntityKindData::Object { .. } => {}
+        EntityKindData::Object { fields } => {
+            // The member's visibility / static / abstract modifiers don't
+            // apply to object instance rows; we only need the body, which
+            // we then split on the first `=` into (name, value). Lines
+            // that don't contain `=` are stored with an empty value so
+            // codegen renders them as bare names.
+            let body = member.body.trim();
+            let (name, value) = match body.find('=') {
+                Some(i) => (body[..i].trim().to_string(), body[i + 1..].trim().to_string()),
+                None => (body.to_string(), String::new()),
+            };
+            fields.push(crate::ir::ObjectField {
+                name,
+                value,
+                line: member.line,
+            });
+        }
+        EntityKindData::Note { .. } => {}
     }
 }
 

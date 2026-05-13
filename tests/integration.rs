@@ -746,6 +746,35 @@ fn renders_svg_for_class_notes() {
 }
 
 #[test]
+fn golden_emit_typst_class_object_basic() {
+    let actual = emit_typst_path(&fixture_in("class", "object-basic.puml"));
+    assert_golden_in("class", "object-basic", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_object_basic() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("object-basic.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "object-basic.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+    // Object cards should have at least one underline path (the
+    // instance-name convention), three field rows for alice, plus
+    // edges. A loose floor catches regressions where the object
+    // painter renders nothing or collapses to an empty bbox.
+    let path_count = svg.matches("<path").count();
+    assert!(
+        path_count > 10,
+        "object diagram expected several <path>s; got {path_count}"
+    );
+}
+
+#[test]
 fn renders_svg_for_class_basic() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("class-basic.svg");

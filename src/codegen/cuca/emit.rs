@@ -82,6 +82,45 @@ pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &Hi
     if entity.usymbol == USymbol::Interface {
         return;
     }
+    // Objects: emit `fields: ((name, value), …)` and bail out — they
+    // don't have stereotype / generic / methods / hide options that the
+    // class painter consumes.
+    if let EntityKindData::Object { fields } = &entity.kind_data {
+        if let Some(c) = &entity.fill {
+            if let Some(typst_color) = puml_color_to_typst(c) {
+                out.push_str(", fill: ");
+                out.push_str(&typst_color);
+            }
+        }
+        if !hide.stereotype {
+            if let Some(s) = &entity.stereotype {
+                out.push_str(", stereotype: [");
+                out.push_str(&creole_to_typst(s));
+                out.push(']');
+            }
+        }
+        // Emit each row as pre-joined content `[name = value]` so the
+        // painter doesn't need to concatenate (which interferes with
+        // inline measurement).
+        out.push_str(", fields: (");
+        for (i, f) in fields.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            out.push('[');
+            out.push_str(&creole_to_typst(&f.name));
+            if !f.value.is_empty() {
+                out.push_str(" = ");
+                out.push_str(&creole_to_typst(&f.value));
+            }
+            out.push(']');
+        }
+        if fields.len() == 1 {
+            out.push(',');
+        }
+        out.push(')');
+        return;
+    }
 
     let show_fields = !(hide.fields || hide.members);
     let show_methods = !(hide.methods || hide.members);
@@ -410,6 +449,9 @@ fn line_style_keyword(s: LineStyle) -> &'static str {
 fn entity_kind_keyword(entity: &Entity) -> &'static str {
     if matches!(entity.kind_data, EntityKindData::Note { .. }) {
         return "note";
+    }
+    if matches!(entity.kind_data, EntityKindData::Object { .. }) {
+        return "object";
     }
     if entity.usymbol == USymbol::Interface {
         return "lollipop";

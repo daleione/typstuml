@@ -107,7 +107,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | WBS (`@startwbs`)             |   ✅   | Work-breakdown hierarchy                                                                |
 | Class                         |   ✅   | Compartmented cards, packages / namespaces, lollipops, notes, association classes, Manhattan edges, `!theme`, `left to right direction` |
 | `skinparam` coverage          |   🚧   | `backgroundColor`, `defaultFontName`, `defaultFontSize` map today; rest pass through    |
-| Object                        |   ⏳   | UML object instances with field values                                                  |
+| Object                        |   ✅   | Instance cards with underlined name + `name = value` field rows                         |
 | Component                     |   ⏳   | Components, interfaces, ports                                                           |
 | Deployment                    |   ⏳   | Nodes, artifacts, devices                                                               |
 | Use case                      |   ⏳   | Actors + ellipses inside a system boundary                                              |

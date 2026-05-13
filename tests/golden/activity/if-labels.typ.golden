@@ -1,0 +1,22 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  branch-merge([Stock OK?],
+    yes: flow-col(
+      process[Decrement],
+      process[Ship],
+    ),
+    no: flow-col(
+      process[Reply out-of-stock],
+      stop-marker(),
+    ),
+    yes-label: [in stock],
+    no-label: [sold out],
+    no-detach: true,
+  ),
+  process[Update stats],
+  stop-marker(),
+))

@@ -1,0 +1,15 @@
+@startuml
+start
+:Inspect kind;
+if (kind == order?) then (yes)
+  :Place order;
+elseif (kind == refund?) then (yes)
+  :Issue refund;
+elseif (kind == cancel?) then (yes)
+  :Cancel order;
+else (otherwise)
+  :Drop;
+endif
+:Audit log;
+stop
+@enduml

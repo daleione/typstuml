@@ -1,0 +1,18 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  process[Init],
+  flow-loop(
+    flow-col(
+      decision[more work?],
+      process[Take job],
+      process[Process],
+    ),
+    back-label: [yes],
+  ),
+  process[Shutdown],
+  stop-marker(),
+))

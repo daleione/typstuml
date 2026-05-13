@@ -1,0 +1,8 @@
+@startuml
+start
+:line one
+line two
+line three;
+:single line;
+stop
+@enduml

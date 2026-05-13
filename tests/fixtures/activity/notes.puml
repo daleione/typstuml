@@ -1,0 +1,16 @@
+@startuml
+start
+:Receive request;
+note right: arrives via HTTP
+:Validate input;
+note left
+  rejects on
+  schema error
+end note
+:Compute response;
+note right
+  cache hit
+  not measured
+end note
+stop
+@enduml

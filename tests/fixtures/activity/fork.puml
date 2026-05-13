@@ -1,0 +1,13 @@
+@startuml
+start
+:Receive order;
+fork
+  :Send confirmation email;
+fork again
+  :Notify warehouse;
+fork again
+  :Reserve stock;
+end fork
+:Archive;
+stop
+@enduml

@@ -1,0 +1,10 @@
+@startuml
+start
+:Init;
+while (more work?) is (yes)
+  :Take job;
+  :Process;
+endwhile (no)
+:Shutdown;
+stop
+@enduml

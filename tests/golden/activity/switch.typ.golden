@@ -1,0 +1,21 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  process[Read event],
+  switch([kind],
+    case([order], flow-col(
+      process[Place order],
+    )),
+    case([refund], flow-col(
+      process[Issue refund],
+    )),
+    case([cancel], flow-col(
+      process[Cancel order],
+    )),
+  ),
+  process[Emit audit],
+  stop-marker(),
+))

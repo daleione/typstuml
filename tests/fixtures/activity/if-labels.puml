@@ -1,0 +1,12 @@
+@startuml
+start
+if (Stock OK?) then (in stock)
+  :Decrement;
+  :Ship;
+else (sold out)
+  :Reply out-of-stock;
+  stop
+endif
+:Update stats;
+stop
+@enduml

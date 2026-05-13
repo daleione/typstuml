@@ -1,0 +1,15 @@
+@startuml
+title Partitioned flow
+start
+partition "Intake" #LightYellow {
+  :Receive request;
+  :Validate;
+}
+partition Processing {
+  :Look up customer;
+  :Compute pricing;
+  :Apply discount;
+}
+:Respond;
+stop
+@enduml

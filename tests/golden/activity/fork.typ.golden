@@ -1,0 +1,21 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  process[Receive order],
+  fork-bar(
+    case([], flow-col(
+      process[Send confirmation email],
+    )),
+    case([], flow-col(
+      process[Notify warehouse],
+    )),
+    case([], flow-col(
+      process[Reserve stock],
+    )),
+  ),
+  process[Archive],
+  stop-marker(),
+))

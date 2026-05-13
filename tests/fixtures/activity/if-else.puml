@@ -1,0 +1,12 @@
+@startuml
+start
+:Parse request;
+if (Cached?) then (yes)
+  :Return cached;
+else (no)
+  :Compute;
+  :Cache;
+endif
+:Respond;
+stop
+@enduml

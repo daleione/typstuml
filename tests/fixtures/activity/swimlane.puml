@@ -1,0 +1,16 @@
+@startuml
+title Order swimlane
+|#LightBlue|Customer|
+start
+:Place order;
+:Pay;
+|#LightYellow|Service|
+:Validate order;
+:Charge card;
+|Warehouse|
+:Pick items;
+:Ship;
+|Customer|
+:Receive package;
+stop
+@enduml

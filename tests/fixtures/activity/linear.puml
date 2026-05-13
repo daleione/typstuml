@@ -1,0 +1,8 @@
+@startuml
+title Linear activity
+start
+:接收请求;
+:校验;
+:写入数据库;
+stop
+@enduml

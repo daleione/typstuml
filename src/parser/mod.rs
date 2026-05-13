@@ -18,6 +18,7 @@
 //!
 //! [`StructuredSequence`]: crate::ir::StructuredSequence
 
+pub mod activity;
 pub mod cuca;
 pub mod dispatcher;
 pub mod json;
@@ -86,10 +87,15 @@ pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseO
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }
+            dispatcher::DiagramKind::Activity => {
+                let (diagram, mut diags) = activity::parse(block, compat)?;
+                diagrams.push(diagram);
+                diagnostics.append(&mut diags);
+            }
             other => {
                 let detail = format!(
                     "diagram type {other:?} is not yet supported; \
-                     Sequence, JSON, YAML, WBS, and mind-map diagrams render today"
+                     Sequence, JSON, YAML, WBS, mind-map, cuca, and activity diagrams render today"
                 );
                 if compat == CompatMode::Strict {
                     return Err(Error::Unsupported {

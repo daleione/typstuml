@@ -1,0 +1,22 @@
+@startuml
+title Order processing
+start
+:Receive order;
+if (Stock OK?) then (yes)
+  :Decrement stock;
+  fork
+    :Email confirmation;
+  fork again
+    :Notify warehouse;
+  end fork
+  repeat
+    :Try payment;
+  repeat while (failed?) is (yes) not (no)
+  :Ship;
+else (no)
+  :Reply out-of-stock;
+  stop
+endif
+:Update stats;
+stop
+@enduml

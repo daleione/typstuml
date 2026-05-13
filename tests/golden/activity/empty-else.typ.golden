@@ -1,0 +1,65 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  process[ClickServlet.handleRequest()],
+  process[new page],
+  branch-merge([Page.onSecurityCheck],
+    yes: flow-col(
+      process[Page.onInit()],
+      branch-merge([isForward?],
+        yes: flow-col(
+          process[Process controls],
+          branch-merge([continue processing?],
+            yes: flow-col(
+              stop-marker(),
+            ),
+            no: [],
+            no-bypass: true,
+            yes-label: [no],
+            yes-detach: true,
+          ),
+          branch-merge([isPost?],
+            yes: flow-col(
+              process[Page.onPost()],
+            ),
+            no: flow-col(
+              process[Page.onGet()],
+            ),
+            yes-label: [yes],
+            no-label: [no],
+          ),
+          process[Page.onRender()],
+        ),
+        no: [],
+        no-bypass: true,
+        yes-label: [no],
+      ),
+    ),
+    no: [],
+    no-bypass: true,
+    yes-label: [true],
+    no-label: [false],
+  ),
+  branch-merge([do redirect?],
+    yes: flow-col(
+      process[redirect process],
+    ),
+    no: flow-col(
+      branch-merge([do forward?],
+        yes: flow-col(
+          process[Forward request],
+        ),
+        no: flow-col(
+          process[Render page template],
+        ),
+        yes-label: [yes],
+        no-label: [no],
+      ),
+    ),
+    yes-label: [yes],
+  ),
+  stop-marker(),
+))

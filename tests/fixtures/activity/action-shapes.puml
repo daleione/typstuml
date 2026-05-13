@@ -1,0 +1,11 @@
+@startuml
+title SDL action shapes
+start
+:Read CSV;<<input>>
+:Validate row;
+:Apply transform;<<procedure>>
+:Emit summary;<<output>>
+:Notify upstream;<<sendSignal>>
+:Wait for ack;<<acceptEvent>>
+stop
+@enduml

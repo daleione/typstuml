@@ -1,0 +1,20 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  process[Request],
+  fork-bar(
+    case([], flow-col(
+      process[Route A],
+      process[Persist A],
+    )),
+    case([], flow-col(
+      process[Route B],
+      process[Persist B],
+    )),
+  ),
+  process[Reconcile],
+  stop-marker(),
+))

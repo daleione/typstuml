@@ -1,0 +1,28 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Partitioned flow*]
+
+#align(center, flow-col(
+  start-marker(),
+  partition(
+    label: [Intake],
+    kind: "partition",
+    flow-col(
+      process[Receive request],
+      process[Validate],
+    ),
+  ),
+  partition(
+    label: [Processing],
+    kind: "partition",
+    flow-col(
+      process[Look up customer],
+      process[Compute pricing],
+      process[Apply discount],
+    ),
+  ),
+  process[Respond],
+  stop-marker(),
+))

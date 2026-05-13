@@ -1,0 +1,14 @@
+@startuml
+start
+:Read event;
+switch (kind)
+case (order)
+  :Place order;
+case (refund)
+  :Issue refund;
+case (cancel)
+  :Cancel order;
+endswitch
+:Emit audit;
+stop
+@enduml

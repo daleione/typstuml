@@ -1,0 +1,25 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Order swimlane*]
+
+#align(center, swimlane(
+  lane([Customer], flow-col(
+    start-marker(),
+    process[Place order],
+    process[Pay],
+  ), color: rgb("#ADD8E6")),
+  lane([Service], flow-col(
+    process[Validate order],
+    process[Charge card],
+  ), color: rgb("#FFFFE0")),
+  lane([Warehouse], flow-col(
+    process[Pick items],
+    process[Ship],
+  )),
+  lane([Customer], flow-col(
+    process[Receive package],
+    stop-marker(),
+  )),
+))

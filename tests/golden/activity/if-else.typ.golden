@@ -1,0 +1,21 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, flow-col(
+  start-marker(),
+  process[Parse request],
+  branch-merge([Cached?],
+    yes: flow-col(
+      process[Return cached],
+    ),
+    no: flow-col(
+      process[Compute],
+      process[Cache],
+    ),
+    yes-label: [yes],
+    no-label: [no],
+  ),
+  process[Respond],
+  stop-marker(),
+))

@@ -1,0 +1,13 @@
+@startuml
+start
+:Request;
+split
+  :Route A;
+  :Persist A;
+split again
+  :Route B;
+  :Persist B;
+end split
+:Reconcile;
+stop
+@enduml

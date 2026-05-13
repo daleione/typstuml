@@ -1,0 +1,9 @@
+@startuml
+start
+:Start try;
+repeat
+  :Try payment;
+repeat while (failed?) is (yes) not (no)
+:Continue;
+stop
+@enduml

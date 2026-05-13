@@ -172,7 +172,32 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         if t.starts_with("[*]") || t.starts_with("state ") {
             return DiagramKind::State;
         }
-        if t == "start" || t == "stop" || t == "end" || t.starts_with("if (") {
+        if t == "start"
+            || t == "stop"
+            || t == "end"
+            || t == "fork"
+            || t == "fork;"
+            || t == "split"
+            || t == "split;"
+            || t == "repeat"
+            || t == "detach"
+            || t == "kill"
+            || t.starts_with("if (")
+            || t.starts_with("if(")
+            || t.starts_with("while (")
+            || t.starts_with("while(")
+            || t.starts_with("repeat :")
+            || t.starts_with("switch (")
+            || t.starts_with("switch(")
+            || t.starts_with("partition ")
+        {
+            return DiagramKind::Activity;
+        }
+        // An activity `:label;` action always carries a `;` terminator
+        // on the same line (or on a subsequent multi-line continuation).
+        // We require the `;` here so cuca's `:Foo:` actor shorthand
+        // (which never ends with `;`) doesn't get misclassified.
+        if t.starts_with(':') && t.contains(';') && !seen_cuca_strong {
             return DiagramKind::Activity;
         }
         if !seen_cuca_strong && (t.starts_with('*') || t.starts_with('+') || t == "-" || t.starts_with("- ")) {

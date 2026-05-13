@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*SDL action shapes*]
+
+#align(center, flow-col(
+  start-marker(),
+  process(shape: "input")[Read CSV],
+  process[Validate row],
+  process[Apply transform],
+  process(shape: "output")[Emit summary],
+  process(shape: "sendSignal")[Notify upstream],
+  process(shape: "acceptEvent")[Wait for ack],
+  stop-marker(),
+))

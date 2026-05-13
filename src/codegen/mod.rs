@@ -5,6 +5,7 @@
 //! embedded virtual filesystem (`runtime::world`); from the Typst side it
 //! looks like an ordinary file at `/blockcell/lib.typ`.
 
+mod activity;
 mod cuca;
 mod json;
 mod mindmap;
@@ -43,6 +44,7 @@ pub fn emit(
             Diagram::Wbs(w) => wbs::emit(&mut out, w),
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
             Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
+            Diagram::Activity(a) => activity::emit(&mut out, a),
         }
     }
 
@@ -63,6 +65,8 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
         Diagram::Cuca(c) => cuca::probe::has_probes(c),
         Diagram::Json(j) => record_graph::has_records(&j.root),
         Diagram::Yaml(y) => record_graph::has_records(&y.root),
+        // Activity painters self-measure via Typst `measure()` — no
+        // Rust-side probe pass needed.
         _ => false,
     });
     if !any_probes {

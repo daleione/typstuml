@@ -1,0 +1,13 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Linear activity*]
+
+#align(center, flow-col(
+  start-marker(),
+  process[接收请求],
+  process[校验],
+  process[写入数据库],
+  stop-marker(),
+))

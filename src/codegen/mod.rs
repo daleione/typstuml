@@ -46,7 +46,7 @@ pub fn emit(
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
             Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
             Diagram::Activity(a) => activity::emit(&mut out, a),
-            Diagram::State(s) => state::emit(&mut out, s),
+            Diagram::State(s) => state::emit(&mut out, s, measurements, idx),
         }
     }
 
@@ -67,6 +67,7 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
         Diagram::Cuca(c) => cuca::probe::has_probes(c),
         Diagram::Json(j) => record_graph::has_records(&j.root),
         Diagram::Yaml(y) => record_graph::has_records(&y.root),
+        Diagram::State(s) => state::has_probes(s),
         // Activity painters self-measure via Typst `measure()` — no
         // Rust-side probe pass needed.
         _ => false,
@@ -89,6 +90,9 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
             }
             Diagram::Yaml(y) if record_graph::has_records(&y.root) => {
                 record_graph::collect_probes(&y.root, idx, &mut out, &mut expected_ids);
+            }
+            Diagram::State(s) if state::has_probes(s) => {
+                state::collect_probes(s, idx, &mut out, &mut expected_ids);
             }
             _ => {}
         }

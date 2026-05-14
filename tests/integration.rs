@@ -1319,6 +1319,12 @@ fn golden_emit_typst_state_note_on_link() { golden_state("note-on-link"); }
 fn golden_emit_typst_state_synchro_bar() { golden_state("synchro-bar"); }
 
 #[test]
+fn golden_emit_typst_state_floating_note() { golden_state("floating-note"); }
+
+#[test]
+fn golden_emit_typst_state_entry_exit() { golden_state("entry-exit"); }
+
+#[test]
 fn renders_svg_for_state_basic() { render_state_svg("basic"); }
 
 #[test]
@@ -1368,3 +1374,9 @@ fn renders_svg_for_state_note_on_link() { render_state_svg("note-on-link"); }
 
 #[test]
 fn renders_svg_for_state_synchro_bar() { render_state_svg("synchro-bar"); }
+
+#[test]
+fn renders_svg_for_state_floating_note() { render_state_svg("floating-note"); }
+
+#[test]
+fn renders_svg_for_state_entry_exit() { render_state_svg("entry-exit"); }

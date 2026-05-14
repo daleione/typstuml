@@ -1,0 +1,12 @@
+@startuml
+state Processing {
+  state ep <<entryPoint>>
+  state xp <<exitPoint>>
+  ep --> Working
+  Working --> Verifying
+  Verifying --> xp
+}
+[*] --> ep
+xp --> Done
+Done --> [*]
+@enduml

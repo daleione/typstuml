@@ -4,12 +4,12 @@
 
 #state-layout(
   nodes: (
-    (id: "__initial__", kind: "initial", x: 97.81pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Splitting", kind: "simple", x: 67.60pt, y: 76.00pt, w: 77.80pt, h: 32.00pt, display: "Splitting", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__sync__S1", kind: "synchro-bar", x: 75.88pt, y: 136.00pt, w: 60.00pt, h: 10.00pt, display: "S1", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Working", kind: "simple", x: 30.00pt, y: 174.00pt, w: 65.40pt, h: 32.00pt, display: "Working", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Logging", kind: "simple", x: 115.40pt, y: 174.00pt, w: 65.40pt, h: 32.00pt, display: "Logging", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__final__", kind: "final", x: 95.55pt, y: 234.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__", kind: "initial", x: 89.41pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Splitting", kind: "simple", x: 69.72pt, y: 76.00pt, w: 56.84pt, h: 32.00pt, display: "Splitting", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__sync__S1", kind: "synchro-bar", x: 67.58pt, y: 136.00pt, w: 60.00pt, h: 10.00pt, display: "S1", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Working", kind: "simple", x: 30.00pt, y: 174.00pt, w: 57.72pt, h: 32.00pt, display: "Working", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Logging", kind: "simple", x: 107.72pt, y: 174.00pt, w: 55.45pt, h: 32.00pt, display: "Logging", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 87.39pt, y: 234.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "__initial__", to: "Splitting", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
@@ -21,7 +21,7 @@
   ),
   notes: (
   ),
-  page: (210.80pt, 282.00pt),
+  page: (193.17pt, 282.00pt),
   title: none,
   hide-empty-description: false,
   direction: "tb",

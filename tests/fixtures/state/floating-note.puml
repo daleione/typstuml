@@ -1,0 +1,9 @@
+@startuml
+[*] --> Active
+Active --> Idle : pause
+Idle --> Active : resume
+Idle --> [*]
+note "Connected to\nthe Active state" as N1
+N1 .. Active
+note "A standalone\nfloating note" as N2
+@enduml

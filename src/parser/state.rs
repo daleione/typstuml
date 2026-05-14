@@ -57,6 +57,9 @@ struct Parser<'a> {
     diagnostics: Vec<Diagnostic>,
     /// id → index into `diag.nodes`, for auto-create + addfield lookup.
     index: HashMap<String, usize>,
+    /// Floating-note id (`note "..." as Nx`) → index into `diag.notes`,
+    /// so a later `Nx .. State` line can attach its link target.
+    float_note_ids: HashMap<String, usize>,
     /// Stack of enclosing composite states. A node created while the stack
     /// is non-empty becomes a child of the top entry's current region.
     parent_stack: Vec<RegionBuilder>,
@@ -71,6 +74,7 @@ impl<'a> Parser<'a> {
             diag: StateDiagram::default(),
             diagnostics: Vec::new(),
             index: HashMap::new(),
+            float_note_ids: HashMap::new(),
             parent_stack: Vec::new(),
         }
     }
@@ -273,6 +277,14 @@ impl<'a> Parser<'a> {
         if let Some(rest) = strip_kw(raw, "state") {
             return self.parse_state_decl(rest, line_no);
         }
+        // Floating-note connector: `Nx .. State` / `State .. Nx`. Only when
+        // the line has no arrow and no top-level `:` (so `A : do..it` body
+        // rows aren't misread as a connector).
+        if find_arrow(raw).is_none() && split_top_colon(raw).is_none() {
+            if let Some((left, right)) = split_dotted(raw) {
+                return self.parse_note_link(left, right, raw, line_no);
+            }
+        }
         // Transition.
         if find_arrow(raw).is_some() {
             return self.parse_transition(raw, line_no);
@@ -289,15 +301,19 @@ impl<'a> Parser<'a> {
         self.report(line_no, format!("unrecognized state-diagram line: {raw:?}"))
     }
 
-    /// Parse a `note (left|right) of Foo [: body]` declaration. A note with
-    /// no inline `: body` continues until a line equal to `end note`.
-    /// Other note forms (`note on link`, `note "..." as N`) are S3 — they
-    /// warn and skip.
+    /// Parse a `note …` declaration. Forms: `note (left|right|top|bottom)
+    /// of Foo [: body]`, `note on link [: body]`, and the floating
+    /// `note "body" as Nx` / `note as Nx … end note`. A note with no inline
+    /// `: body` continues until a line equal to `end note`.
     fn parse_note(&mut self, raw: &str, line_no: usize) -> Result<()> {
         let rest = raw.strip_prefix("note").unwrap_or(raw).trim_start();
         // `note on link` — bind to the most recently parsed transition.
         if let Some(after) = strip_phrase(rest, "on link") {
             return self.parse_note_on_link(after, line_no);
+        }
+        // `note "..." as Nx` / `note as Nx … end note` — floating note.
+        if rest.starts_with('"') || strip_phrase(rest, "as").is_some() {
+            return self.parse_floating_note(rest, raw, line_no);
         }
         // Side keyword.
         let (side, after) = if let Some(a) = strip_phrase(rest, "left of") {
@@ -309,13 +325,13 @@ impl<'a> Parser<'a> {
         } else if let Some(a) = strip_phrase(rest, "bottom of") {
             (NotePosition::RightOf, a)
         } else {
-            // `note "..." as N` / bare floating notes are not supported yet.
             if !raw.contains(':') {
                 self.skip_note_block(raw);
             }
             return self.report(
                 line_no,
-                "unsupported note form (use `note left/right of <state>` or `note on link`)",
+                "unsupported note form (use `note left/right of <state>`, \
+                 `note on link`, or `note \"…\" as <id>`)",
             );
         };
         // `after` is `Foo` or `Foo : body` or `"Foo" : body`.
@@ -382,6 +398,84 @@ impl<'a> Parser<'a> {
             body,
             line: line_no,
         });
+        Ok(())
+    }
+
+    /// Parse a floating note: `note "body" as Nx` (inline quoted body) or
+    /// `note as Nx … end note` (body runs until `end note`). The note is
+    /// registered under its alias so a later `Nx .. State` line can attach
+    /// a link target.
+    fn parse_floating_note(&mut self, rest: &str, raw: &str, line_no: usize) -> Result<()> {
+        let (body, alias) = if let Some(after_open) = rest.strip_prefix('"') {
+            let Some(close) = after_open.find('"') else {
+                return self.report(line_no, format!("unterminated note string: {raw:?}"));
+            };
+            let body = after_open[..close].to_string();
+            let tail = after_open[close + 1..].trim_start();
+            let Some(alias) = strip_phrase(tail, "as") else {
+                return self.report(line_no, format!("floating note missing `as <id>`: {raw:?}"));
+            };
+            (body, unquote(alias.trim()))
+        } else if let Some(alias) = strip_phrase(rest, "as") {
+            let alias = unquote(alias.trim());
+            let mut rows: Vec<String> = Vec::new();
+            while self.pos < self.lines.len() {
+                let t = self.lines[self.pos].text.trim().to_string();
+                self.pos += 1;
+                if t == "end note" || t == "endnote" {
+                    break;
+                }
+                rows.push(t);
+            }
+            (rows.join("\n"), alias)
+        } else {
+            return self.report(line_no, format!("malformed floating note: {raw:?}"));
+        };
+        if alias.is_empty() {
+            return self.report(line_no, format!("floating note has an empty id: {raw:?}"));
+        }
+        let note_idx = self.diag.notes.len();
+        self.diag.notes.push(StateNote {
+            anchor: NoteAnchor::Floating {
+                id: alias.clone(),
+                links: Vec::new(),
+            },
+            body,
+            line: line_no,
+        });
+        self.float_note_ids.insert(alias, note_idx);
+        Ok(())
+    }
+
+    /// Parse a `Nx .. State` / `State .. Nx` floating-note connector. One
+    /// side must be a registered floating-note alias; the other is the
+    /// linked state (auto-created if new).
+    fn parse_note_link(
+        &mut self,
+        left: &str,
+        right: &str,
+        raw: &str,
+        line_no: usize,
+    ) -> Result<()> {
+        let l = unquote(left);
+        let r = unquote(right);
+        let (note_idx, target) = if let Some(&ni) = self.float_note_ids.get(&l) {
+            (ni, r)
+        } else if let Some(&ni) = self.float_note_ids.get(&r) {
+            (ni, l)
+        } else {
+            return self.report(
+                line_no,
+                format!("`..` connector with no floating note: {raw:?}"),
+            );
+        };
+        if target.is_empty() {
+            return self.report(line_no, format!("note connector missing a state: {raw:?}"));
+        }
+        self.ensure_node(&target, line_no);
+        if let NoteAnchor::Floating { links, .. } = &mut self.diag.notes[note_idx].anchor {
+            links.push(target);
+        }
         Ok(())
     }
 
@@ -930,6 +1024,32 @@ fn split_top_colon(s: &str) -> Option<(&str, &str)> {
     None
 }
 
+/// Split on the first run of two or more `.` (a `..` floating-note
+/// connector, also `...` / `....`). Returns the trimmed `(left, right)`
+/// when both sides are non-empty.
+fn split_dotted(s: &str) -> Option<(&str, &str)> {
+    let b = s.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'.' {
+            let start = i;
+            while i < b.len() && b[i] == b'.' {
+                i += 1;
+            }
+            if i - start >= 2 {
+                let left = s[..start].trim();
+                let right = s[i..].trim();
+                if !left.is_empty() && !right.is_empty() {
+                    return Some((left, right));
+                }
+            }
+        } else {
+            i += 1;
+        }
+    }
+    None
+}
+
 /// Parse the name portion of a state declaration:
 /// `Foo`, `"Display"`, `Foo as "Display"`, `"Display" as Foo`.
 /// Returns `(id, display)`.
@@ -1402,5 +1522,71 @@ mod tests {
         );
         assert_eq!(d.notes.len(), 1);
         assert_eq!(d.notes[0].body, "first\nsecond");
+    }
+
+    #[test]
+    fn floating_note_with_link() {
+        let d = parse_str(
+            "@startuml\n\
+             [*] --> Foo\n\
+             note \"a floating note\" as N1\n\
+             N1 .. Foo\n\
+             @enduml\n",
+        );
+        assert_eq!(d.notes.len(), 1);
+        match &d.notes[0].anchor {
+            NoteAnchor::Floating { id, links } => {
+                assert_eq!(id, "N1");
+                assert_eq!(links, &["Foo".to_string()]);
+            }
+            _ => panic!("expected Floating"),
+        }
+        assert_eq!(d.notes[0].body, "a floating note");
+    }
+
+    #[test]
+    fn floating_note_unconnected() {
+        let d = parse_str("@startuml\nstate A\nnote \"lonely\" as N9\n@enduml\n");
+        assert_eq!(d.notes.len(), 1);
+        match &d.notes[0].anchor {
+            NoteAnchor::Floating { id, links } => {
+                assert_eq!(id, "N9");
+                assert!(links.is_empty());
+            }
+            _ => panic!("expected Floating"),
+        }
+    }
+
+    #[test]
+    fn entry_exit_point_stereotypes() {
+        let d = parse_str(
+            "@startuml\n\
+             state S {\n\
+               state e <<entryPoint>>\n\
+               state x <<exitPoint>>\n\
+             }\n\
+             @enduml\n",
+        );
+        let e = d.nodes.iter().find(|n| n.id == "e").unwrap();
+        assert_eq!(e.kind, StateKind::EntryPoint);
+        let x = d.nodes.iter().find(|n| n.id == "x").unwrap();
+        assert_eq!(x.kind, StateKind::ExitPoint);
+    }
+
+    #[test]
+    fn floating_note_link_reversed_and_multi() {
+        let d = parse_str(
+            "@startuml\n\
+             note \"n\" as N1\n\
+             A .. N1\n\
+             N1 .. B\n\
+             @enduml\n",
+        );
+        match &d.notes[0].anchor {
+            NoteAnchor::Floating { links, .. } => {
+                assert_eq!(links, &["A".to_string(), "B".to_string()]);
+            }
+            _ => panic!("expected Floating"),
+        }
     }
 }

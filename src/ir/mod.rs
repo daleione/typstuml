@@ -1095,6 +1095,10 @@ pub enum StateKind {
     DeepHistory,
     /// `==Name==` — short thick bar synchronizing concurrent regions.
     SynchroBar,
+    /// `<<entryPoint>>` — hollow circle on a composite's border.
+    EntryPoint,
+    /// `<<exitPoint>>` — hollow circle with an X on a composite's border.
+    ExitPoint,
 }
 
 impl StateKind {
@@ -1117,6 +1121,8 @@ impl StateKind {
             Self::History => "history",
             Self::DeepHistory => "deep-history",
             Self::SynchroBar => "synchro-bar",
+            Self::EntryPoint => "entry-point",
+            Self::ExitPoint => "exit-point",
         }
     }
 
@@ -1132,6 +1138,8 @@ impl StateKind {
             "end" => Some(Self::Final),
             "history" => Some(Self::History),
             "history*" => Some(Self::DeepHistory),
+            "entrypoint" => Some(Self::EntryPoint),
+            "exitpoint" => Some(Self::ExitPoint),
             _ => None,
         }
     }
@@ -1191,8 +1199,10 @@ pub enum NoteAnchor {
     /// `note on link` — bound to a transition by index into
     /// [`StateDiagram::transitions`].
     OnLink { transition_idx: usize },
-    /// `note "..." as Nx` — a standalone note.
-    Floating { id: String },
+    /// `note "..." as Nx` — a standalone note. `links` holds the state
+    /// ids it was connected to via `Nx .. State` lines (empty if the
+    /// note was never connected).
+    Floating { id: String, links: Vec<String> },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

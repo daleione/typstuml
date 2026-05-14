@@ -30,6 +30,7 @@ use crate::ir::{
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
+use crate::runtime::MeasurementSet;
 
 /// Margin reserved around the diagram content, in pt. Generous enough to
 /// clear self-loop arcs and edge labels that extend past the node bboxes.
@@ -104,10 +105,134 @@ impl UnionFind {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Pass-1 measure probes.
+//
+// `node_geom` / `note_geom` estimate text width from a char count, which is
+// wrong for proportional fonts and CJK. When a `MeasurementSet` is supplied,
+// `resolve_node_geom` / `resolve_note_size` use the painter-measured size
+// instead (see `state-probe` / `state-note-probe` in `states.typ`).
+// ---------------------------------------------------------------------------
+
+/// Stable probe id for a simple / composite state.
+fn state_node_id(diagram_idx: usize, node: &StateNode) -> String {
+    format!("ms-{diagram_idx}-{}", sanitize_id(&node.id))
+}
+
+/// Stable probe id for a note (notes have no user id, so key by index).
+fn state_note_id(diagram_idx: usize, note_idx: usize) -> String {
+    format!("msn-{diagram_idx}-{note_idx}")
+}
+
+/// Collapse an IR node id into a string safe to embed in a probe id.
+fn sanitize_id(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() || c == '_' || c == '.' {
+            out.push(c);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        out.push('_');
+    }
+    out
+}
+
+/// True iff the diagram has text-bearing content worth measuring — any
+/// simple / composite state, or any note. Pseudostates are fixed-size.
+pub fn has_probes(diag: &StateDiagram) -> bool {
+    diag.nodes
+        .iter()
+        .any(|n| matches!(n.kind, StateKind::Simple | StateKind::Composite))
+        || !diag.notes.is_empty()
+}
+
+/// Emit one `#state-probe(...)` per simple / composite state and one
+/// `#state-note-probe(...)` per note into the pass-1 source.
+pub fn collect_probes(
+    diag: &StateDiagram,
+    diagram_idx: usize,
+    out: &mut String,
+    expected_ids: &mut Vec<String>,
+) {
+    for node in &diag.nodes {
+        if !matches!(node.kind, StateKind::Simple | StateKind::Composite) {
+            continue;
+        }
+        let id = state_node_id(diagram_idx, node);
+        write!(
+            out,
+            "#state-probe(id: \"{}\", display: \"{}\", body: (",
+            id,
+            typst_str_escape(&node.display)
+        )
+        .unwrap();
+        for (i, row) in node.body.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            write!(out, "\"{}\"", typst_str_escape(row)).unwrap();
+        }
+        if node.body.len() == 1 {
+            out.push(',');
+        }
+        out.push_str("))\n");
+        expected_ids.push(id);
+    }
+    for (ni, note) in diag.notes.iter().enumerate() {
+        let id = state_note_id(diagram_idx, ni);
+        writeln!(
+            out,
+            "#state-note-probe(id: \"{}\", body: \"{}\")",
+            id,
+            typst_str_escape(&note.body)
+        )
+        .unwrap();
+        expected_ids.push(id);
+    }
+}
+
+/// Per-node geometry: measured size from pass-1 when available, otherwise
+/// the char-count heuristic. Pseudostates are always fixed-size.
+fn resolve_node_geom(
+    n: &StateNode,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) -> NodeGeom {
+    if matches!(n.kind, StateKind::Simple | StateKind::Composite) {
+        if let Some(set) = measurements {
+            if let Some(m) = set.get(&state_node_id(diagram_idx, n)) {
+                return NodeGeom {
+                    size: Point::new(m.width_pt, m.height_pt),
+                };
+            }
+        }
+    }
+    node_geom(n)
+}
+
+/// Note sticky size: measured from pass-1 when available, else heuristic.
+fn resolve_note_size(
+    note_idx: usize,
+    body: &str,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) -> Point {
+    if let Some(set) = measurements {
+        if let Some(m) = set.get(&state_note_id(diagram_idx, note_idx)) {
+            return Point::new(m.width_pt, m.height_pt);
+        }
+    }
+    note_geom(body)
+}
+
 /// Heuristic bounding box for one node.
 fn node_geom(n: &StateNode) -> NodeGeom {
     let size = match n.kind {
         StateKind::Initial | StateKind::Final => Point::new(18.0, 18.0),
+        StateKind::EntryPoint | StateKind::ExitPoint => Point::new(16.0, 16.0),
         StateKind::History | StateKind::DeepHistory => Point::new(24.0, 24.0),
         StateKind::Choice => Point::new(32.0, 32.0),
         StateKind::Fork | StateKind::Join => Point::new(70.0, 10.0),
@@ -131,11 +256,12 @@ fn node_geom(n: &StateNode) -> NodeGeom {
     NodeGeom { size }
 }
 
-/// Estimate the rendered width (pt) of a transition's `event [guard] /
-/// action` label, or `None` when the transition carries no label. Used to
-/// reserve room for an interior back-edge's bow label inside its composite
-/// frame. The painter renders the label at the 0.78em `_label-size`.
-fn back_edge_label_width(tr: &Transition) -> Option<f64> {
+/// Estimate the rendered `(width, height)` (pt) of a transition's
+/// `event [guard] / action` label, or `None` when it carries no label.
+/// The painter renders the label at the 0.78em `_label-size` and splits
+/// each part on a literal `\n`. Used both to reserve interior back-edge
+/// bow room and to keep straight-edge labels inside the canvas.
+fn edge_label_size(tr: &Transition) -> Option<(f64, f64)> {
     let mut parts: Vec<String> = Vec::new();
     if let Some(e) = tr.event.as_deref().filter(|s| !s.is_empty()) {
         parts.push(e.to_string());
@@ -149,7 +275,13 @@ fn back_edge_label_width(tr: &Transition) -> Option<f64> {
     if parts.is_empty() {
         return None;
     }
-    Some(parts.join(" ").chars().count() as f64 * 4.8)
+    let joined = parts.join(" ");
+    // `_with-breaks` turns a literal `\n` into a line break.
+    let lines: Vec<&str> = joined.split("\\n").collect();
+    let cols = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+    let w = cols as f64 * 4.8;
+    let h = lines.len() as f64 * 11.0;
+    Some((w, h))
 }
 
 /// Heuristic bounding box for an anchored note's yellow sticky.
@@ -682,9 +814,9 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
                 if !is_back {
                     continue;
                 }
-                let need = match back_edge_label_width(&diag.transitions[ti]) {
+                let need = match edge_label_size(&diag.transitions[ti]) {
                     // bow apex (`bow + 3pt`) + label width + margin.
-                    Some(w) => 33.0 + w + 6.0,
+                    Some((w, _)) => 33.0 + w + 6.0,
                     // just the C-bow line (curve apex ~22.5pt past the node).
                     None => 25.0,
                 };
@@ -712,7 +844,8 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
             }
         }
 
-        let label_w = diag.nodes[c].display.chars().count() as f64 * CHAR_W_PT + 16.0;
+        // Floor the frame width to the label box (measured when available).
+        let label_w = base_geoms[c].size.x;
         let outer_w = (interior_w + 2.0 * COMPOSITE_PAD_PT).max(label_w + 2.0 * COMPOSITE_PAD_PT);
         let outer_h = interior_h + 2.0 * COMPOSITE_PAD_PT + COMPOSITE_LABEL_BAND_PT;
         eff_geom[c] = Point::new(outer_w, outer_h);
@@ -771,6 +904,34 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
         }
     }
 
+    // Snap entry / exit points onto their composite's border, just outside
+    // the frame — entry on the rank-start edge (top in TB, left in LR),
+    // exit on the rank-end edge — keeping the laid-out perpendicular
+    // coordinate. Sitting outside (rather than straddling) keeps the glyph
+    // clear of the composite's label band.
+    for &c in &composites_pre {
+        for &child in &children_of[c] {
+            let g = eff_geom[child];
+            match diag.nodes[child].kind {
+                StateKind::EntryPoint => {
+                    if is_lr {
+                        top_lefts[child].x = top_lefts[c].x - g.x;
+                    } else {
+                        top_lefts[child].y = top_lefts[c].y - g.y;
+                    }
+                }
+                StateKind::ExitPoint => {
+                    if is_lr {
+                        top_lefts[child].x = top_lefts[c].x + eff_geom[c].x;
+                    } else {
+                        top_lefts[child].y = top_lefts[c].y + eff_geom[c].y;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     Layout {
         top_lefts,
         eff_geom,
@@ -779,7 +940,12 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
     }
 }
 
-pub fn emit(out: &mut String, diag: &StateDiagram) {
+pub fn emit(
+    out: &mut String,
+    diag: &StateDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
     let _ = &diag.skinparams; // S4: skinparam state* → preamble
 
     if diag.nodes.is_empty() {
@@ -787,7 +953,11 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
         return;
     }
 
-    let geoms: Vec<NodeGeom> = diag.nodes.iter().map(node_geom).collect();
+    let geoms: Vec<NodeGeom> = diag
+        .nodes
+        .iter()
+        .map(|n| resolve_node_geom(n, measurements, diagram_idx))
+        .collect();
 
     let orientation = match diag.direction {
         LayoutDirection::TopToBottom => Orientation::TopToBottom,
@@ -994,11 +1164,14 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
     };
 
     let mut note_boxes: Vec<NoteBox> = Vec::new();
-    for note in &diag.notes {
+    // Stacking cursor for unconnected floating notes (placed in a left
+    // column; content re-normalization shifts the column to the margin).
+    let mut float_cursor_y = MARGIN_PT;
+    for (note_idx, note) in diag.notes.iter().enumerate() {
         match &note.anchor {
             NoteAnchor::OfNode { node_id, side } => {
                 let Some(ai) = id_to_idx(node_id) else { continue };
-                let sz = note_geom(&note.body);
+                let sz = resolve_note_size(note_idx, &note.body, measurements, diagram_idx);
                 let ap = top_lefts[ai];
                 let ag = eff_geom[ai];
                 let cy = ap.y + ag.y / 2.0 - sz.y / 2.0;
@@ -1031,7 +1204,7 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
                 let (sc, dc) = (center(si), center(di));
                 let mx = (sc.x + dc.x) / 2.0;
                 let my = (sc.y + dc.y) / 2.0;
-                let sz = note_geom(&note.body);
+                let sz = resolve_note_size(note_idx, &note.body, measurements, diagram_idx);
                 let cy = my - sz.y / 2.0;
                 // Sticky sits to the right of the link midpoint; its dashed
                 // connector exits the left edge back toward the midpoint.
@@ -1049,21 +1222,94 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
                     ah: 0.0,
                 });
             }
-            NoteAnchor::Floating { .. } => continue,
+            NoteAnchor::Floating { links, .. } => {
+                let sz = resolve_note_size(note_idx, &note.body, measurements, diagram_idx);
+                match links.iter().find_map(|id| id_to_idx(id)) {
+                    // Connected: place like a right-of note next to the
+                    // first linked state, with a dashed connector.
+                    Some(ai) => {
+                        let ap = top_lefts[ai];
+                        let ag = eff_geom[ai];
+                        let cy = ap.y + ag.y / 2.0 - sz.y / 2.0;
+                        let nx =
+                            clear_note_x(ap.x + ag.x + NOTE_GAP_PT, cy, sz.x, sz.y, "right");
+                        note_boxes.push(NoteBox {
+                            x: nx,
+                            y: cy,
+                            w: sz.x,
+                            h: sz.y,
+                            body: note.body.clone(),
+                            side: "right",
+                            ax: ap.x,
+                            ay: ap.y,
+                            aw: ag.x,
+                            ah: ag.y,
+                        });
+                    }
+                    // Unconnected: stack in a left column, no connector.
+                    None => {
+                        let y = float_cursor_y;
+                        float_cursor_y += sz.y + 10.0;
+                        note_boxes.push(NoteBox {
+                            x: -sz.x - NOTE_GAP_PT,
+                            y,
+                            w: sz.x,
+                            h: sz.y,
+                            body: note.body.clone(),
+                            side: "none",
+                            ax: 0.0,
+                            ay: 0.0,
+                            aw: 0.0,
+                            ah: 0.0,
+                        });
+                    }
+                }
+            }
         }
     }
 
-    // A left-of note (or a `"min"` bow on a left-edge node) may have pushed
-    // content past x = 0 / y = 0. Re-normalize everything together.
+    // Estimate straight-edge label boxes (the painter offsets each label
+    // perpendicular to its edge) so a label on a left-column edge isn't
+    // clipped off the canvas. Self-loop / back-edge labels live inside the
+    // reserved bow bands and are already covered by `reserve_*`.
+    let mut label_boxes: Vec<(f64, f64, f64, f64)> = Vec::new();
+    for (ti, tr) in diag.transitions.iter().enumerate() {
+        if tr.from == tr.to || back[ti] {
+            continue;
+        }
+        let (Some(s), Some(d)) = (id_to_idx(&tr.from), id_to_idx(&tr.to)) else {
+            continue;
+        };
+        let Some((w, h)) = edge_label_size(tr) else {
+            continue;
+        };
+        let (sc, dc) = (center(s), center(d));
+        let (mx, my) = ((sc.x + dc.x) / 2.0, (sc.y + dc.y) / 2.0);
+        let (dx, dy) = (dc.x - sc.x, dc.y - sc.y);
+        let len = (dx * dx + dy * dy).sqrt();
+        let (nx, ny) = if len > 1e-6 {
+            (-dy / len, dx / len)
+        } else {
+            (0.0, -1.0)
+        };
+        let off = nx.abs() * w / 2.0 + ny.abs() * h / 2.0 + 4.0;
+        let (lcx, lcy) = (mx + nx * off, my + ny * off);
+        label_boxes.push((lcx - w / 2.0, lcy - h / 2.0, w, h));
+    }
+
+    // A left-of note (or a `"min"` bow on a left-edge node, or a left-side
+    // edge label) may have pushed content past x = 0 / y = 0. Re-normalize.
     let content_min_x = top_lefts
         .iter()
         .map(|p| p.x)
         .chain(note_boxes.iter().flat_map(|n| [n.x, n.ax]))
+        .chain(label_boxes.iter().map(|l| l.0))
         .fold(f64::INFINITY, f64::min);
     let content_min_y = top_lefts
         .iter()
         .map(|p| p.y)
         .chain(note_boxes.iter().flat_map(|n| [n.y, n.ay]))
+        .chain(label_boxes.iter().map(|l| l.1))
         .fold(f64::INFINITY, f64::min);
     let shift_x = (MARGIN_PT - content_min_x).max(0.0);
     let shift_y = (MARGIN_PT - content_min_y).max(0.0);
@@ -1077,18 +1323,24 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
         nb.ax += shift_x;
         nb.ay += shift_y;
     }
+    for lb in &mut label_boxes {
+        lb.0 += shift_x;
+        lb.1 += shift_y;
+    }
 
     let max_x = top_lefts
         .iter()
         .zip(&eff_geom)
         .map(|(p, g)| p.x + g.x)
         .chain(note_boxes.iter().flat_map(|n| [n.x + n.w, n.ax + n.aw]))
+        .chain(label_boxes.iter().map(|l| l.0 + l.2))
         .fold(0.0_f64, f64::max);
     let max_y = top_lefts
         .iter()
         .zip(&eff_geom)
         .map(|(p, g)| p.y + g.y)
         .chain(note_boxes.iter().flat_map(|n| [n.y + n.h, n.ay + n.ah]))
+        .chain(label_boxes.iter().map(|l| l.1 + l.3))
         .fold(0.0_f64, f64::max);
     let (page_w, page_h) = if is_lr {
         (max_x + MARGIN_PT, max_y + reserve_hi + MARGIN_PT)

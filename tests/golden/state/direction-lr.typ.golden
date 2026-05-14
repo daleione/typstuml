@@ -5,11 +5,11 @@
 #state-layout(
   nodes: (
     (id: "__initial__", kind: "initial", x: 30.00pt, y: 159.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Idle", kind: "simple", x: 76.00pt, y: 152.00pt, w: 56.00pt, h: 32.00pt, display: "Idle", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Loading", kind: "simple", x: 160.00pt, y: 152.00pt, w: 65.40pt, h: 32.00pt, display: "Loading", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Ready", kind: "simple", x: 253.40pt, y: 126.00pt, w: 56.00pt, h: 32.00pt, display: "Ready", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Error", kind: "simple", x: 253.40pt, y: 178.00pt, w: 56.00pt, h: 32.00pt, display: "Error", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__final__", kind: "final", x: 337.40pt, y: 133.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Idle", kind: "simple", x: 76.00pt, y: 152.00pt, w: 37.14pt, h: 32.00pt, display: "Idle", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Loading", kind: "simple", x: 141.14pt, y: 152.00pt, w: 55.08pt, h: 32.00pt, display: "Loading", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Ready", kind: "simple", x: 224.22pt, y: 126.00pt, w: 47.12pt, h: 32.00pt, display: "Ready", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Error", kind: "simple", x: 224.22pt, y: 178.00pt, w: 43.69pt, h: 32.00pt, display: "Error", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 299.34pt, y: 133.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "__initial__", to: "Idle", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
@@ -22,7 +22,7 @@
   ),
   notes: (
   ),
-  page: (385.40pt, 336.00pt),
+  page: (347.34pt, 336.00pt),
   title: none,
   hide-empty-description: false,
   direction: "lr",

@@ -4,11 +4,11 @@
 
 #state-layout(
   nodes: (
-    (id: "c", kind: "choice", x: 99.05pt, y: 94.00pt, w: 32.00pt, h: 32.00pt, display: "c", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__initial__", kind: "initial", x: 106.50pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Approved", kind: "simple", x: 30.00pt, y: 172.00pt, w: 71.60pt, h: 32.00pt, display: "Approved", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Rejected", kind: "simple", x: 127.60pt, y: 172.00pt, w: 71.60pt, h: 32.00pt, display: "Rejected", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__final__", kind: "final", x: 104.65pt, y: 250.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "c", kind: "choice", x: 96.03pt, y: 76.00pt, w: 32.00pt, h: 32.00pt, display: "c", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__", kind: "initial", x: 103.44pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Approved", kind: "simple", x: 30.00pt, y: 136.00pt, w: 71.60pt, h: 32.00pt, display: "Approved", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Rejected", kind: "simple", x: 121.60pt, y: 136.00pt, w: 71.60pt, h: 32.00pt, display: "Rejected", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 101.71pt, y: 196.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "__initial__", to: "c", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
@@ -19,7 +19,7 @@
   ),
   notes: (
   ),
-  page: (229.20pt, 298.00pt),
+  page: (223.20pt, 244.00pt),
   title: none,
   hide-empty-description: false,
   direction: "tb",

@@ -39,19 +39,21 @@ const CHAR_W_PT: f64 = 6.2;
 /// Heuristic glyph advance for `entry/exit/do` body rows (0.82em).
 const BODY_CHAR_W_PT: f64 = 5.1;
 /// Horizontal gap between adjacent members of a horizontal-linked component.
-const COMP_GAP_PT: f64 = 36.0;
+const COMP_GAP_PT: f64 = 26.0;
 /// Padding between a composite state's frame and its interior content.
 const COMPOSITE_PAD_PT: f64 = 16.0;
 /// Height of the label band at the top of a composite state's frame.
 const COMPOSITE_LABEL_BAND_PT: f64 = 22.0;
 /// Extra width baked into every layout box. The Sugiyama placer's built-in
-/// sibling gap (~6pt) is too tight once nodes carry edges with labels;
-/// inflating each box and deflating the resulting top-lefts (cuca's trick)
-/// buys breathing room without touching the shared placer constants.
-const LAYOUT_PAD_X_PT: f64 = 20.0;
-/// Extra height baked into every layout box — widens the rank gap so an
-/// edge label plus its arrowhead fit between two stacked nodes.
-const LAYOUT_PAD_Y_PT: f64 = 34.0;
+/// sibling gap (~6pt) is too tight once nodes sit side by side; inflating
+/// each box and deflating the resulting top-lefts (cuca's trick) buys
+/// breathing room without touching the shared placer constants.
+const LAYOUT_PAD_X_PT: f64 = 14.0;
+/// Extra height baked into every layout box — widens the rank gap. Edge
+/// labels are drawn *beside* the edge (perpendicular nudge), not between
+/// the stacked nodes, so this only has to clear the arrowhead plus a
+/// little breathing room.
+const LAYOUT_PAD_Y_PT: f64 = 16.0;
 /// Right-side canvas space reserved for a self-loop arc + its label.
 const SELF_LOOP_RESERVE_PT: f64 = 64.0;
 /// Right-side canvas space reserved for a back-edge side-bow + its label.
@@ -497,9 +499,15 @@ fn layout_flat(
 /// `region_origins[i]` is where region `i`'s content starts within the
 /// interior block; the divider segments are in that same interior-content
 /// space. A single-region composite produces no dividers.
+///
+/// Each region is stacked along one axis (Y for `--`, X for `||`) and
+/// positioned on the free axis by this rule: **start-align when the free
+/// axis is the diagram's rank axis** (so parallel regions begin together),
+/// **center when it is the perpendicular axis** (so the flows line up).
 fn stack_regions(
     region_fls: &[FlatLayout],
     orient: RegionOrient,
+    is_lr: bool,
 ) -> (f64, f64, Vec<Point>, Vec<(Point, Point)>) {
     if region_fls.len() <= 1 {
         let bb = region_fls.first().map(|fl| fl.bbox).unwrap_or(Point::zero());
@@ -509,12 +517,14 @@ fn stack_regions(
     let mut segs = Vec::new();
     match orient {
         RegionOrient::Horizontal => {
-            // `--`: regions stacked top-to-bottom, each centered on the
-            // perpendicular (x) axis; the divider is a horizontal line.
+            // `--`: regions stacked top-to-bottom; free axis is x. x is the
+            // rank axis only in an LR diagram → start-align there, center
+            // in TB so the vertical chains line up.
             let max_w = region_fls.iter().map(|fl| fl.bbox.x).fold(0.0_f64, f64::max);
             let mut cursor = 0.0_f64;
             for (ri, fl) in region_fls.iter().enumerate() {
-                origins.push(Point::new((max_w - fl.bbox.x) / 2.0, cursor));
+                let x = if is_lr { 0.0 } else { (max_w - fl.bbox.x) / 2.0 };
+                origins.push(Point::new(x, cursor));
                 cursor += fl.bbox.y;
                 if ri + 1 < region_fls.len() {
                     let dy = cursor + REGION_GAP_PT / 2.0;
@@ -525,12 +535,14 @@ fn stack_regions(
             (max_w, cursor, origins, segs)
         }
         RegionOrient::Vertical => {
-            // `||`: regions side by side, each centered on the perpendicular
-            // (y) axis; the divider is a vertical line.
+            // `||`: regions side by side; free axis is y. y is the rank
+            // axis only in a TB diagram → start-align there so parallel
+            // regions begin at the same height, center in LR.
             let max_h = region_fls.iter().map(|fl| fl.bbox.y).fold(0.0_f64, f64::max);
             let mut cursor = 0.0_f64;
             for (ri, fl) in region_fls.iter().enumerate() {
-                origins.push(Point::new(cursor, (max_h - fl.bbox.y) / 2.0));
+                let y = if is_lr { (max_h - fl.bbox.y) / 2.0 } else { 0.0 };
+                origins.push(Point::new(cursor, y));
                 cursor += fl.bbox.x;
                 if ri + 1 < region_fls.len() {
                     let dx = cursor + REGION_GAP_PT / 2.0;
@@ -658,7 +670,7 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
         // Stack the regions and place each region's nodes into the
         // composite's interior map.
         let (mut interior_w, mut interior_h, region_origin, seg) =
-            stack_regions(&region_fls, orient);
+            stack_regions(&region_fls, orient, is_lr);
         // Reserve perpendicular-axis room for any interior back-edge's C-bow
         // plus its label so the painter draws it inside the composite frame.
         // The reserve is symmetric (added on both perpendicular sides) so
@@ -902,8 +914,8 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
 
     // Place notes. A `note … of` sticky sits left / right of its anchor
     // state; a `note on link` sticky sits next to the transition midpoint.
-    // (Simple adjacent placement — it can overlap a neighbouring state in
-    // a dense diagram; real layout integration is later work.)
+    // The natural position is then pushed further out until it clears
+    // every obstacle (see `clear_note_x`).
     struct NoteBox {
         x: f64,
         y: f64,
@@ -925,6 +937,62 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
             top_lefts[i].y + eff_geom[i].y / 2.0,
         )
     };
+
+    // Obstacles a note must clear: every node bbox plus — in TB, where
+    // notes and bows share the x axis — the bands occupied by back-edge
+    // bows and self-loop arcs. (In LR those bows curl on the y axis, clear
+    // of an x-moving note, so only node bboxes matter.)
+    let mut obstacles: Vec<(f64, f64, f64, f64)> = (0..diag.nodes.len())
+        .map(|i| (top_lefts[i].x, top_lefts[i].y, eff_geom[i].x, eff_geom[i].y))
+        .collect();
+    if !is_lr {
+        for (ti, tr) in diag.transitions.iter().enumerate() {
+            let (Some(s), Some(d)) = (id_to_idx(&tr.from), id_to_idx(&tr.to)) else {
+                continue;
+            };
+            let (sp, sg, dp, dg) = (top_lefts[s], eff_geom[s], top_lefts[d], eff_geom[d]);
+            if tr.from == tr.to {
+                // Self-loop arc bulges right of the node.
+                obstacles.push((sp.x + sg.x, sp.y, 32.0, sg.y));
+            } else if back[ti] {
+                let y0 = sp.y.min(dp.y);
+                let y1 = (sp.y + sg.y).max(dp.y + dg.y);
+                if bow_side[ti] == "min" {
+                    let x = sp.x.min(dp.x);
+                    obstacles.push((x - 36.0, y0, 36.0, y1 - y0));
+                } else {
+                    let x = (sp.x + sg.x).max(dp.x + dg.x);
+                    obstacles.push((x, y0, 36.0, y1 - y0));
+                }
+            }
+        }
+    }
+    // Slide a note box along x (away from its anchor) until it overlaps no
+    // obstacle. `side` is the direction it may travel.
+    let clear_note_x = |mut nx: f64, ny: f64, w: f64, h: f64, side: &str| -> f64 {
+        let (y0, y1) = (ny, ny + h);
+        for _ in 0..=obstacles.len() {
+            let mut moved = false;
+            for &(ox, oy, ow, oh) in &obstacles {
+                if oy + oh <= y0 || oy >= y1 {
+                    continue; // no vertical overlap
+                }
+                if ox < nx + w && ox + ow > nx {
+                    if side == "right" {
+                        nx = ox + ow + NOTE_GAP_PT;
+                    } else {
+                        nx = ox - NOTE_GAP_PT - w;
+                    }
+                    moved = true;
+                }
+            }
+            if !moved {
+                break;
+            }
+        }
+        nx
+    };
+
     let mut note_boxes: Vec<NoteBox> = Vec::new();
     for note in &diag.notes {
         match &note.anchor {
@@ -934,11 +1002,12 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
                 let ap = top_lefts[ai];
                 let ag = eff_geom[ai];
                 let cy = ap.y + ag.y / 2.0 - sz.y / 2.0;
-                let (nx, side_kw) = match side {
+                let (natural_nx, side_kw) = match side {
                     NotePosition::RightOf => (ap.x + ag.x + NOTE_GAP_PT, "right"),
                     // `left of` and the unused `over` both fall to the left.
                     _ => (ap.x - NOTE_GAP_PT - sz.x, "left"),
                 };
+                let nx = clear_note_x(natural_nx, cy, sz.x, sz.y, side_kw);
                 note_boxes.push(NoteBox {
                     x: nx,
                     y: cy,
@@ -963,11 +1032,13 @@ pub fn emit(out: &mut String, diag: &StateDiagram) {
                 let mx = (sc.x + dc.x) / 2.0;
                 let my = (sc.y + dc.y) / 2.0;
                 let sz = note_geom(&note.body);
+                let cy = my - sz.y / 2.0;
                 // Sticky sits to the right of the link midpoint; its dashed
                 // connector exits the left edge back toward the midpoint.
+                let nx = clear_note_x(mx + NOTE_GAP_PT, cy, sz.x, sz.y, "right");
                 note_boxes.push(NoteBox {
-                    x: mx + NOTE_GAP_PT,
-                    y: my - sz.y / 2.0,
+                    x: nx,
+                    y: cy,
                     w: sz.x,
                     h: sz.y,
                     body: note.body.clone(),

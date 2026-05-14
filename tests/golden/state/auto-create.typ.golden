@@ -4,11 +4,11 @@
 
 #state-layout(
   nodes: (
-    (id: "L", kind: "simple", x: 35.33pt, y: 30.00pt, w: 127.40pt, h: 32.00pt, display: "Long Display Name", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Compiling", kind: "simple", x: 60.51pt, y: 108.00pt, w: 77.80pt, h: 32.00pt, display: "Compiling", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Done", kind: "simple", x: 30.00pt, y: 186.00pt, w: 56.00pt, h: 32.00pt, display: "Done", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Failed", kind: "simple", x: 112.00pt, y: 186.00pt, w: 59.20pt, h: 32.00pt, display: "Failed", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__final__", kind: "final", x: 91.61pt, y: 264.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "L", kind: "simple", x: 32.39pt, y: 30.00pt, w: 127.40pt, h: 32.00pt, display: "Long Display Name", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Compiling", kind: "simple", x: 57.54pt, y: 90.00pt, w: 77.80pt, h: 32.00pt, display: "Compiling", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Done", kind: "simple", x: 30.00pt, y: 150.00pt, w: 56.00pt, h: 32.00pt, display: "Done", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Failed", kind: "simple", x: 106.00pt, y: 150.00pt, w: 59.20pt, h: 32.00pt, display: "Failed", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 88.55pt, y: 210.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "L", to: "Compiling", event: "build", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
@@ -20,7 +20,7 @@
   ),
   notes: (
   ),
-  page: (265.20pt, 312.00pt),
+  page: (259.20pt, 258.00pt),
   title: none,
   hide-empty-description: false,
   direction: "tb",

@@ -1,0 +1,13 @@
+@startuml
+[*] --> Draft
+Draft --> Review : submit
+Review --> Published : approve
+Review --> Draft : reject
+Published --> [*]
+note right of Draft : author is\nstill editing
+note left of Review : needs two\nreviewers
+note right of Published
+Visible to
+all users.
+end note
+@enduml

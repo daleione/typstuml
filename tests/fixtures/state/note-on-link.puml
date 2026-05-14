@@ -1,0 +1,7 @@
+@startuml
+[*] --> Idle
+Idle --> Running : start
+note on link : begins the job
+Running --> Done : finish
+Done --> [*]
+@enduml

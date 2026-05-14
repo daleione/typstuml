@@ -26,6 +26,7 @@ pub mod lexer;
 pub mod mindmap;
 pub mod preprocessor;
 pub mod sequence;
+pub mod state;
 pub mod wbs;
 pub mod yaml;
 
@@ -92,10 +93,15 @@ pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseO
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }
+            dispatcher::DiagramKind::State => {
+                let (diagram, mut diags) = state::parse(block, compat)?;
+                diagrams.push(diagram);
+                diagnostics.append(&mut diags);
+            }
             other => {
                 let detail = format!(
                     "diagram type {other:?} is not yet supported; \
-                     Sequence, JSON, YAML, WBS, mind-map, cuca, and activity diagrams render today"
+                     Sequence, JSON, YAML, WBS, mind-map, cuca, activity, and state diagrams render today"
                 );
                 if compat == CompatMode::Strict {
                     return Err(Error::Unsupported {

@@ -1,0 +1,9 @@
+@startuml
+state "Long Display Name" as L
+L --> Compiling : build
+Compiling --> Compiling : retry
+Compiling --> Done
+Compiling --> Failed
+Done --> [*]
+Failed --> [*]
+@enduml

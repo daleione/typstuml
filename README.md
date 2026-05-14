@@ -111,7 +111,7 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | Component                     |   ⏳   | Components, interfaces, ports                                                           |
 | Deployment                    |   ⏳   | Nodes, artifacts, devices                                                               |
 | Use case                      |   ✅   | Actors + ellipses inside a system boundary                                              |
-| State                         |   ⏳   | UML state machines with transitions — planned via `blockcell.state-chain`               |
+| State                         |   ✅   | UML state machines                                                                      |
 | Activity (`activitydiagram3`) |   ✅   | Structured flow: `if`/`while`/`repeat`/`fork`/`switch`, partitions, notes, swimlanes, 4 SDL shapes |
 | Timing                        |   ⏳   | Concurrent lifelines + state transitions over time                                      |
 | Gantt (`@startgantt`)         |   ⏳   | Project schedules with date axis                                                        |

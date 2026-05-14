@@ -1,0 +1,9 @@
+@startuml
+title Simple traffic light
+state Red
+state Green
+state Yellow
+Red --> Green
+Green --> Yellow
+Yellow --> Red
+@enduml

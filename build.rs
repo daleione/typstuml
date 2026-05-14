@@ -47,6 +47,15 @@
 //! `atoms.typ`, transitively pulling in `containers.typ` and
 //! `internal/stroke.typ`.
 //!
+//! State diagrams add:
+//!
+//! ```text
+//!   #state-layout(...)   — UML state machines
+//!                          (vendor/blockcell/src/states.typ)
+//! ```
+//!
+//! `states.typ` only depends on `palettes.typ`.
+//!
 //! `vendor/blockcell` itself is a git submodule and stays unchanged —
 //! the slimming happens only inside `$OUT_DIR/blockcell`.
 
@@ -65,6 +74,7 @@ const STAGED_SRC_FILES: &[&str] = &[
     "cuca/shape-card.typ",
     "cuca/shape-desc.typ",
     "cuca/edges.typ",
+    "states.typ",
     "atoms.typ",
     "composites.typ",
     "containers.typ",
@@ -85,6 +95,7 @@ const STAGED_LIB_TYP: &str = "\
 #import \"src/seq-puml.typ\": seq-puml
 #import \"src/tree.typ\": tree, node, mindmap
 #import \"src/cuca.typ\": cuca-layout, cuca-probe, container-probe
+#import \"src/states.typ\": state-layout
 #import \"src/atoms.typ\": process, decision, terminal, junction, edge, flow-node
 #import \"src/composites.typ\": flow-col, section
 #import \"src/flows.typ\": branch, branch-merge, switch, case, n-way, fork-bar, flow-loop, start-marker, stop-marker, end-marker, detach-marker, partition, flow-note, with-notes, swimlane, lane

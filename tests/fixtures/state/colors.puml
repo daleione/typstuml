@@ -1,0 +1,14 @@
+@startuml
+state Pending #LightYellow
+state Active #LightGreen
+state Blocked ##[dashed]red
+state Cancelled ##[bold]#888888
+[*] --> Pending
+Pending --> Active : approve
+Active --> Blocked : hold
+Blocked --> Active : release
+Active --> Cancelled : abort
+Active -[#blue]-> Done : finish
+Cancelled --> [*]
+Done --> [*]
+@enduml

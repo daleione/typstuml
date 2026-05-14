@@ -1,0 +1,12 @@
+@startuml
+[*] --> Processing
+state Processing {
+  state Reading
+  Reading --> Parsing
+  Parsing --> Done
+  ||
+  state Logging
+  Logging --> Flushed
+}
+Processing --> [*]
+@enduml

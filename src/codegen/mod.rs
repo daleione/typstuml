@@ -11,6 +11,7 @@ mod json;
 mod mindmap;
 mod record_graph;
 mod sequence;
+mod state;
 mod tree_emit;
 mod wbs;
 mod yaml;
@@ -45,6 +46,7 @@ pub fn emit(
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
             Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
             Diagram::Activity(a) => activity::emit(&mut out, a),
+            Diagram::State(s) => state::emit(&mut out, s),
         }
     }
 

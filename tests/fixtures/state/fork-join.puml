@@ -1,0 +1,10 @@
+@startuml
+state f <<fork>>
+state j <<join>>
+[*] --> f
+f --> Worker1
+f --> Worker2
+Worker1 --> j
+Worker2 --> j
+j --> [*]
+@enduml

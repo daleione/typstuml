@@ -1,0 +1,34 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#state-layout(
+  nodes: (
+    (id: "__initial__", kind: "initial", x: 82.10pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Active", kind: "composite", x: 30.00pt, y: 94.00pt, w: 122.20pt, h: 428.00pt, display: "Active", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__Active", kind: "initial", x: 82.10pt, y: 132.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "NumLockOff", kind: "simple", x: 49.10pt, y: 196.00pt, w: 84.00pt, h: 32.00pt, display: "NumLockOff", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "NumLockOn", kind: "simple", x: 52.20pt, y: 274.00pt, w: 77.80pt, h: 32.00pt, display: "NumLockOn", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__Active#1", kind: "initial", x: 82.10pt, y: 332.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "CapsLockOff", kind: "simple", x: 46.00pt, y: 396.00pt, w: 90.20pt, h: 32.00pt, display: "CapsLockOff", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "CapsLockOn", kind: "simple", x: 49.10pt, y: 474.00pt, w: 84.00pt, h: 32.00pt, display: "CapsLockOn", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 82.10pt, y: 568.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+  ),
+  transitions: (
+    (from: "__initial__", to: "Active", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "__initial__Active", to: "NumLockOff", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "NumLockOff", to: "NumLockOn", event: "press", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "__initial__Active#1", to: "CapsLockOff", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "CapsLockOff", to: "CapsLockOn", event: "press", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Active", to: "__final__", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+  ),
+  notes: (
+  ),
+  regions: (
+    (parent: "Active", orientation: "horizontal", dividers: ((x0: 46.00pt, y0: 319.00pt, x1: 136.20pt, y1: 319.00pt), )),
+  ),
+  page: (182.20pt, 616.00pt),
+  title: none,
+  hide-empty-description: false,
+  direction: "tb",
+)

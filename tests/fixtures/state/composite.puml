@@ -1,0 +1,11 @@
+@startuml
+[*] --> Active
+state Active {
+  [*] --> Idle
+  Idle --> Working : task
+  Working --> Idle : done
+  Working --> [*]
+}
+Active --> Done : finish
+Done --> [*]
+@enduml

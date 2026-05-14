@@ -1,0 +1,8 @@
+@startuml
+[*] --> Splitting
+Splitting --> ==S1==
+==S1== --> Working
+==S1== --> Logging
+Working --> [*]
+Logging --> [*]
+@enduml

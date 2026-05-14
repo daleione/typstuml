@@ -1,0 +1,14 @@
+@startuml
+[*] --> Outer
+state Outer {
+  [*] --> Mid
+  state Mid {
+    [*] --> Leaf
+    Leaf --> Leaf2 : step
+    Leaf2 --> [*]
+  }
+  Mid --> Sibling : escalate
+  Sibling --> [*]
+}
+Outer --> [*]
+@enduml

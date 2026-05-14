@@ -1,0 +1,13 @@
+@startuml
+title Order lifecycle
+state Open
+state Paid
+state Shipped
+Open : entry / reserve stock
+Open : exit / release hold
+[*] --> Open
+Open --> Paid : pay [funds ok] / capture()
+Paid --> Shipped : dispatch / notify()
+Paid --> Open : refund
+Shipped --> [*]
+@enduml

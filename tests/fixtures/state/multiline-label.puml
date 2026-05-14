@@ -1,0 +1,6 @@
+@startuml
+[*] --> Connecting
+Connecting --> Online : connected\n/ start heartbeat
+Online --> Connecting : timeout\n[retries left]
+Online --> [*] : disconnect
+@enduml

@@ -1,0 +1,31 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#state-layout(
+  nodes: (
+    (id: "Pending", kind: "simple", x: 222.85pt, y: 94.00pt, w: 65.40pt, h: 32.00pt, display: "Pending", body: (), fill: rgb("#FFFFE0"), border-style: "solid", border-color: none),
+    (id: "Active", kind: "simple", x: 225.41pt, y: 172.00pt, w: 59.20pt, h: 32.00pt, display: "Active", body: (), fill: rgb("#90EE90"), border-style: "solid", border-color: none),
+    (id: "Blocked", kind: "simple", x: 126.00pt, y: 250.00pt, w: 65.40pt, h: 32.00pt, display: "Blocked", body: (), fill: none, border-style: "dashed", border-color: rgb("#FF0000")),
+    (id: "Cancelled", kind: "simple", x: 217.40pt, y: 250.00pt, w: 77.80pt, h: 32.00pt, display: "Cancelled", body: (), fill: none, border-style: "bold", border-color: rgb("#888888")),
+    (id: "__initial__", kind: "initial", x: 246.81pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Done", kind: "simple", x: 321.20pt, y: 250.00pt, w: 56.00pt, h: 32.00pt, display: "Done", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 292.80pt, y: 328.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+  ),
+  transitions: (
+    (from: "__initial__", to: "Pending", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Pending", to: "Active", event: "approve", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Active", to: "Blocked", event: "hold", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Blocked", to: "Active", event: "release", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "min"),
+    (from: "Active", to: "Cancelled", event: "abort", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Active", to: "Done", event: "finish", guard: none, action: none, style: "solid", color: rgb("#0000FF"), self-loop: false, back: false, bow-side: "max"),
+    (from: "Cancelled", to: "__final__", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Done", to: "__final__", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+  ),
+  notes: (
+  ),
+  page: (407.20pt, 376.00pt),
+  title: none,
+  hide-empty-description: false,
+  direction: "tb",
+)

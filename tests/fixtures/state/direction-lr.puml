@@ -1,0 +1,10 @@
+@startuml
+left to right direction
+[*] --> Idle
+Idle --> Loading : open
+Loading --> Ready : done
+Loading --> Error : fail
+Ready --> Idle : close
+Error --> Idle : retry
+Ready --> [*]
+@enduml

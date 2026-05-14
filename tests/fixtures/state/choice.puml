@@ -1,0 +1,8 @@
+@startuml
+state c <<choice>>
+[*] --> c
+c --> Approved : [score >= 60]
+c --> Rejected : [score < 60]
+Approved --> [*]
+Rejected --> [*]
+@enduml

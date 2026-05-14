@@ -232,7 +232,7 @@ fn resolve_note_size(
 fn node_geom(n: &StateNode) -> NodeGeom {
     let size = match n.kind {
         StateKind::Initial | StateKind::Final => Point::new(18.0, 18.0),
-        StateKind::EntryPoint | StateKind::ExitPoint => Point::new(16.0, 16.0),
+        StateKind::EntryPoint | StateKind::ExitPoint => Point::new(12.0, 12.0),
         StateKind::History | StateKind::DeepHistory => Point::new(24.0, 24.0),
         StateKind::Choice => Point::new(32.0, 32.0),
         StateKind::Fork | StateKind::Join => Point::new(70.0, 10.0),
@@ -904,27 +904,26 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
         }
     }
 
-    // Snap entry / exit points onto their composite's border, just outside
-    // the frame — entry on the rank-start edge (top in TB, left in LR),
-    // exit on the rank-end edge — keeping the laid-out perpendicular
-    // coordinate. Sitting outside (rather than straddling) keeps the glyph
-    // clear of the composite's label band.
+    // Snap entry / exit points so they straddle their composite's border
+    // (the glyph's centre sits on the border line) — entry on the
+    // rank-start edge (top in TB, left in LR), exit on the rank-end edge —
+    // keeping the laid-out perpendicular coordinate.
     for &c in &composites_pre {
         for &child in &children_of[c] {
             let g = eff_geom[child];
             match diag.nodes[child].kind {
                 StateKind::EntryPoint => {
                     if is_lr {
-                        top_lefts[child].x = top_lefts[c].x - g.x;
+                        top_lefts[child].x = top_lefts[c].x - g.x / 2.0;
                     } else {
-                        top_lefts[child].y = top_lefts[c].y - g.y;
+                        top_lefts[child].y = top_lefts[c].y - g.y / 2.0;
                     }
                 }
                 StateKind::ExitPoint => {
                     if is_lr {
-                        top_lefts[child].x = top_lefts[c].x + eff_geom[c].x;
+                        top_lefts[child].x = top_lefts[c].x + eff_geom[c].x - g.x / 2.0;
                     } else {
-                        top_lefts[child].y = top_lefts[c].y + eff_geom[c].y;
+                        top_lefts[child].y = top_lefts[c].y + eff_geom[c].y - g.y / 2.0;
                     }
                 }
                 _ => {}

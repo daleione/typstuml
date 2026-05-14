@@ -5,3 +5,7 @@
 /tmp
 /out
 docs/
+examples/*.pdf
+examples/*.png
+examples/*.svg
+/crates/typstuml-wasm/pkg

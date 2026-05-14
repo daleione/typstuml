@@ -21,6 +21,8 @@ use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt};
+
+#[cfg(not(target_arch = "wasm32"))]
 use typst_kit::fonts::{FontSearcher, FontSlot};
 
 /// Vendored `blockcell` sources, baked into the binary at compile time.
@@ -55,17 +57,29 @@ impl FileEntry {
     }
 }
 
-/// Process-wide font index, shared by every `TypstWorld`. Discovery (the
-/// `FontSearcher::search` scan) is the expensive part and only needs to run
-/// once per process. `FontSlot` is not `Clone`, so the `Vec<FontSlot>` itself
-/// must live behind a shared `Arc` — we can't hand each world its own copy.
+/// Process-wide font index, shared by every `TypstWorld`. Discovery is the
+/// expensive part and only needs to run once per process, so the cache lives
+/// behind a shared `Arc`.
+///
+/// On native targets the fonts come from `typst-kit`'s `FontSearcher` (system
+/// fonts plus the embedded defaults), held as lazily-loaded `FontSlot`s. On
+/// wasm32 there is no filesystem to search, so we eagerly decode Typst's
+/// embedded default fonts from `typst-assets` instead.
+#[cfg(not(target_arch = "wasm32"))]
 struct FontCache {
     book: LazyHash<FontBook>,
     fonts: Vec<FontSlot>,
 }
 
+#[cfg(target_arch = "wasm32")]
+struct FontCache {
+    book: LazyHash<FontBook>,
+    fonts: Vec<Font>,
+}
+
 static FONTS: OnceLock<Arc<FontCache>> = OnceLock::new();
 
+#[cfg(not(target_arch = "wasm32"))]
 fn shared_fonts() -> Arc<FontCache> {
     FONTS
         .get_or_init(|| {
@@ -78,12 +92,36 @@ fn shared_fonts() -> Arc<FontCache> {
         .clone()
 }
 
+#[cfg(target_arch = "wasm32")]
+fn shared_fonts() -> Arc<FontCache> {
+    FONTS
+        .get_or_init(|| {
+            let mut book = FontBook::new();
+            let mut fonts = Vec::new();
+            for data in typst_assets::fonts() {
+                let buffer = Bytes::new(data);
+                for font in Font::iter(buffer) {
+                    book.push(font.info().clone());
+                    fonts.push(font);
+                }
+            }
+            Arc::new(FontCache {
+                book: LazyHash::new(book),
+                fonts,
+            })
+        })
+        .clone()
+}
+
 pub struct TypstWorld {
     root: PathBuf,
     main: Source,
     library: LazyHash<Library>,
     fonts: Arc<FontCache>,
     files: Mutex<HashMap<FileId, FileEntry>>,
+    // wasm32 has no wall clock available to `time`; `today()` returns `None`
+    // there instead (no diagram type depends on the document date).
+    #[cfg(not(target_arch = "wasm32"))]
     time: time::OffsetDateTime,
 }
 
@@ -95,6 +133,7 @@ impl TypstWorld {
             library: LazyHash::new(Library::default()),
             fonts: shared_fonts(),
             files: Mutex::new(HashMap::new()),
+            #[cfg(not(target_arch = "wasm32"))]
             time: time::OffsetDateTime::now_utc(),
         }
     }
@@ -181,14 +220,26 @@ impl typst::World for TypstWorld {
         self.lookup(id).map(|f| f.bytes.clone())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn font(&self, id: usize) -> Option<Font> {
         self.fonts.fonts.get(id)?.get()
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn font(&self, id: usize) -> Option<Font> {
+        self.fonts.fonts.get(id).cloned()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let offset = offset.unwrap_or(0);
         let offset = time::UtcOffset::from_hms(offset.try_into().ok()?, 0, 0).ok()?;
         let time = self.time.checked_to_offset(offset)?;
         Some(Datetime::Date(time.date()))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
+        None
     }
 }

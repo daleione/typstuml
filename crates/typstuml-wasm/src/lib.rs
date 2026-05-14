@@ -1,0 +1,69 @@
+//! WebAssembly bindings for TypstUML.
+//!
+//! Exposes the filesystem-free render pipeline ([`typstuml::render`]) to
+//! JavaScript via `wasm-bindgen`. Callers pass PlantUML source text and get
+//! back an SVG string (or PNG / PDF bytes, or the intermediate Typst source).
+//!
+//! There is no filesystem behind a wasm build: `!include` directives won't
+//! resolve and user preambles aren't supported. Everything else — the
+//! parsers, the Sugiyama layout, the embedded `blockcell` Typst sources, the
+//! Typst compiler itself, and Typst's default fonts — is baked into the
+//! `.wasm` module, so rendering is fully self-contained and offline.
+
+use wasm_bindgen::prelude::*;
+
+use typstuml::render;
+use typstuml::runtime::Format;
+
+/// Forward Rust panics to `console.error` with a readable stack trace.
+///
+/// Runs automatically when the module is instantiated (`wasm-bindgen(start)`),
+/// so callers don't need to invoke it. Safe to call again by hand.
+#[wasm_bindgen(start)]
+pub fn init() {
+    console_error_panic_hook::set_once();
+}
+
+/// Render PlantUML `source` to an SVG document string.
+///
+/// This is the primary entry point for web use. Throws a JS `Error` carrying
+/// the diagnostic message on a parse or Typst-compile failure.
+#[wasm_bindgen(js_name = renderSvg)]
+pub fn render_svg(source: &str) -> Result<String, JsError> {
+    let rendered = render::render_source(source, Format::Svg).map_err(to_js)?;
+    String::from_utf8(rendered.bytes).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Render PlantUML `source` to PNG bytes.
+///
+/// Multi-diagram inputs only render the first diagram — use SVG or PDF for
+/// those. Returned as a `Uint8Array` on the JS side.
+#[wasm_bindgen(js_name = renderPng)]
+pub fn render_png(source: &str) -> Result<Vec<u8>, JsError> {
+    Ok(render::render_source(source, Format::Png)
+        .map_err(to_js)?
+        .bytes)
+}
+
+/// Render PlantUML `source` to a PDF document.
+///
+/// Returned as a `Uint8Array` on the JS side.
+#[wasm_bindgen(js_name = renderPdf)]
+pub fn render_pdf(source: &str) -> Result<Vec<u8>, JsError> {
+    Ok(render::render_source(source, Format::Pdf)
+        .map_err(to_js)?
+        .bytes)
+}
+
+/// Emit the generated Typst source for `source` without rendering it —
+/// handy for debugging what TypstUML's codegen produced.
+#[wasm_bindgen(js_name = emitTypst)]
+pub fn emit_typst(source: &str) -> Result<String, JsError> {
+    render::emit_typst(source).map_err(to_js)
+}
+
+/// Collapse a [`typstuml::diagnostics::Error`] into a JS `Error`. The
+/// `Display` impl already produces a human-readable, line-annotated message.
+fn to_js(err: typstuml::diagnostics::Error) -> JsError {
+    JsError::new(&err.to_string())
+}

@@ -1,0 +1,22 @@
+[package]
+name = "typstuml-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "WebAssembly bindings for TypstUML — render PlantUML diagrams in the browser"
+repository = "https://github.com/daleione/typstuml"
+publish = false
+
+[lib]
+# `cdylib` for the actual wasm artifact; `rlib` so the crate can still be
+# pulled in as a normal Rust dependency / unit-tested on the host.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+typstuml = { path = "../.." }
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+
+# The build is driven by ./build.sh (cargo + wasm-bindgen + wasm-opt directly),
+# not `wasm-pack build` — see the script header for why. Hence no
+# `[package.metadata.wasm-pack]` section.

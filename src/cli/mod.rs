@@ -26,7 +26,7 @@ use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
 
 use crate::diagnostics::{CompatMode, Error, Result};
 use crate::parser;
-use crate::runtime::{self, Format};
+use crate::runtime::{self, Format, DEFAULT_PNG_SCALE};
 use crate::theme::Theme;
 
 /// Top-level CLI definition.
@@ -663,14 +663,16 @@ impl ValueEnum for CompatMode {
 
 impl ValueEnum for Format {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Svg, Self::Pdf, Self::Png]
+        // CLI doesn't expose `--png-scale` yet, so the only PNG variant
+        // surfaced through clap is the default-scale one.
+        &[Self::Svg, Self::Pdf, Self::Png { scale: DEFAULT_PNG_SCALE }]
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         Some(match self {
             Self::Svg => PossibleValue::new("svg"),
             Self::Pdf => PossibleValue::new("pdf"),
-            Self::Png => PossibleValue::new("png"),
+            Self::Png { .. } => PossibleValue::new("png"),
         })
     }
 }

@@ -221,6 +221,25 @@
     background: rgba(0, 0, 0, 0.04);
   }
 
+  /* PNG scale picker — native <select> styled to fit the toolbar. Only
+     visible when PNG is the active format; the `[hidden]` attribute on the
+     element itself gives `display: none` for free. */
+  #toolbar #pngScale {
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(0, 0, 0, 0.04);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%236b7280' d='M0 0 L5 6 L10 0 Z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    border: 0;
+    border-radius: 7px;
+    padding: 5px 22px 5px 11px;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  #toolbar #pngScale:hover { background-color: rgba(0, 0, 0, 0.07); }
+
   /* Zoom controls — minus / percent / plus. */
   #toolbar .zoom {
     display: inline-flex;
@@ -348,6 +367,13 @@
         <button data-format="png">PNG</button>
         <button data-format="pdf">PDF</button>
       </div>
+      <!-- Scale picker is PNG-only — hidden when the active format is SVG/PDF. -->
+      <select id="pngScale" class="png-only" hidden title="PNG resolution">
+        <option value="1">1× — 72 DPI</option>
+        <option value="2" selected>2× — 144 DPI</option>
+        <option value="3">3× — 216 DPI</option>
+        <option value="4">4× — 288 DPI</option>
+      </select>
       <span class="divider"></span>
       <span class="popover-anchor">
         <button id="fontsBtn" title="Load additional fonts">Fonts</button>
@@ -501,6 +527,7 @@ const errorBox = document.getElementById("error");
 const statusEl = document.getElementById("status");
 const examplesEl = document.getElementById("examples");
 const formatGroup = document.querySelector(".format-group");
+const pngScaleEl = document.getElementById("pngScale");
 const downloadBtn = document.getElementById("download");
 const zoomOutBtn = document.getElementById("zoomOut");
 const zoomInBtn = document.getElementById("zoomIn");
@@ -510,6 +537,9 @@ const fontsPopover = document.getElementById("fontsPopover");
 
 let ready = false;
 let currentFormat = "svg";
+// pixels-per-pt for PNG output. 2 → ~144 DPI (retina). Only consulted
+// when currentFormat is "png"; SVG/PDF ignore it.
+let pngScale = Number(pngScaleEl.value);
 // Last successful render — `data` is a string for SVG, Uint8Array for PNG/PDF.
 let lastOutput = null;
 // Object-URL for the most recent <img>/<iframe>; revoked on each new render.
@@ -562,7 +592,7 @@ function render() {
     try {
       let data;
       if (format === "svg") data = renderSvg(source);
-      else if (format === "png") data = renderPng(source);
+      else if (format === "png") data = renderPng(source, pngScale);
       else if (format === "pdf") data = renderPdf(source);
       lastOutput = { format, data };
       showOutput(format, data);
@@ -588,13 +618,23 @@ function scheduleRender() {
 editor.addEventListener("input", scheduleRender);
 
 // Format toggle — segmented control. One button at a time gets `.active`.
+// PNG-only sub-controls (currently just the scale picker) appear or hide
+// based on the selected format.
 formatGroup.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-format]");
   if (!btn || btn.classList.contains("active")) return;
   formatGroup.querySelectorAll("button").forEach((b) =>
     b.classList.toggle("active", b === btn));
   currentFormat = btn.dataset.format;
+  pngScaleEl.hidden = currentFormat !== "png";
   render();
+});
+
+pngScaleEl.addEventListener("change", () => {
+  pngScale = Number(pngScaleEl.value);
+  // Only re-render if PNG is actually showing — otherwise the user is just
+  // pre-setting a value for later.
+  if (currentFormat === "png") render();
 });
 
 // Zoom: the rendered SVG/PNG is sized to `--zoom`% of the output pane's width,

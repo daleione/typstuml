@@ -34,13 +34,15 @@ pub fn render_svg(source: &str) -> Result<String, JsError> {
     String::from_utf8(rendered.bytes).map_err(|e| JsError::new(&e.to_string()))
 }
 
-/// Render PlantUML `source` to PNG bytes.
+/// Render PlantUML `source` to PNG bytes at the given `scale`.
 ///
+/// `scale` is pixels-per-typographic-point (1 pt = 1/72 inch), so 2.0 ≈ 144
+/// DPI, 4.0 ≈ 288 DPI. Values are clamped to `[0.5, 16.0]` on the Rust side.
 /// Multi-diagram inputs only render the first diagram — use SVG or PDF for
 /// those. Returned as a `Uint8Array` on the JS side.
 #[wasm_bindgen(js_name = renderPng)]
-pub fn render_png(source: &str) -> Result<Vec<u8>, JsError> {
-    Ok(render::render_source(source, Format::Png)
+pub fn render_png(source: &str, scale: f32) -> Result<Vec<u8>, JsError> {
+    Ok(render::render_source(source, Format::Png { scale })
         .map_err(to_js)?
         .bytes)
 }
@@ -72,6 +74,13 @@ pub fn emit_typst(source: &str) -> Result<String, JsError> {
 ///
 /// Accepts raw TTF / OTF / TTC bytes. WOFF / WOFF2 are not supported
 /// (Typst expects raw font tables; embed a decoder on the JS side first).
+///
+/// Cfg-gated to wasm32 because the underlying `typstuml::runtime::add_font`
+/// is wasm-only — native builds use `typst-kit`'s font searcher and don't
+/// need a runtime injection path. The crate is still buildable on the host
+/// (via the `rlib` crate-type) for unit tests; this export just isn't
+/// available there.
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = addFont)]
 pub fn add_font(data: &[u8]) -> Result<usize, JsError> {
     typstuml::runtime::add_font(data.to_vec()).map_err(|e| JsError::new(&e))

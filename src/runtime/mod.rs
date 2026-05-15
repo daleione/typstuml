@@ -30,12 +30,20 @@ pub use world::TypstWorld;
 #[cfg(target_arch = "wasm32")]
 pub use world::add_font;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Format {
     Svg,
     Pdf,
-    Png,
+    /// PNG raster output. `scale` is pixels per typographic point — the
+    /// argument typst's renderer takes directly. 2.0 (= 144 DPI) is the
+    /// sweet spot for retina screens and matches the historical default;
+    /// the playground exposes 1×/2×/3×/4× to the user.
+    Png { scale: f32 },
 }
+
+/// Default pixels-per-pt for PNG rendering: ~144 DPI. Path-based callers
+/// (the CLI today, when no `--png-scale` flag exists yet) infer this.
+pub const DEFAULT_PNG_SCALE: f32 = 2.0;
 
 impl Format {
     pub fn infer_from_path(path: &std::path::Path) -> Option<Self> {
@@ -47,7 +55,7 @@ impl Format {
         {
             Some("svg") => Some(Self::Svg),
             Some("pdf") => Some(Self::Pdf),
-            Some("png") => Some(Self::Png),
+            Some("png") => Some(Self::Png { scale: DEFAULT_PNG_SCALE }),
             _ => None,
         }
     }
@@ -80,13 +88,13 @@ pub fn render(typst_source: String, root: Option<PathBuf>, format: Format) -> Re
         Format::Svg => typst_svg::svg_merged(&document, typst::layout::Abs::pt(2.0)).into_bytes(),
         Format::Pdf => typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default())
             .map_err(|errors| Error::TypstCompile(format_typst_diagnostics(&world, &errors)))?,
-        Format::Png => render_png(&document)?,
+        Format::Png { scale } => render_png(&document, scale)?,
     };
 
     Ok(Rendered { bytes, warnings })
 }
 
-fn render_png(document: &typst::layout::PagedDocument) -> Result<Vec<u8>> {
+fn render_png(document: &typst::layout::PagedDocument, scale: f32) -> Result<Vec<u8>> {
     let pages = &document.pages;
     let first = pages
         .first()
@@ -98,7 +106,10 @@ fn render_png(document: &typst::layout::PagedDocument) -> Result<Vec<u8>> {
             pages.len()
         );
     }
-    let pixmap = typst_render::render(first, 2.0);
+    // Clamp to a sane range: <0.5 is illegible; >16 is multi-GB-pixmap
+    // territory and just wastes memory before typst-render OOMs.
+    let scale = scale.clamp(0.5, 16.0);
+    let pixmap = typst_render::render(first, scale);
     pixmap
         .encode_png()
         .map_err(|e| Error::TypstCompile(format!("PNG encode failed: {e}")))

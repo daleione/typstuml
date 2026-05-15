@@ -92,14 +92,29 @@ fn shared_fonts() -> Arc<FontCache> {
         .clone()
 }
 
+/// Fonts baked into the wasm artifact. The full `typst-assets` font set is
+/// 8.4 MB across 17 files (six Libertinus weights, four NCM, three NCM-Math,
+/// four DejaVu) — we only need a serif for body text and a mono for code, so
+/// we vendor the two regular faces directly under `fonts/`. NCM-Math (3.3 MB)
+/// in particular is irrelevant for UML diagrams.
+///
+/// See `src/runtime/fonts/NOTICE` for upstream licenses (OFL / Bitstream Vera).
+/// Typst falls back gracefully when an italic / bold weight is requested,
+/// rendering with the regular face — visually fine for diagram labels.
+#[cfg(target_arch = "wasm32")]
+const EMBEDDED_FONTS: &[&[u8]] = &[
+    include_bytes!("fonts/LibertinusSerif-Regular.otf"),
+    include_bytes!("fonts/DejaVuSansMono.ttf"),
+];
+
 #[cfg(target_arch = "wasm32")]
 fn shared_fonts() -> Arc<FontCache> {
     FONTS
         .get_or_init(|| {
             let mut book = FontBook::new();
             let mut fonts = Vec::new();
-            for data in typst_assets::fonts() {
-                let buffer = Bytes::new(data);
+            for data in EMBEDDED_FONTS {
+                let buffer = Bytes::new(*data);
                 for font in Font::iter(buffer) {
                     book.push(font.info().clone());
                     fonts.push(font);

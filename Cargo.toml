@@ -44,10 +44,11 @@ time = { version = "0.3", features = ["std", "local-offset"] }
 notify = "8"
 notify-debouncer-full = "0.7"
 
-# wasm32: no font searcher — embed Typst's default fonts directly so the
-# runtime never touches a filesystem.
+# wasm32: no font searcher. Fonts are vendored under `src/runtime/fonts/` and
+# baked in via `include_bytes!` — see `EMBEDDED_FONTS` in `runtime::world`. We
+# deliberately do NOT pull `typst-assets` here: its `fonts` feature embeds the
+# whole 8.4 MB set (including 3.3 MB of math fonts) with no way to subset.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-typst-assets = { version = "0.14.2", features = ["fonts"] }
 
 [dev-dependencies]
 assert_cmd = "2"

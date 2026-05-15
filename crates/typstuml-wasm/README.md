@@ -63,11 +63,21 @@ cargo build -p typstuml-wasm --target wasm32-unknown-unknown --profile wasm-rele
 
 ### Size
 
-The module bundles the whole Typst compiler and its default fonts, so it's
-big — but very compressible. Current build: **~27 MB raw, ~13 MB gzipped**.
-Serve it with gzip/brotli (`python3 -m http.server` does *not* compress; a
-real static host or CDN will). The biggest remaining lever is trimming the
-embedded font set in the workspace `Cargo.toml`.
+The module bundles the whole Typst compiler plus the two fonts the compiler
+needs at layout time — but the wasm is very compressible.
+
+| transport | size |
+|-----------|------|
+| raw `.wasm`         | ~20 MB |
+| gzip                | ~8.5 MB |
+| brotli (CDN)        | ~6.1 MB |
+
+`python3 -m http.server` does **not** compress; a real static host or CDN
+will. The two embedded fonts (`LibertinusSerif-Regular.otf` and
+`DejaVuSansMono.ttf`, ~660 KB combined) live under `src/runtime/fonts/` in the
+main crate — bumped through `include_bytes!` only on `target_arch = "wasm32"`,
+so the native CLI is unaffected. See `src/runtime/fonts/NOTICE` for upstream
+licenses (OFL / Bitstream Vera).
 
 ## Playground
 
@@ -88,8 +98,9 @@ python3 -m http.server 8000
 open http://localhost:8000          # macOS  (Linux: xdg-open, Windows: start)
 ```
 
-The first page load fetches the `.wasm` module (~27 MB uncompressed), so give
-it a few seconds. After that, editing the source re-renders automatically.
+The first page load fetches the `.wasm` module (~20 MB uncompressed, ~6 MB
+brotli-compressed), so give it a few seconds. After that, editing the source
+re-renders automatically.
 
 To stop the server, press `Ctrl-C` in its terminal. If you started it in the
 background, stop it with:

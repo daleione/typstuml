@@ -56,6 +56,10 @@
     border-color: var(--accent);
     color: #fff;
   }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
   #status {
     font-size: 12px;
     color: var(--muted);
@@ -117,17 +121,33 @@
   }
   #output {
     flex: 1 1 auto;
+    position: relative;
     overflow: auto;
     padding: 20px;
     background:
       repeating-conic-gradient(#eef0f3 0% 25%, transparent 0% 50%)
       50% / 20px 20px;
   }
-  #output svg {
+  #output svg,
+  #output img {
     display: block;
     margin: 0 auto;
     width: var(--zoom, 100%);
     height: auto;
+  }
+  /* PDF: ditch padding + checkerboard, let the browser's PDF viewer fill the
+     pane (it has its own zoom UI, so our zoom buttons are disabled). */
+  #output.pdf-mode {
+    padding: 0;
+    background: #fff;
+  }
+  #output iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
   }
   #error {
     flex: 0 0 auto;
@@ -155,6 +175,12 @@
     <option value="wbs">WBS</option>
     <option value="mindmap">Mind map</option>
   </select>
+  <label for="format">Format</label>
+  <select id="format">
+    <option value="svg">SVG</option>
+    <option value="png">PNG</option>
+    <option value="pdf">PDF</option>
+  </select>
   <div class="spacer"></div>
   <span id="status">loading…</span>
   <span class="zoom">
@@ -179,9 +205,9 @@
 </main>
 
 <script type="module">
-// `wasm-pack build --target web` writes ./pkg/ next to this file.
+// `./build.sh` writes ./pkg/ next to this file (cargo + wasm-bindgen + wasm-opt).
 // The default export is the module loader; named exports are our bindings.
-import init, { renderSvg } from "./pkg/typstuml_wasm.js";
+import init, { renderSvg, renderPng, renderPdf } from "./pkg/typstuml_wasm.js";
 
 const EXAMPLES = {
   json: `@startjson
@@ -227,11 +253,18 @@ Bob --> Alice: Another response
 @endmindmap`,
 };
 
+const FORMAT_META = {
+  svg: { mime: "image/svg+xml", ext: "svg" },
+  png: { mime: "image/png",      ext: "png" },
+  pdf: { mime: "application/pdf", ext: "pdf" },
+};
+
 const editor = document.getElementById("editor");
 const output = document.getElementById("output");
 const errorBox = document.getElementById("error");
 const statusEl = document.getElementById("status");
 const examplesEl = document.getElementById("examples");
+const formatEl = document.getElementById("format");
 const renderBtn = document.getElementById("render");
 const downloadBtn = document.getElementById("download");
 const zoomOutBtn = document.getElementById("zoomOut");
@@ -239,27 +272,70 @@ const zoomInBtn = document.getElementById("zoomIn");
 const zoomLabel = document.getElementById("zoomLabel");
 
 let ready = false;
-let lastSvg = "";
+// Last successful render — `data` is a string for SVG, Uint8Array for PNG/PDF.
+let lastOutput = null;
+// Object-URL for the most recent <img>/<iframe>; revoked on each new render.
+let lastBlobUrl = null;
 
 function setStatus(text, busy = false) {
   statusEl.textContent = text;
   statusEl.style.color = busy ? "var(--accent)" : "var(--muted)";
 }
 
+function updateDownloadLabel() {
+  downloadBtn.textContent = "Download " + formatEl.value.toUpperCase();
+  downloadBtn.disabled = !lastOutput;
+}
+
+function clearBlobUrl() {
+  if (lastBlobUrl) {
+    URL.revokeObjectURL(lastBlobUrl);
+    lastBlobUrl = null;
+  }
+}
+
+function showOutput(format, data) {
+  clearBlobUrl();
+  output.classList.toggle("pdf-mode", format === "pdf");
+  // Zoom only meaningfully applies to SVG/PNG — PDF iframes have their own UI.
+  zoomOutBtn.disabled = zoomInBtn.disabled = (format === "pdf");
+
+  if (format === "svg") {
+    output.innerHTML = data;
+  } else {
+    const { mime } = FORMAT_META[format];
+    const blob = new Blob([data], { type: mime });
+    lastBlobUrl = URL.createObjectURL(blob);
+    output.innerHTML = format === "png"
+      ? `<img src="${lastBlobUrl}" alt="rendered diagram">`
+      : `<iframe src="${lastBlobUrl}" title="PDF preview"></iframe>`;
+  }
+}
+
 function render() {
   if (!ready) return;
   const source = editor.value;
-  try {
-    const svg = renderSvg(source);
-    lastSvg = svg;
-    output.innerHTML = svg;
-    errorBox.style.display = "none";
-    setStatus("rendered");
-  } catch (err) {
-    errorBox.textContent = String(err.message ?? err);
-    errorBox.style.display = "block";
-    setStatus("error");
-  }
+  const format = formatEl.value;
+  setStatus("rendering…", true);
+  // Yield once so the status text actually paints before the (possibly
+  // multi-second) wasm call blocks the main thread.
+  requestAnimationFrame(() => {
+    try {
+      let data;
+      if (format === "svg") data = renderSvg(source);
+      else if (format === "png") data = renderPng(source);
+      else if (format === "pdf") data = renderPdf(source);
+      lastOutput = { format, data };
+      showOutput(format, data);
+      errorBox.style.display = "none";
+      setStatus("rendered");
+    } catch (err) {
+      errorBox.textContent = String(err.message ?? err);
+      errorBox.style.display = "block";
+      setStatus("error");
+    }
+    updateDownloadLabel();
+  });
 }
 
 // Debounced auto-render while typing.
@@ -272,8 +348,9 @@ function scheduleRender() {
 
 editor.addEventListener("input", scheduleRender);
 renderBtn.addEventListener("click", render);
+formatEl.addEventListener("change", render);
 
-// Zoom: the rendered SVG is sized to `--zoom`% of the output pane's width,
+// Zoom: the rendered SVG/PNG is sized to `--zoom`% of the output pane's width,
 // so 100% fills the pane and anything larger scrolls.
 const ZOOM_STEPS = [25, 50, 75, 100, 150, 200, 300, 400];
 let zoomIdx = 3; // 100%
@@ -298,17 +375,20 @@ examplesEl.addEventListener("change", () => {
 });
 
 downloadBtn.addEventListener("click", () => {
-  if (!lastSvg) return;
-  const blob = new Blob([lastSvg], { type: "image/svg+xml" });
+  if (!lastOutput) return;
+  const { format, data } = lastOutput;
+  const { mime, ext } = FORMAT_META[format];
+  const blob = new Blob([data], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "diagram.svg";
+  a.download = "diagram." + ext;
   a.click();
   URL.revokeObjectURL(url);
 });
 
 editor.value = EXAMPLES.json;
+updateDownloadLabel();
 
 init()
   .then(() => {
@@ -319,7 +399,7 @@ init()
     setStatus("load failed");
     errorBox.textContent =
       "Failed to load the wasm module.\n" +
-      "Build it first:  wasm-pack build --target web --release\n" +
+      "Build it first:  ./build.sh\n" +
       "and serve this directory over HTTP (not file://).\n\n" +
       String(err);
     errorBox.style.display = "block";

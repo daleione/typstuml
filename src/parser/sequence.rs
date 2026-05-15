@@ -701,41 +701,95 @@ struct ArrowSplit<'a> {
     rest: &'a str,
 }
 
-/// Find the `<from> <arrow> <rest>` shape on a single line. The `arrow` token
-/// is the first whitespace-delimited word containing `-` (and only arrow-shape
-/// characters) after a non-empty leading token.
+/// Find the `<from> <arrow> <rest>` shape on a single line.
+///
+/// PlantUML accepts both spaced (`A -> B`) and unspaced (`A->B`) arrows, so
+/// we scan for runs of arrow-shaft chars (`-<>/\\`, optionally with `[…]`
+/// for inline colors) rather than splitting on whitespace. A run only
+/// counts as an arrow if it actually contains `-`; runs that turn out to be
+/// just `<` or `>` (e.g. inside an angle-bracketed identifier) get skipped
+/// and scanning continues.
+///
+/// `o` / `x` arrow heads (`->o`, `->x`) need whitespace around the arrow to
+/// be recognised, since both letters are otherwise valid identifier chars
+/// (`Otto->Alice` is unambiguously `from=Otto, arrow=->`). With whitespace,
+/// the leading/trailing alphanumeric boundary disambiguates and the head
+/// gets folded into the arrow token below.
 fn split_arrow(line: &str) -> Option<ArrowSplit<'_>> {
     let bytes = line.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() && !bytes[i].is_ascii_whitespace() {
-        i += 1;
+    let mut search = 0;
+
+    loop {
+        // Skip ahead to the next arrow-shaft char.
+        while search < bytes.len() && !is_arrow_shaft(bytes[search]) {
+            search += 1;
+        }
+        if search >= bytes.len() {
+            return None;
+        }
+        let start = search;
+
+        // Extend through contiguous shaft chars + inline `[...]` color blocks.
+        let mut end = start;
+        while end < bytes.len() {
+            let b = bytes[end];
+            if is_arrow_shaft(b) {
+                end += 1;
+            } else if b == b'[' {
+                let mut j = end + 1;
+                while j < bytes.len() && bytes[j] != b']' {
+                    j += 1;
+                }
+                if j >= bytes.len() {
+                    break; // unterminated `[`; bail on this run
+                }
+                end = j + 1;
+            } else {
+                break;
+            }
+        }
+
+        // Whitespace-bounded arrows can extend through `o` / `x` heads on
+        // either side (e.g. `->o`, `x<-`). Without whitespace, the same
+        // letters could be part of an identifier, so we only fold them in
+        // when separated from the surrounding text by whitespace.
+        let mut arrow_start = start;
+        let mut arrow_end = end;
+        if arrow_start > 0
+            && matches!(bytes[arrow_start - 1], b'o' | b'x')
+            && (arrow_start == 1 || bytes[arrow_start - 2].is_ascii_whitespace())
+        {
+            arrow_start -= 1;
+        }
+        if arrow_end < bytes.len()
+            && matches!(bytes[arrow_end], b'o' | b'x')
+            && (arrow_end + 1 == bytes.len() || bytes[arrow_end + 1].is_ascii_whitespace())
+        {
+            arrow_end += 1;
+        }
+
+        let candidate = &line[arrow_start..arrow_end];
+        if !is_arrow_token(candidate) {
+            // e.g. a lone `<` from `Class<Generic>` — skip past and try again.
+            search = end.max(start + 1);
+            continue;
+        }
+
+        let from = line[..arrow_start].trim();
+        let rest = line[arrow_end..].trim_start();
+        if from.is_empty() || rest.is_empty() {
+            return None;
+        }
+        return Some(ArrowSplit {
+            from,
+            arrow: candidate,
+            rest,
+        });
     }
-    if i == 0 {
-        return None;
-    }
-    let from = &line[..i];
-    while i < bytes.len() && bytes[i].is_ascii_whitespace() {
-        i += 1;
-    }
-    let arrow_start = i;
-    while i < bytes.len() && !bytes[i].is_ascii_whitespace() {
-        i += 1;
-    }
-    let arrow = &line[arrow_start..i];
-    if !is_arrow_token(arrow) {
-        return None;
-    }
-    while i < bytes.len() && bytes[i].is_ascii_whitespace() {
-        i += 1;
-    }
-    if i >= line.len() {
-        return None;
-    }
-    Some(ArrowSplit {
-        from,
-        arrow,
-        rest: &line[i..],
-    })
+}
+
+fn is_arrow_shaft(b: u8) -> bool {
+    matches!(b, b'-' | b'<' | b'>' | b'/' | b'\\')
 }
 
 fn is_arrow_token(s: &str) -> bool {
@@ -822,6 +876,58 @@ mod tests {
         let s = parse_ok(&["Alice -[#red]-> Bob : hello"]);
         match &s.steps[0] {
             Step::Message { arrow, .. } => assert_eq!(arrow, "-[#red]->"),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn parses_unspaced_arrow() {
+        // PlantUML accepts arrows without whitespace around them — we used
+        // to drop these as "unsupported" because the declared participants
+        // then looked unreferenced to the seq-puml validator downstream.
+        let s = parse_ok(&[
+            "actor Bob #red",
+            "participant Alice",
+            "Alice->Bob: Authentication Request",
+            "Bob->Alice: Authentication Response",
+        ]);
+        assert_eq!(s.steps.len(), 2, "expected both messages parsed");
+        match &s.steps[0] {
+            Step::Message { from, to, arrow, label, .. } => {
+                assert_eq!(from, "Alice");
+                assert_eq!(to, "Bob");
+                assert_eq!(arrow, "->");
+                assert_eq!(label.as_deref(), Some("Authentication Request"));
+            }
+            _ => panic!("expected message step"),
+        }
+    }
+
+    #[test]
+    fn identifier_ending_in_letter_does_not_swallow_arrow_head() {
+        // Without whitespace, the trailing `o` belongs to the identifier
+        // `Otto`, not the arrow head — we only fold `o`/`x` into the arrow
+        // when separated by whitespace.
+        let s = parse_ok(&["Otto->Alice : hi"]);
+        match &s.steps[0] {
+            Step::Message { from, to, arrow, .. } => {
+                assert_eq!(from, "Otto");
+                assert_eq!(arrow, "->");
+                assert_eq!(to, "Alice");
+            }
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn parses_o_head_arrow_with_spaces() {
+        // With whitespace around the arrow, the `o` head is unambiguous.
+        let s = parse_ok(&["Alice ->o Bob : hi"]);
+        match &s.steps[0] {
+            Step::Message { arrow, to, .. } => {
+                assert_eq!(arrow, "->o");
+                assert_eq!(to, "Bob");
+            }
             _ => panic!(),
         }
     }

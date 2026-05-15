@@ -11,6 +11,8 @@
 
 use std::collections::HashMap;
 use std::path::{Component, PathBuf};
+#[cfg(target_arch = "wasm32")]
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use include_dir::{include_dir, Dir};
@@ -77,7 +79,15 @@ struct FontCache {
     fonts: Vec<Font>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 static FONTS: OnceLock<Arc<FontCache>> = OnceLock::new();
+
+// On wasm we keep the cache behind an `RwLock` so the JS side can append
+// extra fonts at runtime via [`add_font`] (e.g. CJK / emoji fetched from a
+// CDN on demand). Each render call grabs a fresh snapshot of the `Arc`, so
+// fonts added between renders take effect on the next compile.
+#[cfg(target_arch = "wasm32")]
+static FONTS: OnceLock<RwLock<Arc<FontCache>>> = OnceLock::new();
 
 #[cfg(not(target_arch = "wasm32"))]
 fn shared_fonts() -> Arc<FontCache> {
@@ -108,24 +118,66 @@ const EMBEDDED_FONTS: &[&[u8]] = &[
 ];
 
 #[cfg(target_arch = "wasm32")]
-fn shared_fonts() -> Arc<FontCache> {
-    FONTS
-        .get_or_init(|| {
-            let mut book = FontBook::new();
-            let mut fonts = Vec::new();
-            for data in EMBEDDED_FONTS {
-                let buffer = Bytes::new(*data);
-                for font in Font::iter(buffer) {
-                    book.push(font.info().clone());
-                    fonts.push(font);
-                }
+fn init_wasm_fonts() -> &'static RwLock<Arc<FontCache>> {
+    FONTS.get_or_init(|| {
+        let mut book = FontBook::new();
+        let mut fonts = Vec::new();
+        for data in EMBEDDED_FONTS {
+            let buffer = Bytes::new(*data);
+            for font in Font::iter(buffer) {
+                book.push(font.info().clone());
+                fonts.push(font);
             }
-            Arc::new(FontCache {
-                book: LazyHash::new(book),
-                fonts,
-            })
-        })
+        }
+        RwLock::new(Arc::new(FontCache {
+            book: LazyHash::new(book),
+            fonts,
+        }))
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn shared_fonts() -> Arc<FontCache> {
+    init_wasm_fonts()
+        .read()
+        .expect("font cache poisoned")
         .clone()
+}
+
+/// Append a font file's faces to the wasm font cache. Returns the number of
+/// faces extracted (a TTC may contain several). Subsequent renders pick up
+/// the new fonts automatically — Typst's fallback selection will use them
+/// when the embedded defaults don't cover a requested glyph.
+///
+/// Used by the JS playground to fetch CJK / emoji fonts on demand. Each call
+/// rebuilds `FontBook` + `Vec<Font>` and atomically swaps the shared `Arc`,
+/// so in-flight renders holding the old snapshot finish on the old set.
+#[cfg(target_arch = "wasm32")]
+pub fn add_font(data: Vec<u8>) -> Result<usize, String> {
+    let buffer = Bytes::new(data);
+    let new_fonts: Vec<Font> = Font::iter(buffer).collect();
+    if new_fonts.is_empty() {
+        return Err("no usable font faces in file".to_string());
+    }
+    let count = new_fonts.len();
+
+    let lock = init_wasm_fonts();
+    let mut guard = lock.write().map_err(|_| "font cache poisoned".to_string())?;
+
+    // LazyHash captures a hash on construction, so a fresh LazyHash::new
+    // makes Typst's font index re-scan the new entries on the next compile.
+    let mut book: FontBook = (*guard.book).clone();
+    let mut fonts = guard.fonts.clone();
+    for f in &new_fonts {
+        book.push(f.info().clone());
+    }
+    fonts.extend(new_fonts);
+
+    *guard = Arc::new(FontCache {
+        book: LazyHash::new(book),
+        fonts,
+    });
+    Ok(count)
 }
 
 pub struct TypstWorld {

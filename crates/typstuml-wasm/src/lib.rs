@@ -62,6 +62,21 @@ pub fn emit_typst(source: &str) -> Result<String, JsError> {
     render::emit_typst(source).map_err(to_js)
 }
 
+/// Append a font file's faces to the shared font cache. Returns the number
+/// of faces that were extracted (TTC files can contain several).
+///
+/// Designed for fetching CJK / emoji fonts from a CDN at runtime instead of
+/// baking them into the .wasm — see the playground's "Fonts" UI. Once added,
+/// Typst's automatic fallback picks them up whenever the embedded defaults
+/// don't cover a requested glyph; the JS side should kick off a re-render.
+///
+/// Accepts raw TTF / OTF / TTC bytes. WOFF / WOFF2 are not supported
+/// (Typst expects raw font tables; embed a decoder on the JS side first).
+#[wasm_bindgen(js_name = addFont)]
+pub fn add_font(data: &[u8]) -> Result<usize, JsError> {
+    typstuml::runtime::add_font(data.to_vec()).map_err(|e| JsError::new(&e))
+}
+
 /// Collapse a [`typstuml::diagnostics::Error`] into a JS `Error`. The
 /// `Display` impl already produces a human-readable, line-annotated message.
 fn to_js(err: typstuml::diagnostics::Error) -> JsError {

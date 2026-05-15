@@ -25,6 +25,11 @@ use crate::diagnostics::{Diagnostic, Error, Level, Result};
 pub use measure::{Measurement, MeasurementSet};
 pub use world::TypstWorld;
 
+// Runtime font injection — wasm-only because the native build already pulls
+// fonts off the user's filesystem via `typst-kit`. See [`world::add_font`].
+#[cfg(target_arch = "wasm32")]
+pub use world::add_font;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Format {
     Svg,

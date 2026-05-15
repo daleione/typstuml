@@ -9,3 +9,4 @@ examples/*.pdf
 examples/*.png
 examples/*.svg
 /crates/typstuml-wasm/pkg
+/crates/typstuml-wasm/dist

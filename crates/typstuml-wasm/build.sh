@@ -22,6 +22,11 @@ PROFILE=wasm-release
 TARGET=wasm32-unknown-unknown
 NAME=typstuml_wasm
 WASM=pkg/${NAME}_bg.wasm
+# `pkg-nomod/` is the same wasm + a no-modules JS shim, used by
+# `package.sh` to assemble a single self-contained .html that works via
+# double-click (file://). ES modules can't load over file://, hence the
+# extra target.
+WASM_NOMOD=pkg-nomod/${NAME}_bg.wasm
 
 # Locate a tool on PATH, falling back to the copy wasm-pack downloads into its
 # own cache (handy on a machine that has run wasm-pack at least once).
@@ -48,6 +53,17 @@ echo ">> $WASM_BINDGEN --target web --out-dir pkg"
 "$WASM_BINDGEN" --target web --out-dir pkg --out-name "$NAME" \
   "../../target/$TARGET/$PROFILE/$NAME.wasm"
 
+echo ">> $WASM_BINDGEN --target no-modules --out-dir pkg-nomod"
+"$WASM_BINDGEN" --target no-modules --out-dir pkg-nomod --out-name "$NAME" \
+  "../../target/$TARGET/$PROFILE/$NAME.wasm"
+
+run_wasm_opt() {
+  local in="$1"
+  echo ">> $WASM_OPT -Oz --all-features  $in"
+  "$WASM_OPT" -Oz --all-features "$in" -o "$in.tmp"
+  mv "$in.tmp" "$in"
+}
+
 if [[ "${1:-}" == "--no-opt" ]]; then
   echo ">> skipping wasm-opt (--no-opt)"
 else
@@ -56,13 +72,18 @@ else
     echo ">> wasm-opt not found — install binaryen to shrink the module further:"
     echo "   brew install binaryen   (or)   cargo install wasm-opt"
   else
-    echo ">> $WASM_OPT -Oz --all-features"
-    "$WASM_OPT" -Oz --all-features "$WASM" -o "$WASM.tmp"
-    mv "$WASM.tmp" "$WASM"
+    run_wasm_opt "$WASM"
+    run_wasm_opt "$WASM_NOMOD"
   fi
 fi
 
-size=$(wc -c < "$WASM")
-gz=$(gzip -c "$WASM" | wc -c)
-printf '>> %s: %.1f MB raw, %.1f MB gzipped\n' "$WASM" \
-  "$(echo "$size / 1048576" | bc -l)" "$(echo "$gz / 1048576" | bc -l)"
+report_size() {
+  local w="$1"
+  local size gz
+  size=$(wc -c < "$w")
+  gz=$(gzip -c "$w" | wc -c)
+  printf '>> %s: %.1f MB raw, %.1f MB gzipped\n' "$w" \
+    "$(echo "$size / 1048576" | bc -l)" "$(echo "$gz / 1048576" | bc -l)"
+}
+report_size "$WASM"
+report_size "$WASM_NOMOD"

@@ -162,6 +162,13 @@ pkill -f "http.server 8000"
 Any static server works — e.g. `npx serve` or `python3 -m http.server` on a
 different port. Just serve this directory so `./pkg/` is reachable.
 
+### Sharing the playground
+
+`./package.sh` rolls `index.html` + `pkg/` (plus a brief how-to-run README)
+into `dist/typstuml-playground.zip` — about 8.5 MB. Hand it off; the
+recipient unzips, points a static server at the unzipped directory, and
+opens it in any modern browser. No build toolchain required on their end.
+
 ## Usage
 
 ```js

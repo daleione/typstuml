@@ -13,21 +13,27 @@
 //! cache) later if user templates need third-party packages.
 
 pub mod measure;
+#[cfg(feature = "embed-typst")]
 mod world;
 
+#[cfg(feature = "embed-typst")]
 use std::path::PathBuf;
 
+#[cfg(feature = "embed-typst")]
 use typst::diag::{Severity, SourceDiagnostic};
+#[cfg(feature = "embed-typst")]
 use typst::ecow::EcoVec;
 
+#[cfg(feature = "embed-typst")]
 use crate::diagnostics::{Diagnostic, Error, Level, Result};
 
 pub use measure::{Measurement, MeasurementSet};
+#[cfg(feature = "embed-typst")]
 pub use world::TypstWorld;
 
 // Runtime font injection — wasm-only because the native build already pulls
 // fonts off the user's filesystem via `typst-kit`. See [`world::add_font`].
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "embed-typst"))]
 pub use world::add_font;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -61,7 +67,13 @@ impl Format {
     }
 }
 
+// Everything below uses `typst::compile` and the SVG / PDF / PNG backends.
+// Behind the `embed-typst` feature so the `typstuml-plugin` build (which
+// runs inside an existing Typst process — Typst is the renderer there)
+// stays free of these crates.
+
 /// Outcome of a [`render`] call.
+#[cfg(feature = "embed-typst")]
 pub struct Rendered {
     pub bytes: Vec<u8>,
     /// Typst-side warnings collected during compilation. The CLI surfaces
@@ -74,6 +86,7 @@ pub struct Rendered {
 ///
 /// `root` is the project root used to resolve local `#image()` / `read()`
 /// calls in user templates. Pass `None` to use the current working dir.
+#[cfg(feature = "embed-typst")]
 pub fn render(typst_source: String, root: Option<PathBuf>, format: Format) -> Result<Rendered> {
     let root = root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ".".into()));
     let world = TypstWorld::new(root, typst_source);
@@ -94,6 +107,7 @@ pub fn render(typst_source: String, root: Option<PathBuf>, format: Format) -> Re
     Ok(Rendered { bytes, warnings })
 }
 
+#[cfg(feature = "embed-typst")]
 fn render_png(document: &typst::layout::PagedDocument, scale: f32) -> Result<Vec<u8>> {
     let pages = &document.pages;
     let first = pages
@@ -115,6 +129,7 @@ fn render_png(document: &typst::layout::PagedDocument, scale: f32) -> Result<Vec
         .map_err(|e| Error::TypstCompile(format!("PNG encode failed: {e}")))
 }
 
+#[cfg(feature = "embed-typst")]
 fn lift_diagnostics<W: typst::World>(
     world: &W,
     diags: &EcoVec<SourceDiagnostic>,
@@ -132,6 +147,7 @@ fn lift_diagnostics<W: typst::World>(
         .collect()
 }
 
+#[cfg(feature = "embed-typst")]
 fn span_line<W: typst::World>(world: &W, span: typst::syntax::Span) -> Option<usize> {
     let id = span.id()?;
     let source = world.source(id).ok()?;
@@ -139,6 +155,7 @@ fn span_line<W: typst::World>(world: &W, span: typst::syntax::Span) -> Option<us
     Some(source.lines().byte_to_line(range.start)? + 1)
 }
 
+#[cfg(feature = "embed-typst")]
 pub(crate) fn format_typst_diagnostics<W: typst::World>(
     world: &W,
     errors: &EcoVec<SourceDiagnostic>,

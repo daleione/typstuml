@@ -19,6 +19,7 @@ pub mod runtime;
 pub mod theme;
 
 // The CLI pulls in clap, file-watching, and stdio — none of which exist on
-// wasm32. Embedders there go through [`render`] instead.
-#[cfg(not(target_arch = "wasm32"))]
+// wasm32. Embedders there go through [`render`] instead. It also depends
+// on the full Typst-as-library runtime, so it requires `embed-typst`.
+#[cfg(all(not(target_arch = "wasm32"), feature = "embed-typst"))]
 pub mod cli;

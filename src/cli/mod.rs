@@ -509,13 +509,17 @@ fn build_typst_source(
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_else(|| PathBuf::from("."));
 
+    use crate::codegen::ImportStrategy;
+
     if !global.measure {
-        return crate::codegen::emit(doc, theme, None);
+        return crate::codegen::emit(doc, theme, None, ImportStrategy::VirtualFs);
     }
 
-    let Some((probe_source, expected_ids)) = crate::codegen::emit_probes(doc, theme)? else {
+    let Some((probe_source, expected_ids)) =
+        crate::codegen::emit_probes(doc, theme, ImportStrategy::VirtualFs)?
+    else {
         // No measurement-aware diagrams — skip pass-1 entirely.
-        return crate::codegen::emit(doc, theme, None);
+        return crate::codegen::emit(doc, theme, None, ImportStrategy::VirtualFs);
     };
 
     let expected_refs: Vec<&str> = expected_ids.iter().map(String::as_str).collect();
@@ -530,7 +534,7 @@ fn build_typst_source(
             global.print_warning(&format!(
                 "typstuml: warning: measure pass failed ({e}); falling back to heuristic",
             ));
-            return crate::codegen::emit(doc, theme, None);
+            return crate::codegen::emit(doc, theme, None, ImportStrategy::VirtualFs);
         }
     };
     let elapsed_ms = start.elapsed().as_millis();
@@ -539,7 +543,7 @@ fn build_typst_source(
         set.len()
     ));
 
-    crate::codegen::emit(doc, theme, Some(&set))
+    crate::codegen::emit(doc, theme, Some(&set), ImportStrategy::VirtualFs)
 }
 
 /// Result of `parse_input`: the document plus the bookkeeping that

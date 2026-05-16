@@ -13,14 +13,20 @@
 //! attachment.
 
 use std::collections::HashMap;
+#[cfg(feature = "embed-typst")]
 use std::path::PathBuf;
 
+#[cfg(feature = "embed-typst")]
 use typst::foundations::{Label, Selector, Value};
+#[cfg(feature = "embed-typst")]
 use typst::layout::PagedDocument;
+#[cfg(feature = "embed-typst")]
 use typst::utils::PicoStr;
 
+#[cfg(feature = "embed-typst")]
 use crate::diagnostics::{Error, Result};
 
+#[cfg(feature = "embed-typst")]
 use super::world::TypstWorld;
 
 /// The natural width / height of a single probed content piece, in
@@ -85,6 +91,13 @@ impl MeasurementSet {
 /// check: any ID listed here that's missing from the returned set
 /// surfaces as an `Error::MeasureProtocol`, catching codegen bugs where a
 /// probe was emitted but not consumed (or vice versa).
+///
+/// Only compiled when the `embed-typst` feature is on — this is the half
+/// of `measure` that actually drives a Typst compile. The `Measurement`
+/// / `MeasurementSet` data types above stay available without the
+/// feature so the `typstuml-plugin` crate can hand-build a set from
+/// measurements collected on the Typst side.
+#[cfg(feature = "embed-typst")]
 pub fn run(
     probe_source: String,
     root: PathBuf,
@@ -148,6 +161,7 @@ pub fn run(
     Ok(set)
 }
 
+#[cfg(feature = "embed-typst")]
 fn read_str(dict: &typst::foundations::Dict, key: &str) -> Result<String> {
     match dict.get(key) {
         Ok(Value::Str(s)) => Ok(s.as_str().to_string()),
@@ -161,6 +175,7 @@ fn read_str(dict: &typst::foundations::Dict, key: &str) -> Result<String> {
     }
 }
 
+#[cfg(feature = "embed-typst")]
 fn read_f64(dict: &typst::foundations::Dict, key: &str) -> Result<f64> {
     match dict.get(key) {
         Ok(Value::Float(f)) => Ok(*f),
@@ -180,6 +195,7 @@ fn read_f64(dict: &typst::foundations::Dict, key: &str) -> Result<f64> {
 /// Read an optional `Value::Array` of floats / ints. Returns an empty
 /// vec when the key is missing — record probes set it, class / package
 /// probes don't.
+#[cfg(feature = "embed-typst")]
 fn read_f64_array_opt(dict: &typst::foundations::Dict, key: &str) -> Result<Vec<f64>> {
     match dict.get(key) {
         Ok(Value::Array(arr)) => arr
@@ -202,7 +218,7 @@ fn read_f64_array_opt(dict: &typst::foundations::Dict, key: &str) -> Result<Vec<
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "embed-typst"))]
 mod tests {
     use super::*;
 

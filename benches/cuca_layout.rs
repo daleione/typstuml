@@ -76,7 +76,13 @@ fn bench_emit(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(n), &src, |b, src| {
             b.iter(|| {
                 let out = parser::parse(black_box(src), CompatMode::Warn, &cfg).unwrap();
-                let typst_src = codegen::emit(&out.document, &theme, None).unwrap();
+                let typst_src = codegen::emit(
+                    &out.document,
+                    &theme,
+                    None,
+                    codegen::ImportStrategy::VirtualFs,
+                )
+                .unwrap();
                 black_box(typst_src);
             });
         });

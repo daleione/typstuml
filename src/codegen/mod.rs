@@ -1,9 +1,18 @@
 //! IR → Typst code generation.
 //!
 //! The generated Typst is a small program that imports `blockcell` and
-//! renders one diagram per page. The `blockcell` library is served from the
-//! embedded virtual filesystem (`runtime::world`); from the Typst side it
-//! looks like an ordinary file at `/blockcell/lib.typ`.
+//! renders one diagram per page. Two emission targets:
+//!
+//! - [`ImportStrategy::VirtualFs`] (CLI / WASM playground): blockcell is
+//!   served from the embedded virtual filesystem (`runtime::world`);
+//!   preamble does `#import "/blockcell/lib.typ": *` and `#set page(...)`.
+//!
+//! - [`ImportStrategy::EvalScope`] (Typst plugin / `typstuml-plugin`): the
+//!   emitted source is `eval()`-ed inside the host Typst document. The
+//!   blockcell symbols are injected via the eval `scope:` argument by the
+//!   Typst-side `lib.typ`, so we emit no `#import` here. We also skip the
+//!   page-level `#set page` (we're embedded, not the document) and use
+//!   parbreaks between diagrams instead of `#pagebreak()`.
 
 mod activity;
 mod cuca;
@@ -21,6 +30,76 @@ use crate::ir::{Diagram, Document};
 use crate::runtime::MeasurementSet;
 use crate::theme::Theme;
 
+/// Which host the generated Typst source is destined for.
+///
+/// See module docs for the per-variant semantics. Default is `VirtualFs`
+/// so existing call sites that pre-date the plugin form keep their
+/// current behaviour byte-for-byte.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ImportStrategy {
+    /// CLI / WASM playground: full-document preamble, `#import` from the
+    /// virtual `/blockcell/lib.typ`, `#pagebreak()` between diagrams.
+    #[default]
+    VirtualFs,
+    /// Typst plugin: minimal preamble (no `#set page`, no `#import`),
+    /// blockcell comes from the eval `scope:`, parbreaks between diagrams.
+    EvalScope,
+}
+
+/// Every blockcell symbol the emitted Typst code references — both
+/// top-level painters and the secondary symbols that appear as
+/// arguments inside them (e.g. `swimlane(process[...], decision[...])`).
+/// Mirrors the `#import` list in the slim `lib.typ` that `build.rs`
+/// stages under `$OUT_DIR/blockcell/lib.typ`; the plugin path needs the
+/// full set in its `eval(..., scope: ...)` argument so eval'd code can
+/// resolve every name. Keep in sync with `build.rs::STAGED_LIB_TYP`.
+pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
+    // records (record-graph painters + record-probe pass-1)
+    "record-layout",
+    "record-probe",
+    // sequence
+    "seq-puml",
+    // tree / wbs / mindmap
+    "tree",
+    "node",
+    "mindmap",
+    // cuca (class / use-case / component painters + their probes)
+    "cuca-layout",
+    "cuca-probe",
+    "container-probe",
+    // state diagrams
+    "state-layout",
+    "state-probe",
+    "state-note-probe",
+    // activity atoms used as args inside the activity painters
+    "process",
+    "decision",
+    "terminal",
+    "junction",
+    "edge",
+    "flow-node",
+    // activity composites / containers
+    "flow-col",
+    "section",
+    // activity flow constructors / decorators
+    "branch",
+    "branch-merge",
+    "switch",
+    "case",
+    "n-way",
+    "fork-bar",
+    "flow-loop",
+    "start-marker",
+    "stop-marker",
+    "end-marker",
+    "detach-marker",
+    "partition",
+    "flow-note",
+    "with-notes",
+    "swimlane",
+    "lane",
+];
+
 /// Render a [`Document`] to a self-contained Typst source string. When
 /// `measurements` is `Some`, every measurement-aware codegen branch
 /// (currently class) consumes the corresponding `mc-…` probe results;
@@ -29,14 +108,20 @@ pub fn emit(
     doc: &Document,
     theme: &Theme,
     measurements: Option<&MeasurementSet>,
+    imports: ImportStrategy,
 ) -> Result<String> {
     let mut out = String::new();
 
-    write_preamble(&mut out, theme)?;
+    write_preamble(&mut out, theme, imports)?;
+
+    let separator = match imports {
+        ImportStrategy::VirtualFs => "\n#pagebreak()\n\n",
+        ImportStrategy::EvalScope => "\n\n",
+    };
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {
         if idx > 0 {
-            out.push_str("\n#pagebreak()\n\n");
+            out.push_str(separator);
         }
         match diagram {
             Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
@@ -59,10 +144,15 @@ pub fn emit(
 /// guardrail. Returns `Ok(None)` when the document has no
 /// measurement-aware diagrams (skip pass-1 entirely).
 ///
-/// The pass-1 source must use the **same** theme preamble as
-/// [`emit`]: text style flows through `measure()`, so any divergence
-/// would mean the measured size doesn't match what pass-2 renders.
-pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<String>)>> {
+/// The pass-1 source must use the **same** preamble as [`emit`] under
+/// the same [`ImportStrategy`]: text style flows through `measure()`,
+/// so any divergence would mean the measured size doesn't match what
+/// pass-2 renders.
+pub fn emit_probes(
+    doc: &Document,
+    theme: &Theme,
+    imports: ImportStrategy,
+) -> Result<Option<(String, Vec<String>)>> {
     let any_probes = doc.diagrams.iter().any(|d| match d {
         Diagram::Cuca(c) => cuca::probe::has_probes(c),
         Diagram::Json(j) => record_graph::has_records(&j.root),
@@ -77,7 +167,7 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
     }
 
     let mut out = String::new();
-    write_preamble(&mut out, theme)?;
+    write_preamble(&mut out, theme, imports)?;
     let mut expected_ids: Vec<String> = Vec::new();
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {
@@ -101,27 +191,40 @@ pub fn emit_probes(doc: &Document, theme: &Theme) -> Result<Option<(String, Vec<
     Ok(Some((out, expected_ids)))
 }
 
-/// Shared preamble: page setup + import + optional user preamble.
-/// Kept byte-equivalent between pass-1 (measure) and pass-2 (render) so
-/// `measure()` reads the same text style chain in both passes.
-fn write_preamble(out: &mut String, theme: &Theme) -> Result<()> {
-    out.push_str(
-        "#set page(width: auto, height: auto, margin: 8pt)\n\
-         #set text(size: 10pt)\n\
-         #import \"/blockcell/lib.typ\": *\n\n",
-    );
+/// Shared preamble. Two shapes per [`ImportStrategy`] — see module docs.
+fn write_preamble(out: &mut String, theme: &Theme, imports: ImportStrategy) -> Result<()> {
+    match imports {
+        ImportStrategy::VirtualFs => {
+            out.push_str(
+                "#set page(width: auto, height: auto, margin: 8pt)\n\
+                 #set text(size: 10pt)\n\
+                 #import \"/blockcell/lib.typ\": *\n\n",
+            );
 
-    if let Some(tpl_path) = &theme.preamble {
-        let content = std::fs::read_to_string(tpl_path).map_err(|e| Error::Io {
-            path: tpl_path.clone(),
-            source: e,
-        })?;
-        out.push_str("// --- user preamble ---\n");
-        out.push_str(&content);
-        if !out.ends_with('\n') {
-            out.push('\n');
+            if let Some(tpl_path) = &theme.preamble {
+                let content = std::fs::read_to_string(tpl_path).map_err(|e| Error::Io {
+                    path: tpl_path.clone(),
+                    source: e,
+                })?;
+                out.push_str("// --- user preamble ---\n");
+                out.push_str(&content);
+                if !out.ends_with('\n') {
+                    out.push('\n');
+                }
+                out.push_str("// --- end user preamble ---\n\n");
+            }
         }
-        out.push_str("// --- end user preamble ---\n\n");
+        ImportStrategy::EvalScope => {
+            // The host document owns page setup; blockcell symbols are
+            // injected via the eval `scope:` argument. We still pin
+            // text size so pass-1 measurements line up with pass-2
+            // layout numbers (which were tuned for 10pt). The pin is
+            // scoped to the eval, doesn't leak to the host document.
+            out.push_str("#set text(size: 10pt)\n\n");
+            // theme.preamble is intentionally not applied in plugin
+            // form for v1 — the host document is the place for that.
+            let _ = theme;
+        }
     }
     Ok(())
 }

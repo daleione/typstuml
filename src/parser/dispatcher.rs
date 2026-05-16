@@ -168,10 +168,29 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
             seen_sequence_arrow = true;
             seen_seq_strong = true;
         }
+        // Sequence-only fragment openers: locking in Sequence stops the
+        // activity branch below from misreading a bare `end` as the
+        // activity terminator.
+        if t.starts_with("alt ") || t == "alt"
+            || t.starts_with("else ") || t == "else"
+            || t.starts_with("opt ") || t == "opt"
+            || t.starts_with("loop ") || t == "loop"
+            || t.starts_with("par ") || t == "par"
+            || t.starts_with("group ") || t == "group"
+            || t.starts_with("critical ") || t == "critical"
+            || t.starts_with("break ") || t == "break"
+        {
+            seen_seq_strong = true;
+        }
 
         // Sub-kinds: hard signals that aren't yet decided by the above.
         if t.starts_with("[*]") || t.starts_with("state ") {
             return DiagramKind::State;
+        }
+        // `end` (and `stop`) alone is ambiguous — sequence fragments close
+        // with `end`. Only treat as activity if no sequence evidence yet.
+        if (t == "end" || t == "stop") && (seen_seq_strong || seen_sequence_arrow) {
+            continue;
         }
         if t == "start"
             || t == "stop"

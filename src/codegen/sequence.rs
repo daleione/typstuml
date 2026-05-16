@@ -55,9 +55,37 @@ fn emit_structured(out: &mut String, seq: &StructuredSequence) {
         max_label_chars: longest_label_chars(seq),
     };
     let width_pt = compute_width_pt(&hints);
-    out.push_str(&format!("#seq-puml(width: {width_pt}pt, "));
+    let mut args = vec![format!("width: {width_pt}pt")];
+    args.extend(seq_puml_layout_args(&seq.skinparams));
+    out.push_str("#seq-puml(");
+    out.push_str(&args.join(", "));
+    out.push_str(", ");
     out.push_str(&typst_string_literal(&body));
     out.push_str(")\n");
+}
+
+/// Translate the seq-puml-shaped skinparams (label alignment, response-below)
+/// into named-arg expressions ready to splice into the `#seq-puml(...)` call.
+fn seq_puml_layout_args(params: &[Skinparam]) -> Vec<String> {
+    let mut out = Vec::new();
+    for p in params {
+        match p.key.as_str() {
+            "sequenceMessageAlign" | "SequenceMessageAlign" => {
+                let v = p.value.trim().to_ascii_lowercase();
+                if matches!(v.as_str(), "left" | "right" | "center" | "direction") {
+                    out.push(format!("message-align: \"{v}\""));
+                }
+            }
+            "responseMessageBelowArrow" | "ResponseMessageBelowArrow" => {
+                let v = p.value.trim().to_ascii_lowercase();
+                if matches!(v.as_str(), "true" | "yes" | "on") {
+                    out.push("response-below: true".to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 fn emit_title(out: &mut String, title: &str) {
@@ -188,6 +216,9 @@ fn longest_label_chars(seq: &StructuredSequence) -> u32 {
 
 fn serialize_body(seq: &StructuredSequence) -> String {
     let mut out = String::new();
+    if seq.autoactivate {
+        out.push_str("autoactivate on\n");
+    }
     for p in &seq.participants {
         write_participant_decl(&mut out, p);
     }
@@ -200,24 +231,43 @@ fn serialize_body(seq: &StructuredSequence) -> String {
 
 fn write_participant_decl(out: &mut String, p: &Participant) {
     let _ = write!(out, "{} ", p.kind.keyword());
-    if p.id == p.display {
-        if needs_quoting(&p.id) {
-            let _ = write!(out, "\"{}\"", p.id);
-        } else {
-            let _ = write!(out, "{}", p.id);
-        }
-    } else {
-        let _ = write!(out, "\"{}\" as {}", p.display, p.id);
-    }
+    write_token(out, &p.id);
     if let Some(color) = &p.color {
         let _ = write!(out, " {}", color);
+    }
+    if let Some(body) = &p.display_block {
+        out.push_str(" [\n");
+        for line in body {
+            let _ = writeln!(out, "  {}", line);
+        }
+        out.push_str("]\n");
+        return;
+    }
+    // Multi-line display (from `"text\ntext"` or similar) can't ride on the
+    // `as "…"` form — blockcell's regex matches one line. Emit a bracket
+    // block instead so each segment becomes a stacked line in the header.
+    if p.display.contains('\n') {
+        out.push_str(" [\n");
+        for line in p.display.split('\n') {
+            let _ = writeln!(out, "  {}", line);
+        }
+        out.push_str("]\n");
+        return;
+    }
+    if p.id != p.display {
+        let _ = write!(out, " as \"{}\"", p.display);
     }
     out.push('\n');
 }
 
-fn needs_quoting(s: &str) -> bool {
-    s.contains(char::is_whitespace) || s.is_empty()
+fn write_token(out: &mut String, s: &str) {
+    if s.contains(char::is_whitespace) || s.is_empty() {
+        let _ = write!(out, "\"{}\"", s);
+    } else {
+        out.push_str(s);
+    }
 }
+
 
 fn write_steps(out: &mut String, steps: &[Step], depth: usize) {
     for step in steps {
@@ -415,6 +465,7 @@ mod tests {
             kind: ParticipantKind::Participant,
             id: id.into(),
             display: display.into(),
+            display_block: None,
             color: None,
             line: 1,
         }

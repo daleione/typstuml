@@ -152,6 +152,9 @@ pub struct StructuredSequence {
     pub participants: Vec<Participant>,
     pub steps: Vec<Step>,
     pub skinparams: Vec<Skinparam>,
+    /// PlantUML's `autoactivate on` toggle. When true, codegen emits the
+    /// directive so blockcell auto-derives activations from call/return pairs.
+    pub autoactivate: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -162,6 +165,11 @@ pub struct Participant {
     pub id: String,
     /// User-visible label. Equal to `id` when no `as` clause was given.
     pub display: String,
+    /// Raw body lines from a `participant Foo [ ... ]` block (PlantUML's
+    /// rich-content syntax with `=Title`, `----`, `""text""`, etc.). When
+    /// present, codegen re-emits the bracketed form so blockcell can render
+    /// the formatted label; `display` is left as the bare id for fallback.
+    pub display_block: Option<Vec<String>>,
     /// Raw color spec from the participant line (e.g. `"#LightBlue"`),
     /// preserved so codegen can re-emit it for `seq-puml` to parse.
     pub color: Option<String>,

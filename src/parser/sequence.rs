@@ -87,6 +87,12 @@ impl<'a> Parser<'a> {
                 self.handle_skinparam(rest, line_no);
                 continue;
             }
+            if let Some(rest) = strip_prefix_keyword(raw, "autoactivate") {
+                let arg = rest.trim().to_ascii_lowercase();
+                self.seq.autoactivate =
+                    matches!(arg.as_str(), "on" | "yes" | "true" | "");
+                continue;
+            }
             if let Some(rest) = strip_prefix_keyword(raw, "title") {
                 let t = rest.trim();
                 if !t.is_empty() {
@@ -103,7 +109,15 @@ impl<'a> Parser<'a> {
                 self.handle_else(rest.trim(), line_no)?;
                 continue;
             }
-            if let Some(p) = parse_participant(raw, line_no) {
+            if let Some((stripped, has_block)) = strip_participant_block_open(raw) {
+                if let Some(mut p) = parse_participant(&stripped, line_no) {
+                    if has_block {
+                        p.display_block = Some(self.consume_display_block());
+                    }
+                    self.register_participant(p);
+                    continue;
+                }
+            } else if let Some(p) = parse_participant(raw, line_no) {
                 self.register_participant(p);
                 continue;
             }
@@ -186,7 +200,11 @@ impl<'a> Parser<'a> {
                 }
                 continue;
             }
-            if let Some(step) = parse_message(raw, line_no) {
+            if let Some(mut step) = parse_message(raw, line_no) {
+                if let Step::Message { from, to, .. } = &mut step {
+                    self.normalize_endpoint(from, line_no);
+                    self.normalize_endpoint(to, line_no);
+                }
                 self.push_step(step);
                 continue;
             }
@@ -235,6 +253,62 @@ impl<'a> Parser<'a> {
         } else {
             self.seq.steps.push(step);
         }
+    }
+
+    /// Resolve a message endpoint that may carry inline participant syntax:
+    /// `"Display"`, `"Display" as Alias`, or a bare unquoted name. Mutates
+    /// `endpoint` in place to hold the canonical id and implicitly declares
+    /// the participant when the endpoint introduced one. `\n` inside the
+    /// quoted display is preserved literally — codegen splits on it later.
+    fn normalize_endpoint(&mut self, endpoint: &mut String, line_no: usize) {
+        let trimmed = endpoint.trim();
+        // Skip boundary anchors (`[`, `]`) — those are figure edges, not real
+        // participants. Blockcell handles them specially.
+        if trimmed == "[" || trimmed == "]" {
+            return;
+        }
+        let (id, display) = if let Some((quoted, after)) = strip_leading_quoted(trimmed) {
+            let after = after.trim();
+            let disp = unescape_display(&quoted);
+            if let Some(alias) = strip_prefix_keyword(after, "as")
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                (alias.to_string(), disp)
+            } else {
+                (disp.clone(), disp)
+            }
+        } else {
+            // Bare name — register to lock in source order; display == id.
+            (trimmed.to_string(), trimmed.to_string())
+        };
+        *endpoint = id.clone();
+        self.register_participant(Participant {
+            kind: ParticipantKind::Participant,
+            id,
+            display,
+            display_block: None,
+            color: None,
+            line: line_no,
+        });
+    }
+
+    /// Consume body lines that follow a `participant Foo [` opener, stopping
+    /// at the line whose trimmed content is `]`. The closer is consumed but
+    /// not returned. If we hit EOF without seeing a closer the partial body
+    /// is returned as-is — better to render a malformed label than crash.
+    fn consume_display_block(&mut self) -> Vec<String> {
+        let mut body = Vec::new();
+        while self.pos < self.lines.len() {
+            let line = &self.lines[self.pos];
+            self.pos += 1;
+            let trimmed = line.text.trim();
+            if trimmed == "]" {
+                break;
+            }
+            body.push(trimmed.to_string());
+        }
+        body
     }
 
     fn register_participant(&mut self, p: Participant) {
@@ -396,7 +470,6 @@ fn is_skip_directive(line: &str) -> bool {
         "@enduml",
         "hide ",
         "show ",
-        "autoactivate",
         "header ",
         "footer ",
         "mainframe ",
@@ -442,6 +515,24 @@ const PARTICIPANT_KEYWORDS: &[&str] = &[
     "queue",
 ];
 
+/// If `line` is a participant declaration whose trailing token is `[`
+/// (opening a multi-line `[ … ]` rich-content block), return the line with
+/// the trailing `[` stripped along with a `true` flag. Returns `None` when
+/// the line does not start with a participant keyword, leaving the caller to
+/// fall back to the regular parser. The `false` flag form is unused today
+/// but reserved for a future single-line `[…]` variant.
+fn strip_participant_block_open(line: &str) -> Option<(String, bool)> {
+    let starts_with_pkw = PARTICIPANT_KEYWORDS
+        .iter()
+        .any(|kw| strip_prefix_keyword(line, kw).is_some());
+    if !starts_with_pkw {
+        return None;
+    }
+    let trimmed = line.trim_end();
+    let stripped = trimmed.strip_suffix('[')?;
+    Some((stripped.trim_end().to_string(), true))
+}
+
 fn parse_participant(line: &str, line_no: usize) -> Option<Participant> {
     let (kw, rest) = PARTICIPANT_KEYWORDS
         .iter()
@@ -457,6 +548,7 @@ fn parse_participant(line: &str, line_no: usize) -> Option<Participant> {
         kind,
         id,
         display,
+        display_block: None,
         color,
         line: line_no,
     })
@@ -504,24 +596,49 @@ fn parse_alias(rest: &str) -> Option<(String, String)> {
         return None;
     }
     if let Some((quoted, after)) = strip_leading_quoted(rest) {
+        let display = unescape_display(&quoted);
         let after = after.trim();
         if let Some(alias) = strip_prefix_keyword(after, "as").map(str::trim) {
             if !alias.is_empty() {
-                return Some((alias.to_string(), quoted));
+                return Some((alias.to_string(), display));
             }
         }
-        return Some((quoted.clone(), quoted));
+        return Some((display.clone(), display));
     }
     let mut parts = rest.splitn(2, char::is_whitespace);
     let first = parts.next()?;
     let tail = parts.next().unwrap_or("").trim_start();
     if let Some(after_as) = strip_prefix_keyword(tail, "as").map(str::trim) {
-        let display = strip_leading_quoted(after_as)
-            .map(|(q, _)| q)
-            .unwrap_or_else(|| after_as.to_string());
-        return Some((first.to_string(), display));
+        if let Some((quoted, _)) = strip_leading_quoted(after_as) {
+            // `id as "Display"` — first token is the id, quoted is the display.
+            return Some((first.to_string(), unescape_display(&quoted)));
+        }
+        // `Display as id` — token after `as` is the alias used in messages.
+        return Some((after_as.to_string(), first.to_string()));
     }
     Some((first.to_string(), rest.to_string()))
+}
+
+/// Interpret PlantUML escape sequences in a quoted display string. Only `\n`
+/// is meaningful for our renderer; everything else passes through unchanged.
+fn unescape_display(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn strip_leading_quoted(s: &str) -> Option<(String, &str)> {
@@ -945,6 +1062,22 @@ mod tests {
         assert_eq!(s.participants[0].kind, ParticipantKind::Participant);
         assert_eq!(s.participants[1].id, "Bob");
         assert_eq!(s.participants[1].kind, ParticipantKind::Actor);
+    }
+
+    #[test]
+    fn participants_with_unquoted_alias() {
+        // PlantUML: `participant <Display> as <Id>` — the token after `as`
+        // is the alias used in messages.
+        let s = parse_ok(&[
+            "participant Participant as Foo",
+            "actor Actor as Foo1",
+            "Foo -> Foo1 : hi",
+        ]);
+        assert_eq!(s.participants.len(), 2);
+        assert_eq!(s.participants[0].id, "Foo");
+        assert_eq!(s.participants[0].display, "Participant");
+        assert_eq!(s.participants[1].id, "Foo1");
+        assert_eq!(s.participants[1].display, "Actor");
     }
 
     #[test]

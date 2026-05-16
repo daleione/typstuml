@@ -1,0 +1,17 @@
+[package]
+name        = "typstuml"
+version     = "0.1.0"
+entrypoint  = "lib.typ"
+authors     = ["@daleione"]
+license     = "MIT"
+description = "Render PlantUML diagrams inside a Typst document. Wasm plugin under the hood — no Java, no Graphviz, no external Typst-as-library."
+repository  = "https://github.com/daleione/typstuml"
+homepage    = "https://github.com/daleione/typstuml"
+categories  = ["visualization"]
+keywords    = ["plantuml", "uml", "diagram", "sequence", "class"]
+compiler    = "0.14.0"
+
+# Exclude development scaffolding. The wasm and the lib.typ are part of
+# the runtime package; everything else here is documentation that bloats
+# the import payload without value to consumers.
+exclude     = ["README.md"]

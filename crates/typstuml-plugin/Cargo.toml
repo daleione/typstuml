@@ -1,0 +1,30 @@
+[package]
+name = "typstuml-plugin"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Typst plugin entry point for TypstUML — loaded from the typstuml Typst package via #plugin(...)"
+repository = "https://github.com/daleione/typstuml"
+publish = false                # build artifact, not a crates.io crate
+
+[lib]
+crate-type = ["cdylib"]        # WASM module only; no host-side rlib needed
+
+[dependencies]
+# `default-features = false` strips `embed-typst`, which gates the full
+# `typst-as-library` stack (typst, typst-svg, typst-pdf, typst-render,
+# typst-kit). The plugin doesn't render — Typst itself is the renderer
+# when it loads our wasm — so we only need parser + IR + layout + codegen
+# + the `Measurement` data types. Shaves the wasm artifact from hundreds
+# of MB to sub-MB.
+typstuml = { path = "../..", default-features = false }
+# Typst plugin host ABI. `wasm-minimal-protocol` is the canonical binding
+# crate for `#plugin(...)`-style modules; it provides the `#[wasm_func]`
+# attribute that wires `&[u8] -> Result<Vec<u8>, String>` to the two
+# host-imported helpers Typst uses to ferry payloads.
+wasm-minimal-protocol = "0.2"
+# CBOR codec for the measurements wire payload. Picked over JSON because
+# `f64` round-trips exactly without lossy decimal text.
+ciborium = { version = "0.2", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

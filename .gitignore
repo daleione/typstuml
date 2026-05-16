@@ -10,3 +10,5 @@ examples/*.png
 examples/*.svg
 /crates/typstuml-wasm/pkg
 /crates/typstuml-wasm/dist
+/crates/typstuml-plugin/pkg
+/crates/typstuml-plugin/dist

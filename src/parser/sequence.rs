@@ -720,13 +720,26 @@ fn parse_note_line(line: &str, line_no: usize) -> Option<NoteParse> {
     if let Some(over_rest) = strip_prefix_keyword(after_kw, "over") {
         return Some(parse_note_over(over_rest.trim(), line_no));
     }
-    if let Some(rest) = strip_prefix_keyword(after_kw, "left") {
-        return Some(parse_note_side(NotePosition::LeftOf, rest.trim(), line_no));
+    if let Some(rest) = strip_note_side_keyword(after_kw, "left") {
+        return Some(parse_note_side(NotePosition::LeftOf, rest, line_no));
     }
-    if let Some(rest) = strip_prefix_keyword(after_kw, "right") {
-        return Some(parse_note_side(NotePosition::RightOf, rest.trim(), line_no));
+    if let Some(rest) = strip_note_side_keyword(after_kw, "right") {
+        return Some(parse_note_side(NotePosition::RightOf, rest, line_no));
     }
     None
+}
+
+/// Same as `strip_prefix_keyword` but also accepts `:` immediately after the
+/// keyword — needed for `note left: text` where the colon directly follows
+/// the side keyword with no whitespace.
+fn strip_note_side_keyword<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
+    let rest = line.strip_prefix(keyword)?;
+    match rest.chars().next() {
+        None => Some(rest),
+        Some(c) if c.is_whitespace() => Some(rest.trim_start()),
+        Some(':') => Some(rest),
+        _ => None,
+    }
 }
 
 fn parse_note_over(rest: &str, line_no: usize) -> NoteParse {

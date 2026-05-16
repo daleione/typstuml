@@ -352,12 +352,16 @@ fn write_note(
     participants: &[String],
     text: &str,
 ) {
-    let pos_kw = match position {
-        NotePosition::Over => "over",
-        NotePosition::LeftOf => "left of",
-        NotePosition::RightOf => "right of",
-    };
     let target = participants.join(", ");
+    let pos_kw = match (position, target.is_empty()) {
+        (NotePosition::Over, _) => "over",
+        // `note left of X` requires a target; bare `note left` attaches to
+        // the previous message and must drop the `of`.
+        (NotePosition::LeftOf, true) => "left",
+        (NotePosition::LeftOf, false) => "left of",
+        (NotePosition::RightOf, true) => "right",
+        (NotePosition::RightOf, false) => "right of",
+    };
     let header = if target.is_empty() {
         format!("{indent}note {pos_kw}")
     } else {

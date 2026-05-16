@@ -87,12 +87,25 @@ const UNAMBIGUOUS_CUCA: &[&str] = &[
     "() ",
 ];
 
-/// Sequence arrow forms. Different from cuca relation arrows (which are
-/// `--|>` / `--*` / `..>` etc) — sequence uses short `->` / `-->` with
-/// spaces on both sides AND a `:` label or a single message receiver.
-const SEQUENCE_ARROWS: &[&str] = &[
-    " -> ", " <- ", " ->> ", " <<- ", " ->o ", " o<- ", " ->x ",
-];
+/// Detect a sequence-style arrow anywhere in the line, with or without
+/// surrounding whitespace. Cuca relation forms (`--|>`, `--*`, `o--`, `..>`,
+/// etc.) and triple-dash navigation are rejected up front so we don't
+/// confuse a class diagram for a sequence diagram on the basis of `-->`.
+fn contains_sequence_arrow(t: &str) -> bool {
+    if t.contains("<|")
+        || t.contains("|>")
+        || t.contains("*--")
+        || t.contains("--*")
+        || t.contains("o--")
+        || t.contains("--o")
+        || t.contains("..>")
+        || t.contains("<..")
+        || t.contains("---")
+    {
+        return false;
+    }
+    t.contains("->") || t.contains("<-")
+}
 
 /// Cuca-only inline shorthand starters: `[Foo]`, `(Foo)` (not `()`,
 /// which is also a lollipop), `:Foo:` (only at start of name segment).
@@ -105,7 +118,7 @@ fn is_cuca_shorthand_start(t: &str) -> bool {
     }
     // `:Foo:` actor shorthand — colon at start, another colon later in
     // the line (no `->` in between since that's a sequence form).
-    if t.starts_with(':') && t[1..].find(':').is_some() && !t.contains(" -> ") {
+    if t.starts_with(':') && t[1..].find(':').is_some() && !contains_sequence_arrow(t) {
         return true;
     }
     false
@@ -164,7 +177,7 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         {
             seen_shared_kw = true;
         }
-        if SEQUENCE_ARROWS.iter().any(|a| t.contains(a)) {
+        if contains_sequence_arrow(t) {
             seen_sequence_arrow = true;
             seen_seq_strong = true;
         }

@@ -344,11 +344,16 @@
   <h1>Typst<span class="accent">UML</span></h1>
   <label for="examples">Example</label>
   <select id="examples">
+    <option value="">Pick an example…</option>
+    <option value="sequence">Sequence</option>
+    <option value="activity">Activity</option>
+    <option value="state">State</option>
+    <option value="class">Class</option>
+    <option value="usecase">Use case</option>
+    <option value="mindmap">Mind map</option>
+    <option value="wbs">WBS</option>
     <option value="json">JSON</option>
     <option value="yaml">YAML</option>
-    <option value="sequence">Sequence</option>
-    <option value="wbs">WBS</option>
-    <option value="mindmap">Mind map</option>
   </select>
   <div class="spacer"></div>
   <span id="status" data-state="busy">loading…</span>
@@ -356,7 +361,7 @@
 
 <main>
   <section class="pane">
-    <textarea id="editor" spellcheck="false"></textarea>
+    <textarea id="editor" spellcheck="false" placeholder="Type PlantUML here, or pick an example above…"></textarea>
     <pre id="error"></pre>
   </section>
   <section class="pane">
@@ -472,6 +477,79 @@ const loadedFontIds = new Set();
 const fontLoads = new Map();
 
 const EXAMPLES = {
+  sequence: `@startuml
+Alice -> Bob: Authentication Request
+Bob --> Alice: Authentication Response
+Alice -> Bob: Another request
+Bob --> Alice: Another response
+@enduml`,
+  activity: `@startuml
+start
+:Parse request;
+if (Cached?) then (yes)
+  :Return cached;
+else (no)
+  :Compute;
+  :Cache;
+endif
+:Respond;
+stop
+@enduml`,
+  state: `@startuml
+title Simple traffic light
+state Red
+state Green
+state Yellow
+[*] --> Red
+Red --> Green
+Green --> Yellow
+Yellow --> Red
+@enduml`,
+  class: `@startuml
+class Animal {
+  + name: String
+  + age: int
+  + speak(): void
+}
+class Dog {
+  + breed: String
+  + speak(): void
+}
+class Cat {
+  + indoor: bool
+  + speak(): void
+}
+Dog --|> Animal
+Cat --|> Animal
+@enduml`,
+  usecase: `@startuml
+left to right direction
+actor User
+actor Admin
+usecase Login
+usecase "Manage users" as Manage
+User --> Login
+Admin --> Login
+Admin --> Manage
+@enduml`,
+  mindmap: `@startmindmap
+* Diagram types
+** Sequence
+** JSON
+** YAML
+** WBS
+** Mind map
+@endmindmap`,
+  wbs: `@startwbs
+* TypstUML
+** Parser
+*** PlantUML scanner
+*** Dispatcher
+** Codegen
+** Runtime
+*** Typst world
+*** SVG / PDF / PNG
+@endwbs`,
   json: `@startjson
 {
   "project": "TypstUML",
@@ -489,30 +567,6 @@ pipeline:
   - runtime
 formats: [svg, pdf, png]
 @endyaml`,
-  sequence: `@startuml
-Alice -> Bob: Authentication Request
-Bob --> Alice: Authentication Response
-Alice -> Bob: Another request
-Bob --> Alice: Another response
-@enduml`,
-  wbs: `@startwbs
-* TypstUML
-** Parser
-*** PlantUML scanner
-*** Dispatcher
-** Codegen
-** Runtime
-*** Typst world
-*** SVG / PDF / PNG
-@endwbs`,
-  mindmap: `@startmindmap
-* Diagram types
-** Sequence
-** JSON
-** YAML
-** WBS
-** Mind map
-@endmindmap`,
 };
 
 const FORMAT_META = {
@@ -584,6 +638,16 @@ function showOutput(format, data) {
 function render() {
   if (!ready) return;
   const source = editor.value;
+  if (!source.trim()) {
+    clearBlobUrl();
+    output.classList.remove("pdf-mode");
+    output.innerHTML = "";
+    errorBox.style.display = "none";
+    lastOutput = null;
+    updateDownloadAvailability();
+    setStatus("ready", "idle");
+    return;
+  }
   const format = currentFormat;
   setStatus("rendering…", "busy");
   // Yield once so the status text actually paints before the (possibly
@@ -615,7 +679,36 @@ function scheduleRender() {
   timer = setTimeout(render, 400);
 }
 
-editor.addEventListener("input", scheduleRender);
+// Persist editor state across reloads. Saving on every keystroke is fine —
+// localStorage writes for a few KB take well under a millisecond, and it
+// guarantees no lost edits if the tab is closed before the debounced render
+// fires.
+const STORAGE_KEY = "typstuml-playground-v1";
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      source: editor.value,
+      example: examplesEl.value || null,
+    }));
+  } catch (_) { /* quota / private mode — silently degrade */ }
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
+editor.addEventListener("input", () => {
+  // If the user edits the loaded example, the dropdown should no longer
+  // claim that example is selected — drop back to the placeholder.
+  const key = examplesEl.value;
+  if (key && editor.value !== EXAMPLES[key]) {
+    examplesEl.value = "";
+  }
+  saveState();
+  scheduleRender();
+});
 
 // Format toggle — segmented control. One button at a time gets `.active`.
 // PNG-only sub-controls (currently just the scale picker) appear or hide
@@ -657,7 +750,10 @@ zoomInBtn.addEventListener("click", () => {
 applyZoom();
 
 examplesEl.addEventListener("change", () => {
-  editor.value = EXAMPLES[examplesEl.value];
+  const key = examplesEl.value;
+  if (!key) return; // user re-picked the placeholder — no-op
+  editor.value = EXAMPLES[key];
+  saveState();
   render();
 });
 
@@ -832,7 +928,21 @@ renderFontsPopover();
 
 // ---------------------------------------------------------------------------
 
-editor.value = EXAMPLES.json;
+// Restore previous editor content if we have one, otherwise start blank so
+// the placeholder text shows and the dropdown sits at "Pick an example…".
+const saved = loadState();
+if (saved && typeof saved.source === "string") {
+  editor.value = saved.source;
+  // Only keep the dropdown selection if the saved source is still byte-for-
+  // byte the example — otherwise the user had edited it, so we deselect.
+  examplesEl.value =
+    saved.example && EXAMPLES[saved.example] === editor.value
+      ? saved.example
+      : "";
+} else {
+  editor.value = "";
+  examplesEl.value = "";
+}
 updateDownloadAvailability();
 
 init()

@@ -117,8 +117,11 @@ fn is_cuca_shorthand_start(t: &str) -> bool {
         return true;
     }
     // `:Foo:` actor shorthand — colon at start, another colon later in
-    // the line (no `->` in between since that's a sequence form).
-    if t.starts_with(':') && t[1..].find(':').is_some() && !contains_sequence_arrow(t) {
+    // the line. Sequence messages can never start with `:` (the `:` for
+    // the message text always follows the participant name), so a
+    // line-leading `:Foo:` is unambiguous cuca shorthand even when an
+    // association arrow like `-->` appears on the same line.
+    if t.starts_with(':') && t[1..].find(':').is_some() {
         return true;
     }
     false
@@ -290,5 +293,18 @@ mod tests {
     fn fragment_uses_body_sniff() {
         let b = block("", &["A -> B : hi"]);
         assert_eq!(detect(&b), DiagramKind::Sequence);
+    }
+
+    // A use-case body where every line carries both an actor / usecase
+    // shorthand AND a `-->` association arrow. Locks in that a line
+    // *starting* with `:Foo:` keeps cuca classification regardless of
+    // the arrow, since PUML sequence messages never start with `:`.
+    #[test]
+    fn line_leading_actor_shorthand_with_arrow_is_cuca() {
+        let b = block(
+            "uml",
+            &[":Bob: --> (Login)", ":Admin: --> (Configure)", ":Admin: --> (Login)"],
+        );
+        assert_eq!(detect(&b), DiagramKind::Cuca);
     }
 }

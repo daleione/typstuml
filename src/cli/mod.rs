@@ -474,14 +474,19 @@ fn print_diagrams() {
     // Listed in pipeline order: native renderers first, then dispatcher-only
     // (parsed but not yet rendered) types. Mirrors `parser::dispatcher`.
     println!("Supported diagram types:");
-    println!("  sequence  — @startuml / @enduml (lifeline grid)");
-    println!("  json      — @startjson / @endjson");
-    println!("  yaml      — @startyaml / @endyaml");
-    println!("  wbs       — @startwbs / @endwbs");
-    println!("  mindmap   — @startmindmap / @endmindmap");
+    println!("  sequence    — @startuml / @enduml (lifeline grid)");
+    println!("  class       — @startuml (class declarations)");
+    println!("  component   — @startuml (component / interface)");
+    println!("  use case    — @startuml (actor / usecase shorthand)");
+    println!("  deployment  — @startuml (node / artifact)");
+    println!("  state       — @startuml (state / [*] transitions)");
+    println!("  activity    — @startuml (new syntax; supports |swimlanes|)");
+    println!("  json        — @startjson / @endjson");
+    println!("  yaml        — @startyaml / @endyaml");
+    println!("  wbs         — @startwbs / @endwbs");
+    println!("  mindmap     — @startmindmap / @endmindmap");
     println!();
     println!("Recognized but not yet rendered (run with --compat warn|loose):");
-    println!("  class, component, use case, deployment, state, activity,");
     println!("  gantt, timing, salt, network, er, ditaa");
 }
 

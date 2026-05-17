@@ -1,0 +1,13 @@
+@startuml
+title Lane revisited (Customer → Service → Customer → Service)
+|Customer|
+start
+:Submit form;
+|Service|
+:Validate;
+|Customer|
+:Confirm details;
+|Service|
+:Process;
+stop
+@enduml

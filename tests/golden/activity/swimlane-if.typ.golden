@@ -1,0 +1,37 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, swimlane-layout(
+  title: [Lane switch inside if-then],
+  lanes: (
+    (label: [Customer], color: none, x: 0.00pt, width: 252.64pt),
+    (label: [Service], color: none, x: 252.64pt, width: 110.00pt),
+  ),
+  nodes: (
+    (content: start-marker(), x: 121.82pt, y: 12.00pt),
+    (content: process[Place order], x: 93.36pt, y: 43.00pt),
+    (content: branch-merge([Premium?],
+    yes: flow-col(
+      process[Apply discount],
+      [],
+      process[Priority handling],
+    ),
+    no: flow-col(
+      process[Standard pricing],
+    ),
+    yes-label: [yes],
+    no-label: [no],
+  ), x: 16.00pt, y: 93.00pt),
+    (content: process[Ship], x: 288.57pt, y: 306.00pt),
+    (content: stop-marker(), x: 302.64pt, y: 356.00pt),
+  ),
+  edges: (
+    (points: ((126.32pt, 21.00pt), (126.32pt, 43.00pt), ), arrow: true),
+    (points: ((126.32pt, 71.00pt), (126.32pt, 93.00pt), ), arrow: true),
+    (points: ((126.32pt, 270.00pt), (126.32pt, 288.00pt), (307.64pt, 288.00pt), (307.64pt, 306.00pt), ), arrow: true),
+    (points: ((307.64pt, 334.00pt), (307.64pt, 356.00pt), ), arrow: true),
+  ),
+  header-height: 28.00pt,
+  body-height: 378.00pt,
+))

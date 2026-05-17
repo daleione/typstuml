@@ -1,0 +1,28 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, swimlane-layout(
+  title: [Lane revisited (Customer → Service → Customer → Service)],
+  lanes: (
+    (label: [Customer], color: none, x: 0.00pt, width: 115.15pt),
+    (label: [Service], color: none, x: 115.15pt, width: 110.00pt),
+  ),
+  nodes: (
+    (content: start-marker(), x: 53.07pt, y: 12.00pt),
+    (content: process[Submit form], x: 22.01pt, y: 43.00pt),
+    (content: process[Validate], x: 143.60pt, y: 107.00pt),
+    (content: process[Confirm details], x: 16.00pt, y: 171.00pt),
+    (content: process[Process], x: 144.79pt, y: 235.00pt),
+    (content: stop-marker(), x: 165.15pt, y: 285.00pt),
+  ),
+  edges: (
+    (points: ((57.57pt, 21.00pt), (57.57pt, 43.00pt), ), arrow: true),
+    (points: ((57.57pt, 71.00pt), (57.57pt, 89.00pt), (170.15pt, 89.00pt), (170.15pt, 107.00pt), ), arrow: true),
+    (points: ((170.15pt, 135.00pt), (170.15pt, 153.00pt), (57.57pt, 153.00pt), (57.57pt, 171.00pt), ), arrow: true),
+    (points: ((57.57pt, 199.00pt), (57.57pt, 217.00pt), (170.15pt, 217.00pt), (170.15pt, 235.00pt), ), arrow: true),
+    (points: ((170.15pt, 263.00pt), (170.15pt, 285.00pt), ), arrow: true),
+  ),
+  header-height: 28.00pt,
+  body-height: 307.00pt,
+))

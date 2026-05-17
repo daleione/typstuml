@@ -1,0 +1,14 @@
+@startuml
+title Lane switch inside while body
+|Worker|
+start
+:Initialize;
+while (more items?) is (yes)
+  :Pick item;
+  |Inspector|
+  :Verify quality;
+endwhile (no)
+|Worker|
+:Submit batch;
+stop
+@enduml

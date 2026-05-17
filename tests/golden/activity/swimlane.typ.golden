@@ -2,24 +2,34 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#align(center)[*Order swimlane*]
-
-#align(center, swimlane(
-  lane([Customer], flow-col(
-    start-marker(),
-    process[Place order],
-    process[Pay],
-  ), color: rgb("#ADD8E6")),
-  lane([Service], flow-col(
-    process[Validate order],
-    process[Charge card],
-  ), color: rgb("#FFFFE0")),
-  lane([Warehouse], flow-col(
-    process[Pick items],
-    process[Ship],
-  )),
-  lane([Customer], flow-col(
-    process[Receive package],
-    stop-marker(),
-  )),
+#align(center, swimlane-layout(
+  title: [Order swimlane],
+  lanes: (
+    (label: [Customer], color: rgb("#ADD8E6"), x: 0.00pt, width: 118.93pt),
+    (label: [Service], color: rgb("#FFFFE0"), x: 118.93pt, width: 110.00pt),
+    (label: [Warehouse], color: none, x: 228.93pt, width: 110.00pt),
+  ),
+  nodes: (
+    (content: start-marker(), x: 54.97pt, y: 12.00pt),
+    (content: process[Place order], x: 26.51pt, y: 43.00pt),
+    (content: process[Pay], x: 41.90pt, y: 93.00pt),
+    (content: process[Validate order], x: 135.16pt, y: 157.00pt),
+    (content: process[Charge card], x: 139.11pt, y: 207.00pt),
+    (content: process[Pick items], x: 252.85pt, y: 271.00pt),
+    (content: process[Ship], x: 264.87pt, y: 321.00pt),
+    (content: process[Receive package], x: 16.00pt, y: 385.00pt),
+    (content: stop-marker(), x: 54.47pt, y: 435.00pt),
+  ),
+  edges: (
+    (points: ((59.47pt, 21.00pt), (59.47pt, 43.00pt), ), arrow: true),
+    (points: ((59.47pt, 71.00pt), (59.47pt, 93.00pt), ), arrow: true),
+    (points: ((59.47pt, 121.00pt), (59.47pt, 139.00pt), (173.93pt, 139.00pt), (173.93pt, 157.00pt), ), arrow: true),
+    (points: ((173.93pt, 185.00pt), (173.93pt, 207.00pt), ), arrow: true),
+    (points: ((173.93pt, 235.00pt), (173.93pt, 253.00pt), (283.93pt, 253.00pt), (283.93pt, 271.00pt), ), arrow: true),
+    (points: ((283.93pt, 299.00pt), (283.93pt, 321.00pt), ), arrow: true),
+    (points: ((283.93pt, 349.00pt), (283.93pt, 367.00pt), (59.47pt, 367.00pt), (59.47pt, 385.00pt), ), arrow: true),
+    (points: ((59.47pt, 413.00pt), (59.47pt, 435.00pt), ), arrow: true),
+  ),
+  header-height: 28.00pt,
+  body-height: 457.00pt,
 ))

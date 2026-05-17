@@ -98,6 +98,8 @@ pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
     "with-notes",
     "swimlane",
     "lane",
+    "swimlane-layout",
+    "swimlane-probe",
 ];
 
 /// Render a [`Document`] to a self-contained Typst source string. When
@@ -130,7 +132,7 @@ pub fn emit(
             Diagram::Wbs(w) => wbs::emit(&mut out, w),
             Diagram::MindMap(m) => mindmap::emit(&mut out, m),
             Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
-            Diagram::Activity(a) => activity::emit(&mut out, a),
+            Diagram::Activity(a) => activity::emit(&mut out, a, measurements, idx),
             Diagram::State(s) => state::emit(&mut out, s, measurements, idx),
         }
     }
@@ -158,8 +160,9 @@ pub fn emit_probes(
         Diagram::Json(j) => record_graph::has_records(&j.root),
         Diagram::Yaml(y) => record_graph::has_records(&y.root),
         Diagram::State(s) => state::has_probes(s),
-        // Activity painters self-measure via Typst `measure()` — no
-        // Rust-side probe pass needed.
+        // Activity needs probes only for the swimlane layout pipeline;
+        // ordinary flow-col activities self-measure on the Typst side.
+        Diagram::Activity(a) => activity::has_swimlane_probes(a),
         _ => false,
     });
     if !any_probes {
@@ -183,6 +186,9 @@ pub fn emit_probes(
             }
             Diagram::State(s) if state::has_probes(s) => {
                 state::collect_probes(s, idx, &mut out, &mut expected_ids);
+            }
+            Diagram::Activity(a) if activity::has_swimlane_probes(a) => {
+                activity::collect_probes(a, idx, &mut out, &mut expected_ids);
             }
             _ => {}
         }

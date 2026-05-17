@@ -18,3 +18,4 @@ pub mod geometry;
 pub mod graph;
 pub mod pathplan;
 pub mod sugiyama;
+pub mod swimlane;

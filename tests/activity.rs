@@ -106,3 +106,27 @@ fn renders_svg_for_activity_if_labels() { render_activity_svg("if-labels"); }
 
 #[test]
 fn renders_svg_for_activity_empty_else() { render_activity_svg("empty-else"); }
+
+#[test]
+fn golden_emit_typst_activity_swimlane_back() { golden_activity("swimlane-back"); }
+
+#[test]
+fn renders_svg_for_activity_swimlane_back() { render_activity_svg("swimlane-back"); }
+
+// Lane switch inside a nested if-then: PlantUML drops the inner switch
+// today (the whole `if` compound stays in the lane it started in). The
+// post-compound cross-lane jump still routes correctly. Captured here
+// so a future fix flips the golden visibly.
+#[test]
+fn golden_emit_typst_activity_swimlane_if() { golden_activity("swimlane-if"); }
+
+#[test]
+fn renders_svg_for_activity_swimlane_if() { render_activity_svg("swimlane-if"); }
+
+// Same story for `while`: lane switch inside the loop body is dropped;
+// the post-loop revisit consolidates back to the original column.
+#[test]
+fn golden_emit_typst_activity_swimlane_while() { golden_activity("swimlane-while"); }
+
+#[test]
+fn renders_svg_for_activity_swimlane_while() { render_activity_svg("swimlane-while"); }

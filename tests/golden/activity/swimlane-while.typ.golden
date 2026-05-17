@@ -1,0 +1,33 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, swimlane-layout(
+  title: [Lane switch inside while body],
+  lanes: (
+    (label: [Worker], color: none, x: 0.00pt, width: 192.00pt),
+  ),
+  nodes: (
+    (content: start-marker(), x: 91.50pt, y: 12.00pt),
+    (content: process[Initialize], x: 68.20pt, y: 43.00pt),
+    (content: flow-loop(
+    flow-col(
+      decision[more items?],
+      process[Pick item],
+      [],
+      process[Verify quality],
+    ),
+    back-label: [yes],
+  ), x: 16.00pt, y: 93.00pt),
+    (content: process[Submit batch], x: 59.16pt, y: 307.00pt),
+    (content: stop-marker(), x: 91.00pt, y: 357.00pt),
+  ),
+  edges: (
+    (points: ((96.00pt, 21.00pt), (96.00pt, 43.00pt), ), arrow: true),
+    (points: ((96.00pt, 71.00pt), (96.00pt, 93.00pt), ), arrow: true),
+    (points: ((96.00pt, 285.00pt), (96.00pt, 307.00pt), ), arrow: true),
+    (points: ((96.00pt, 335.00pt), (96.00pt, 357.00pt), ), arrow: true),
+  ),
+  header-height: 28.00pt,
+  body-height: 379.00pt,
+))

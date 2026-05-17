@@ -98,7 +98,7 @@ const STAGED_LIB_TYP: &str = "\
 #import \"src/states.typ\": state-layout, state-probe, state-note-probe
 #import \"src/atoms.typ\": process, decision, terminal, junction, edge, flow-node
 #import \"src/composites.typ\": flow-col, section
-#import \"src/flows.typ\": branch, branch-merge, switch, case, n-way, fork-bar, flow-loop, start-marker, stop-marker, end-marker, detach-marker, partition, flow-note, with-notes, swimlane, lane
+#import \"src/flows.typ\": branch, branch-merge, switch, case, n-way, fork-bar, flow-loop, start-marker, stop-marker, end-marker, detach-marker, partition, flow-note, with-notes, swimlane, lane, swimlane-layout, swimlane-probe
 ";
 
 fn main() {

@@ -1,0 +1,16 @@
+@startuml
+title Lane switch inside if-then
+|Customer|
+start
+:Place order;
+if (Premium?) then (yes)
+  :Apply discount;
+  |Service|
+  :Priority handling;
+else (no)
+  :Standard pricing;
+endif
+|Service|
+:Ship;
+stop
+@enduml

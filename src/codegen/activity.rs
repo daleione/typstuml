@@ -9,29 +9,82 @@
 //! The output style intentionally mirrors the design-doc example so it
 //! reads as the "canonical" Typst form for an activity diagram.
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 
 use crate::ir::{
     ActionKind, ActivityDiagram, ActivityStmt, ElseIfBranch, NoteAttach, NotePosition,
     PartitionKind, Skinparam, SwitchCase,
 };
+use crate::layout::swimlane as sw_layout;
+use crate::runtime::MeasurementSet;
 
-pub fn emit(out: &mut String, act: &ActivityDiagram) {
+pub fn emit(
+    out: &mut String,
+    act: &ActivityDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
     emit_skinparam_preamble(out, &act.skinparams);
+    if has_top_level_swimlane(&act.body) {
+        match measurements {
+            Some(set) => emit_swimlane_layout(out, act, set, diagram_idx),
+            None => {
+                // Measurement pass didn't run (or failed) — fall back to
+                // the legacy grid painter so the diagram still renders,
+                // even without cross-lane connectors.
+                if let Some(t) = &act.title {
+                    emit_title(out, t);
+                }
+                out.push_str("#align(center, swimlane(\n");
+                emit_swimlane_lanes_legacy(out, &act.body, 1);
+                out.push_str("))\n");
+            }
+        }
+        return;
+    }
     if let Some(t) = &act.title {
         emit_title(out, t);
     }
-    // When the body contains top-level `|Lane|` switches, regroup
-    // statements into lanes and emit a `swimlane(...)` wrapper instead
-    // of the default vertical `flow-col(...)`.
-    if has_top_level_swimlane(&act.body) {
-        out.push_str("#align(center, swimlane(\n");
-        emit_swimlane_lanes(out, &act.body, 1);
-        out.push_str("))\n");
-    } else {
-        out.push_str("#align(center, flow-col(\n");
-        emit_stmts(out, &act.body, 1);
-        out.push_str("))\n");
+    out.push_str("#align(center, flow-col(\n");
+    emit_stmts(out, &act.body, 1);
+    out.push_str("))\n");
+}
+
+pub fn has_swimlane_probes(act: &ActivityDiagram) -> bool {
+    has_top_level_swimlane(&act.body)
+}
+
+/// Emit one `swimlane-probe` per action / marker plus one per non-empty
+/// lane label, so the measure pass returns natural sizes that the
+/// solver in [`crate::layout::swimlane`] needs to pack lanes and place
+/// nodes.
+pub fn collect_probes(
+    act: &ActivityDiagram,
+    diagram_idx: usize,
+    out: &mut String,
+    expected_ids: &mut Vec<String>,
+) {
+    let (lanes, nodes) = linearize_swimlane(&act.body);
+    for (i, lane) in lanes.iter().enumerate() {
+        if lane.label.is_empty() {
+            continue;
+        }
+        let id = format!("sw{diagram_idx}_lane{i}");
+        let _ = writeln!(
+            out,
+            "#swimlane-probe(id: \"{}\", text(weight: \"bold\", size: 0.9em, [{}]))",
+            id,
+            typst_escape(&lane.label),
+        );
+        expected_ids.push(id);
+    }
+    for (i, n) in nodes.iter().enumerate() {
+        let id = format!("sw{diagram_idx}_n{i}");
+        out.push_str(&format!("#swimlane-probe(id: \"{id}\", "));
+        out.push_str(&n.typst_expr);
+        out.push_str(")\n");
+        expected_ids.push(id);
     }
 }
 
@@ -40,12 +93,162 @@ fn has_top_level_swimlane(body: &[ActivityStmt]) -> bool {
         .any(|s| matches!(s, ActivityStmt::SwimlaneSwitch { .. }))
 }
 
-/// Split `body` at every top-level `SwimlaneSwitch` and emit a sequence
-/// of `lane(...)` entries. Statements preceding the first switch ride
-/// the first explicit lane (PlantUML's convention — the initial `|Lane|`
-/// retroactively names the body so far). When there's no leading switch
-/// they form an implicit unnamed lane.
-fn emit_swimlane_lanes(out: &mut String, body: &[ActivityStmt], indent: usize) {
+/// One linearized node in source order with its lane index and the
+/// emitted Typst content for the node itself (a `process[...]`, a
+/// marker, or — for intra-lane compounds — a full `branch-merge` /
+/// `flow-loop` tree).
+struct SwimlaneNode {
+    lane: usize,
+    typst_expr: String,
+}
+
+struct LaneSpec {
+    label: String,
+    color: Option<String>,
+}
+
+/// Walk `body` once, deduping lanes by label (so a lane revisit reuses
+/// the same column) and emitting one [`SwimlaneNode`] per non-switch
+/// statement. Compound statements that contain a `SwimlaneSwitch`
+/// internally are still emitted as a single node — the inner switch is
+/// silently dropped (matches the pre-existing M0 fallback behaviour);
+/// proper nested handling is a follow-up.
+fn linearize_swimlane(body: &[ActivityStmt]) -> (Vec<LaneSpec>, Vec<SwimlaneNode>) {
+    let mut lanes: Vec<LaneSpec> = Vec::new();
+    let mut lane_index: HashMap<String, usize> = HashMap::new();
+    let mut nodes: Vec<SwimlaneNode> = Vec::new();
+    let mut current: Option<usize> = None;
+
+    for s in body {
+        match s {
+            ActivityStmt::SwimlaneSwitch { label, color, .. } => {
+                let idx = if let Some(&i) = lane_index.get(label) {
+                    i
+                } else {
+                    let i = lanes.len();
+                    lanes.push(LaneSpec {
+                        label: label.clone(),
+                        color: color.clone(),
+                    });
+                    lane_index.insert(label.clone(), i);
+                    i
+                };
+                current = Some(idx);
+            }
+            _ => {
+                if current.is_none() {
+                    // Implicit unnamed lane for any pre-switch content.
+                    current = Some(lanes.len());
+                    lanes.push(LaneSpec {
+                        label: String::new(),
+                        color: None,
+                    });
+                }
+                let lane = current.unwrap();
+                let mut expr = String::new();
+                emit_stmt(&mut expr, s, 1);
+                nodes.push(SwimlaneNode {
+                    lane,
+                    typst_expr: expr,
+                });
+            }
+        }
+    }
+    (lanes, nodes)
+}
+
+fn emit_swimlane_layout(
+    out: &mut String,
+    act: &ActivityDiagram,
+    measurements: &MeasurementSet,
+    diagram_idx: usize,
+) {
+    let (lanes, nodes) = linearize_swimlane(&act.body);
+    let lane_inputs: Vec<sw_layout::LaneInput> = lanes
+        .iter()
+        .map(|l| sw_layout::LaneInput {
+            label: l.label.clone(),
+            color: l.color.clone(),
+        })
+        .collect();
+    let node_inputs: Vec<sw_layout::NodeInput> = nodes
+        .iter()
+        .enumerate()
+        .map(|(i, n)| sw_layout::NodeInput {
+            probe_id: format!("sw{diagram_idx}_n{i}"),
+            lane: n.lane,
+        })
+        .collect();
+    let lane_label_probe_ids: Vec<Option<String>> = lanes
+        .iter()
+        .enumerate()
+        .map(|(i, l)| {
+            if l.label.is_empty() {
+                None
+            } else {
+                Some(format!("sw{diagram_idx}_lane{i}"))
+            }
+        })
+        .collect();
+
+    let layout = sw_layout::solve(
+        &lane_inputs,
+        &node_inputs,
+        &lane_label_probe_ids,
+        measurements,
+    );
+
+    out.push_str("#align(center, swimlane-layout(\n");
+    if let Some(t) = &act.title {
+        out.push_str("  title: [");
+        out.push_str(&typst_escape(t));
+        out.push_str("],\n");
+    }
+    out.push_str("  lanes: (\n");
+    for l in &layout.lanes {
+        let color = l
+            .color
+            .as_deref()
+            .and_then(puml_color_to_typst)
+            .unwrap_or_else(|| "none".to_string());
+        let _ = writeln!(
+            out,
+            "    (label: [{}], color: {}, x: {:.2}pt, width: {:.2}pt),",
+            typst_escape(&l.label),
+            color,
+            l.x_pt,
+            l.width_pt,
+        );
+    }
+    out.push_str("  ),\n");
+    out.push_str("  nodes: (\n");
+    for (i, p) in layout.nodes.iter().enumerate() {
+        let n = &nodes[i];
+        out.push_str("    (content: ");
+        out.push_str(n.typst_expr.trim());
+        let _ = writeln!(out, ", x: {:.2}pt, y: {:.2}pt),", p.x_pt, p.y_pt);
+    }
+    out.push_str("  ),\n");
+    out.push_str("  edges: (\n");
+    for e in &layout.edges {
+        out.push_str("    (points: (");
+        for p in &e.points {
+            let _ = write!(out, "({:.2}pt, {:.2}pt), ", p.0, p.1);
+        }
+        let _ = writeln!(out, "), arrow: {}),", e.arrow);
+    }
+    out.push_str("  ),\n");
+    let _ = writeln!(out, "  header-height: {:.2}pt,", layout.header_h_pt);
+    let _ = writeln!(out, "  body-height: {:.2}pt,", layout.body_h_pt);
+    out.push_str("))\n");
+}
+
+/// Legacy grid-based swimlane emitter, retained as the fallback path
+/// when the measure pass didn't run (or produced no results). Each
+/// lane stays a self-contained `flow-col`; cross-lane connectors are
+/// NOT drawn — call the principled `emit_swimlane_layout` instead when
+/// a `MeasurementSet` is available.
+fn emit_swimlane_lanes_legacy(out: &mut String, body: &[ActivityStmt], indent: usize) {
     let mut lanes: Vec<(Option<String>, Option<String>, Vec<&ActivityStmt>)> = Vec::new();
     // Implicit first lane: collects pre-switch stmts.
     lanes.push((None, None, Vec::new()));
@@ -673,6 +876,8 @@ mod tests {
                 ],
                 ..Default::default()
             },
+            None,
+            0,
         );
         assert!(out.contains("start-marker()"));
         assert!(out.contains("process[hello]"));
@@ -697,6 +902,8 @@ mod tests {
                 }],
                 ..Default::default()
             },
+            None,
+            0,
         );
         assert!(out.contains("branch-merge([ok?]"));
         assert!(out.contains("yes: flow-col"));
@@ -725,6 +932,8 @@ mod tests {
                 }],
                 ..Default::default()
             },
+            None,
+            0,
         );
         assert!(out.contains("switch([k]"));
         assert!(out.contains("case([yes]"));
@@ -745,6 +954,8 @@ mod tests {
                 }],
                 ..Default::default()
             },
+            None,
+            0,
         );
         assert!(out.contains("fork-bar"));
         assert!(out.contains("case([], flow-col"));

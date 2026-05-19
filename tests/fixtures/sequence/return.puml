@@ -1,0 +1,11 @@
+@startuml
+title Return shorthand
+
+participant Caller
+participant Callee
+
+Caller -> Callee : invoke
+activate Callee
+Callee -> Callee : compute
+return result
+@enduml

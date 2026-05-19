@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Arrow-head and color variants*]
+
+#seq-puml(width: 360pt, "participant A
+participant B
+
+A -> B : solid head
+A ->> B : open head
+A -\\ B : half head
+A --> B : dashed reply
+A -[#blue]-> B : color override
+A <-> B : bidirectional
+")

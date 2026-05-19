@@ -1,0 +1,29 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Repeat with mid-body break*]
+
+#align(center, flow-col(
+  start-marker(),
+  process[Open connection],
+  flow-loop(
+    flow-col(
+      process[Read next frame],
+      branch-merge([frame == EOF?],
+        yes: flow-col(
+          [],
+        ),
+        no: [],
+        no-bypass: true,
+        yes-label: [yes],
+      ),
+      process[Decode],
+      process[Hand to consumer],
+      decision[more data?],
+    ),
+    back-label: [yes],
+  ),
+  process[Close connection],
+  stop-marker(),
+))

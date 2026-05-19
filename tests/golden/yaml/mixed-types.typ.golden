@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#record-layout(
+  title: [Mixed scalar / sequence / null],
+  records: (
+    (x: 6.00pt, y: 3.00pt, rows: ((key: [title], value: ["Untitled draft"]), (key: [author], value: [␀]), (key: [published], value: [☒ false]), (key: [revisions], value: [0]), (key: [tags], value: []), (key: [collaborators], value: []), (key: [metadata], value: []))),
+    (x: 160.25pt, y: 17.65pt, rows: ((key: [0], value: ["alice"]), (key: [1], value: ["bob"]))),
+    (x: 160.25pt, y: 46.81pt, rows: ((key: [created], value: ["2026-01-12"]), (key: [reviewed], value: [␀]))),
+  ),
+  edges: (
+    (from: 0, from-row: 5, to: 1, path: ((c1: (159.61pt, 67.92pt), c2: (140.89pt, 29.23pt), end: (160.25pt, 29.23pt)),)),
+    (from: 0, from-row: 6, to: 2, path: ((c1: (152.98pt, 79.37pt), c2: (147.52pt, 58.87pt), end: (160.25pt, 58.87pt)),)),
+  ),
+)

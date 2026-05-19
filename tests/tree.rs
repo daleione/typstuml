@@ -26,6 +26,12 @@ fn golden_emit_typst_wbs_multiline() {
 }
 
 #[test]
+fn golden_emit_typst_wbs_pseudo_node() {
+    let actual = emit_typst_path(&fixture_in("wbs", "pseudo-node.puml"));
+    assert_golden_in("wbs", "pseudo-node", &actual);
+}
+
+#[test]
 fn renders_svg_for_wbs_basic() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("wbs-basic.svg");
@@ -95,6 +101,12 @@ fn golden_emit_typst_mindmap_orgmode() {
 fn golden_emit_typst_mindmap_colors() {
     let actual = emit_typst_path(&fixture_in("mindmap", "colors.puml"));
     assert_golden_in("mindmap", "colors", &actual);
+}
+
+#[test]
+fn golden_emit_typst_mindmap_deep_tree() {
+    let actual = emit_typst_path(&fixture_in("mindmap", "deep-tree.puml"));
+    assert_golden_in("mindmap", "deep-tree", &actual);
 }
 
 #[test]

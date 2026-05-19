@@ -1,0 +1,16 @@
+@startuml
+title Deep history pseudostate
+
+[*] --> Running
+state Running {
+  [*] --> Outer
+  state Outer {
+    [*] --> A
+    A --> B : next
+  }
+  Outer --> Other : escalate
+}
+Running --> Hibernating : sleep
+Hibernating --> Running[H*] : wake
+Running --> [*]
+@enduml

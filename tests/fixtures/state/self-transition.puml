@@ -1,0 +1,9 @@
+@startuml
+title Self-transition on a single state
+
+[*] --> Listening
+Listening --> Listening : poll [no message]
+Listening --> Handling : message arrived
+Handling --> Listening : done
+Listening --> [*] : shutdown
+@enduml

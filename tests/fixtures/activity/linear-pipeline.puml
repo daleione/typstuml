@@ -1,0 +1,13 @@
+@startuml
+title Build → test → deploy
+start
+:Checkout sources;
+:Compile;
+:Unit tests;
+:Integration tests;
+:Package artifact;
+:Promote to staging;
+:Smoke test;
+:Promote to production;
+stop
+@enduml

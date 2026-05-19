@@ -1,0 +1,14 @@
+@startuml
+title Autonumber — numbered messages
+
+autonumber
+
+participant Sensor
+participant Controller
+participant Actuator
+
+Sensor -> Controller : sample
+Controller -> Actuator : adjust
+Actuator --> Controller : applied
+Controller --> Sensor : tick
+@enduml

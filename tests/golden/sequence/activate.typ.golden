@@ -1,0 +1,15 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Activation lifeline bars*]
+
+#seq-puml(width: 360pt, "participant Client
+participant Worker
+
+Client -> Worker : submit job
+activate Worker
+Worker -> Worker : process
+Worker --> Client : ack
+deactivate Worker
+")

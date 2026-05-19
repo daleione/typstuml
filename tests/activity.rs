@@ -130,3 +130,12 @@ fn golden_emit_typst_activity_swimlane_while() { golden_activity("swimlane-while
 
 #[test]
 fn renders_svg_for_activity_swimlane_while() { render_activity_svg("swimlane-while"); }
+
+#[test]
+fn golden_emit_typst_activity_linear_pipeline() { golden_activity("linear-pipeline"); }
+
+#[test]
+fn golden_emit_typst_activity_detach() { golden_activity("detach"); }
+
+#[test]
+fn golden_emit_typst_activity_repeat_break() { golden_activity("repeat-break"); }

@@ -1,0 +1,20 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Group + critical fragments*]
+
+#seq-puml(width: 360pt, "participant Driver
+participant Lock
+participant Store
+
+group acquire lock
+  Driver -> Lock : try_lock
+  Lock --> Driver : granted
+end
+critical write section
+  Driver -> Store : write
+  Store --> Driver : ok
+end
+Driver -> Lock : release
+")

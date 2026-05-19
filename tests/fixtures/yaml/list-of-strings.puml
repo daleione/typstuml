@@ -1,0 +1,12 @@
+@startyaml
+title Cluster nodes
+
+nodes:
+  - alpha.example.com
+  - beta.example.com
+  - gamma.example.com
+roles:
+  - control-plane
+  - worker
+  - observer
+@endyaml

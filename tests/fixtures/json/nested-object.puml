@@ -1,0 +1,19 @@
+@startjson
+title Nested configuration
+
+{
+  "service": {
+    "name": "ingest",
+    "version": "1.4.2",
+    "limits": {
+      "rps": 500,
+      "burst": 1500,
+      "concurrency": 32
+    },
+    "endpoints": {
+      "ingest": "/v1/events",
+      "health": "/healthz"
+    }
+  }
+}
+@endjson

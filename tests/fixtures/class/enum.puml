@@ -1,0 +1,19 @@
+@startuml
+title Enum with class association
+
+enum OrderState {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+class Order {
+  + id: UUID
+  + state: OrderState
+  + transition(to: OrderState): void
+}
+
+Order --> OrderState : current
+@enduml

@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Create / destroy participants*]
+
+#seq-puml(width: 360pt, "participant Pool
+participant Worker
+
+create participant Worker
+Pool -> Worker : spawn
+Worker --> Pool : ready
+Pool -> Worker : run task
+Worker --> Pool : done
+destroy Worker
+")

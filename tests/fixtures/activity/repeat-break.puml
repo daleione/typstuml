@@ -1,0 +1,16 @@
+@startuml
+title Repeat with mid-body break
+
+start
+:Open connection;
+repeat
+  :Read next frame;
+  if (frame == EOF?) then (yes)
+    break
+  endif
+  :Decode;
+  :Hand to consumer;
+repeat while (more data?) is (yes) not (no)
+:Close connection;
+stop
+@enduml

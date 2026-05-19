@@ -1,0 +1,12 @@
+@startjson
+title Null / empty / boolean leaves
+
+{
+  "title": "Untitled draft",
+  "author": null,
+  "published": false,
+  "tags": [],
+  "metadata": {},
+  "revisions": 0
+}
+@endjson

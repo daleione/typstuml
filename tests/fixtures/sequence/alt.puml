@@ -1,0 +1,13 @@
+@startuml
+title Alt / else fragment
+
+participant Browser
+participant API
+
+Browser -> API : GET /resource
+alt cache hit
+  API --> Browser : 200 cached
+else cache miss
+  API --> Browser : 200 fresh
+end
+@enduml

@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#record-layout(
+  title: [Cluster nodes],
+  records: (
+    (x: 6.00pt, y: 29.29pt, rows: ((key: [nodes], value: []), (key: [roles], value: []))),
+    (x: 76.51pt, y: 3.00pt, rows: ((key: [0], value: ["alpha.example.com"]), (key: [1], value: ["beta.example.com"]), (key: [2], value: ["gamma.example.com"]))),
+    (x: 76.51pt, y: 43.74pt, rows: ((key: [0], value: ["control-plane"]), (key: [1], value: ["worker"]), (key: [2], value: ["observer"]))),
+  ),
+  edges: (
+    (from: 0, from-row: 0, to: 1, path: ((c1: (67.53pt, 35.02pt), c2: (65.49pt, 20.37pt), end: (76.51pt, 20.37pt)),)),
+    (from: 0, from-row: 1, to: 2, path: ((c1: (67.53pt, 46.47pt), c2: (65.49pt, 61.11pt), end: (76.51pt, 61.11pt)),)),
+  ),
+)

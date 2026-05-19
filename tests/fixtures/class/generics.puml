@@ -1,0 +1,15 @@
+@startuml
+title Generic class parameters
+
+interface Repository<T>
+class CrudRepository<T, ID> {
+  + findById(id: ID): T
+  + save(entity: T): T
+}
+class UserRepository {
+  + findByEmail(email: String): User
+}
+
+CrudRepository ..|> Repository
+UserRepository --|> CrudRepository
+@enduml

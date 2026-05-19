@@ -1,0 +1,14 @@
+@startuml
+title Detach — branch falls off the page
+
+start
+:Receive event;
+if (drop on floor?) then (yes)
+  :Log silently;
+  detach
+else (no)
+  :Dispatch handler;
+endif
+:Persist outcome;
+stop
+@enduml

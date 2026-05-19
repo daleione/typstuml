@@ -1,0 +1,17 @@
+@startuml
+title Par fragment — concurrent branch
+
+participant Coordinator
+participant ShardA
+participant ShardB
+
+par concurrent prepare
+  Coordinator -> ShardA : prepare
+  Coordinator -> ShardB : prepare
+  ShardA --> Coordinator : ready
+  ShardB --> Coordinator : ready
+end
+
+Coordinator -> ShardA : commit
+Coordinator -> ShardB : commit
+@enduml

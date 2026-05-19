@@ -1,0 +1,12 @@
+@startuml
+title Loop fragment — batch poll
+
+participant Scheduler
+participant Queue
+
+loop while queue non-empty
+  Scheduler -> Queue : peek
+  Queue --> Scheduler : item
+  Scheduler -> Queue : ack
+end
+@enduml

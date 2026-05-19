@@ -1,0 +1,8 @@
+@startjson
+title Tag list
+
+{
+  "tags": ["alpha", "beta", "gamma", "delta"],
+  "weights": [1, 2, 3, 5, 8, 13]
+}
+@endjson

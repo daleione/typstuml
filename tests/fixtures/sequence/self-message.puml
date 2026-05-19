@@ -1,0 +1,8 @@
+@startuml
+title Self-message regression
+
+participant Cache
+
+Cache -> Cache : evict expired
+Cache -> Cache : compact entries
+@enduml

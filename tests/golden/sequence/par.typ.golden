@@ -1,0 +1,19 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Par fragment — concurrent branch*]
+
+#seq-puml(width: 360pt, "participant Coordinator
+participant ShardA
+participant ShardB
+
+par concurrent prepare
+  Coordinator -> ShardA : prepare
+  Coordinator -> ShardB : prepare
+  ShardA --> Coordinator : ready
+  ShardB --> Coordinator : ready
+end
+Coordinator -> ShardA : commit
+Coordinator -> ShardB : commit
+")

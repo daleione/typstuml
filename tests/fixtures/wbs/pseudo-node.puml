@@ -1,0 +1,14 @@
+@startwbs
+title Pseudo-node — split children left/right of root
+
+* Quarter plan
+**_
+*** Engineering
+*** Design
+**_
+*** Marketing
+*** Sales
+** Operations
+*** Hiring
+*** Tooling
+@endwbs

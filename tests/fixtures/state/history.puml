@@ -1,0 +1,13 @@
+@startuml
+title History pseudostate
+
+[*] --> Operating
+state Operating {
+  [*] --> Idle
+  Idle --> Running : start
+  Running --> Idle : pause
+}
+Operating --> Suspended : suspend
+Suspended --> Operating[H] : resume
+Operating --> [*] : shutdown
+@enduml

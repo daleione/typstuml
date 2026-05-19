@@ -93,6 +93,15 @@ fn golden_emit_typst_state_floating_note() { golden_state("floating-note"); }
 fn golden_emit_typst_state_entry_exit() { golden_state("entry-exit"); }
 
 #[test]
+fn golden_emit_typst_state_history() { golden_state("history"); }
+
+#[test]
+fn golden_emit_typst_state_deep_history() { golden_state("deep-history"); }
+
+#[test]
+fn golden_emit_typst_state_self_transition() { golden_state("self-transition"); }
+
+#[test]
 fn renders_svg_for_state_basic() { render_state_svg("basic"); }
 
 #[test]

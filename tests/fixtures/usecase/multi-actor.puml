@@ -1,0 +1,22 @@
+@startuml
+title Shared use cases across actors
+
+left to right direction
+
+actor "Cashier" as Cashier
+actor "Manager" as Manager
+actor "Auditor" as Auditor
+
+rectangle "Point of Sale" {
+  usecase "Ring up sale" as Ring
+  usecase "Refund" as Refund
+  usecase "Close register" as Close
+  usecase "View report" as Report
+}
+
+Cashier --> Ring
+Cashier --> Refund
+Manager --> Close
+Manager --> Report
+Auditor --> Report
+@enduml

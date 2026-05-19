@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Autonumber — numbered messages*]
+
+#seq-puml(width: 360pt, "participant Sensor
+participant Controller
+participant Actuator
+
+autonumber
+Sensor -> Controller : sample
+Controller -> Actuator : adjust
+Actuator --> Controller : applied
+Controller --> Sensor : tick
+")

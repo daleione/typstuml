@@ -71,3 +71,6 @@ fn renders_svg_for_usecase_system_boundary() { render_usecase_svg("system-bounda
 
 #[test]
 fn renders_svg_for_usecase_notes() { render_usecase_svg("notes"); }
+
+#[test]
+fn golden_emit_typst_usecase_multi_actor() { golden_usecase("multi-actor"); }

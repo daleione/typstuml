@@ -1,0 +1,19 @@
+@startuml
+title Group + critical fragments
+
+participant Driver
+participant Lock
+participant Store
+
+group acquire lock
+  Driver -> Lock : try_lock
+  Lock --> Driver : granted
+end
+
+critical write section
+  Driver -> Store : write
+  Store --> Driver : ok
+end
+
+Driver -> Lock : release
+@enduml

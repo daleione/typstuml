@@ -1,0 +1,12 @@
+@startuml
+title Create / destroy participants
+
+participant Pool
+
+create Worker
+Pool -> Worker : spawn
+Worker --> Pool : ready
+Pool -> Worker : run task
+Worker --> Pool : done
+destroy Worker
+@enduml

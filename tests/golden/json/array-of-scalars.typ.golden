@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#record-layout(
+  title: [Tag list],
+  records: (
+    (x: 6.00pt, y: 46.66pt, rows: ((key: [tags], value: []), (key: [weights], value: []))),
+    (x: 85.05pt, y: 3.00pt, rows: ((key: [0], value: ["alpha"]), (key: [1], value: ["beta"]), (key: [2], value: ["gamma"]), (key: [3], value: ["delta"]))),
+    (x: 85.05pt, y: 55.32pt, rows: ((key: [0], value: [1]), (key: [1], value: [2]), (key: [2], value: [3]), (key: [3], value: [5]), (key: [4], value: [8]), (key: [5], value: [13]))),
+  ),
+  edges: (
+    (from: 0, from-row: 0, to: 1, path: ((c1: (79.71pt, 52.38pt), c2: (70.39pt, 26.16pt), end: (85.05pt, 26.16pt)),)),
+    (from: 0, from-row: 1, to: 2, path: ((c1: (79.71pt, 63.84pt), c2: (70.39pt, 90.06pt), end: (85.05pt, 90.06pt)),)),
+  ),
+)

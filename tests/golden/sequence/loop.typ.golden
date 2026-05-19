@@ -1,0 +1,15 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Loop fragment — batch poll*]
+
+#seq-puml(width: 360pt, "participant Scheduler
+participant Queue
+
+loop while queue non-empty
+  Scheduler -> Queue : peek
+  Queue --> Scheduler : item
+  Scheduler -> Queue : ack
+end
+")

@@ -1,0 +1,24 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Detach — branch falls off the page*]
+
+#align(center, flow-col(
+  start-marker(),
+  process[Receive event],
+  branch-merge([drop on floor?],
+    yes: flow-col(
+      process[Log silently],
+      detach-marker(),
+    ),
+    no: flow-col(
+      process[Dispatch handler],
+    ),
+    yes-label: [yes],
+    no-label: [no],
+    yes-detach: true,
+  ),
+  process[Persist outcome],
+  stop-marker(),
+))

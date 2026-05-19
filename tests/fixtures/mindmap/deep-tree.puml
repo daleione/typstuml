@@ -1,0 +1,19 @@
+@startmindmap
+title Knowledge graph
+
+* Distributed systems
+** Consensus
+*** Paxos
+*** Raft
+*** Zab
+** Replication
+*** Primary-backup
+*** Quorum
+*** CRDTs
+** Failure detection
+*** Heartbeats
+*** Phi accrual
+- Trade-offs
+-- CAP
+-- PACELC
+@endmindmap

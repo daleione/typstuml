@@ -1,0 +1,14 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Return shorthand*]
+
+#seq-puml(width: 360pt, "participant Caller
+participant Callee
+
+Caller -> Callee : invoke
+activate Callee
+Callee -> Callee : compute
+return result
+")

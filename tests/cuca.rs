@@ -529,6 +529,20 @@ fn package_band_heights_come_from_measurement() {
     );
 }
 
+// -- Generics / enum --------------------------------------------------------
+
+#[test]
+fn golden_emit_typst_class_generics() {
+    let actual = emit_typst_path(&fixture_in("class", "generics.puml"));
+    assert_golden_in("class", "generics", &actual);
+}
+
+#[test]
+fn golden_emit_typst_class_enum() {
+    let actual = emit_typst_path(&fixture_in("class", "enum.puml"));
+    assert_golden_in("class", "enum", &actual);
+}
+
 // -- Annotations ------------------------------------------------------------
 
 #[test]

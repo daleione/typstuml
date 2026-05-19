@@ -1,0 +1,24 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Pseudo-node — split children left/right of root*]
+
+#align(center, tree(
+  node[Quarter plan],
+  tree(
+    node(shape: "underline")[ ],
+    node[Engineering],
+    node[Design],
+  ),
+  tree(
+    node(shape: "underline")[ ],
+    node[Marketing],
+    node[Sales],
+  ),
+  tree(
+    node[Operations],
+    node[Hiring],
+    node[Tooling],
+  ),
+))

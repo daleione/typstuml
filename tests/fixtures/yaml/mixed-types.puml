@@ -1,0 +1,15 @@
+@startyaml
+title Mixed scalar / sequence / null
+
+title: Untitled draft
+author: ~
+published: false
+revisions: 0
+tags: []
+collaborators:
+  - alice
+  - bob
+metadata:
+  created: 2026-01-12
+  reviewed: ~
+@endyaml

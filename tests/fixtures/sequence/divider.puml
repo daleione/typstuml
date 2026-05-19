@@ -1,0 +1,19 @@
+@startuml
+title Divider sections
+
+participant Client
+participant Server
+
+== Handshake ==
+Client -> Server : SYN
+Server --> Client : SYN-ACK
+Client -> Server : ACK
+
+== Steady state ==
+Client -> Server : GET /
+Server --> Client : 200 OK
+
+== Teardown ==
+Client -> Server : FIN
+Server --> Client : FIN-ACK
+@enduml

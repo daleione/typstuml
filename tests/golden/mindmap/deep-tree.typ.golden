@@ -1,0 +1,35 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Knowledge graph*]
+
+#align(center, mindmap(
+  node[Distributed systems],
+  lefts: (
+    tree(direction: "left",
+      node[Trade-offs],
+      node[CAP],
+      node[PACELC],
+    ),
+  ),
+  rights: (
+    tree(direction: "right",
+      node[Consensus],
+      node[Paxos],
+      node[Raft],
+      node[Zab],
+    ),
+    tree(direction: "right",
+      node[Replication],
+      node[Primary-backup],
+      node[Quorum],
+      node[CRDTs],
+    ),
+    tree(direction: "right",
+      node[Failure detection],
+      node[Heartbeats],
+      node[Phi accrual],
+    ),
+  ),
+))

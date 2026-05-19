@@ -42,6 +42,24 @@ fn renders_svg_for_json_person() {
 }
 
 #[test]
+fn golden_emit_typst_json_array_of_scalars() {
+    let actual = emit_typst_path(&fixture_in("json", "array-of-scalars.puml"));
+    assert_golden_in("json", "array-of-scalars", &actual);
+}
+
+#[test]
+fn golden_emit_typst_json_nested_object() {
+    let actual = emit_typst_path(&fixture_in("json", "nested-object.puml"));
+    assert_golden_in("json", "nested-object", &actual);
+}
+
+#[test]
+fn golden_emit_typst_json_null_empty() {
+    let actual = emit_typst_path(&fixture_in("json", "null-empty.puml"));
+    assert_golden_in("json", "null-empty", &actual);
+}
+
+#[test]
 fn golden_emit_typst_yaml_person() {
     let actual = emit_typst_path(&fixture_in("yaml", "person.puml"));
     assert_golden_in("yaml", "person", &actual);
@@ -69,6 +87,24 @@ fn renders_svg_for_yaml_person() {
         width > 200.0,
         "YAML record-graph viewBox width unexpectedly small: {width}"
     );
+}
+
+#[test]
+fn golden_emit_typst_yaml_list_of_strings() {
+    let actual = emit_typst_path(&fixture_in("yaml", "list-of-strings.puml"));
+    assert_golden_in("yaml", "list-of-strings", &actual);
+}
+
+#[test]
+fn golden_emit_typst_yaml_nested_map() {
+    let actual = emit_typst_path(&fixture_in("yaml", "nested-map.puml"));
+    assert_golden_in("yaml", "nested-map", &actual);
+}
+
+#[test]
+fn golden_emit_typst_yaml_mixed_types() {
+    let actual = emit_typst_path(&fixture_in("yaml", "mixed-types.puml"));
+    assert_golden_in("yaml", "mixed-types", &actual);
 }
 
 #[test]

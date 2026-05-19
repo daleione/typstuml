@@ -1,0 +1,13 @@
+@startuml
+title Arrow-head and color variants
+
+participant A
+participant B
+
+A -> B  : solid head
+A ->> B : open head
+A -\ B  : half head
+A --> B : dashed reply
+A -[#blue]-> B : color override
+A <-> B : bidirectional
+@enduml

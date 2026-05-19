@@ -1,0 +1,12 @@
+@startuml
+title Activation lifeline bars
+
+participant Client
+participant Worker
+
+Client -> Worker : submit job
+activate Worker
+Worker -> Worker : process
+Worker --> Client : ack
+deactivate Worker
+@enduml

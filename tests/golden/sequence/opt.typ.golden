@@ -1,0 +1,14 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Opt fragment — conditional follow-up*]
+
+#seq-puml(width: 360pt, "participant User
+participant Mailer
+
+User -> Mailer : signup
+opt newsletter opt-in
+  Mailer -> User : welcome email
+end
+")

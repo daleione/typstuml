@@ -1,0 +1,11 @@
+@startuml
+title Opt fragment — conditional follow-up
+
+participant User
+participant Mailer
+
+User -> Mailer : signup
+opt newsletter opt-in
+  Mailer -> User : welcome email
+end
+@enduml

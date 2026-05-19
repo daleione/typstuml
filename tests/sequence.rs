@@ -113,6 +113,66 @@ fn golden_emit_typst_styled() {
 }
 
 #[test]
+fn golden_emit_typst_self_message() {
+    assert_golden("self-message", &emit_typst("self-message.puml"));
+}
+
+#[test]
+fn golden_emit_typst_activate() {
+    assert_golden("activate", &emit_typst("activate.puml"));
+}
+
+#[test]
+fn golden_emit_typst_alt() {
+    assert_golden("alt", &emit_typst("alt.puml"));
+}
+
+#[test]
+fn golden_emit_typst_opt() {
+    assert_golden("opt", &emit_typst("opt.puml"));
+}
+
+#[test]
+fn golden_emit_typst_loop() {
+    assert_golden("loop", &emit_typst("loop.puml"));
+}
+
+#[test]
+fn golden_emit_typst_par() {
+    assert_golden("par", &emit_typst("par.puml"));
+}
+
+#[test]
+fn golden_emit_typst_group() {
+    assert_golden("group", &emit_typst("group.puml"));
+}
+
+#[test]
+fn golden_emit_typst_autonumber() {
+    assert_golden("autonumber", &emit_typst("autonumber.puml"));
+}
+
+#[test]
+fn golden_emit_typst_create_destroy() {
+    assert_golden("create-destroy", &emit_typst("create-destroy.puml"));
+}
+
+#[test]
+fn golden_emit_typst_divider() {
+    assert_golden("divider", &emit_typst("divider.puml"));
+}
+
+#[test]
+fn golden_emit_typst_arrow_styles() {
+    assert_golden("arrow-styles", &emit_typst("arrow-styles.puml"));
+}
+
+#[test]
+fn golden_emit_typst_return() {
+    assert_golden("return", &emit_typst("return.puml"));
+}
+
+#[test]
 fn skinparam_drives_page_fill_in_svg() {
     let tmp = tempfile::tempdir().unwrap();
     let out = tmp.path().join("styled.svg");

@@ -10,6 +10,6 @@
     (x: 15.00pt, y: 18.00pt, width: 146.73pt, height: 56.65pt, kind: "class", name: [Order], fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [state: OrderState])), methods: ((vis: "+", body: [transition(to: OrderState): void]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 88.36pt, to-x: 88.36pt, label: [current], path: ((c1: (88.36pt, 92.65pt), c2: (88.36pt, 92.65pt), end: (88.36pt, 110.65pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 88.36pt, to-x: 88.36pt, label: [current], path: ((c1: (88.36pt, 86.65pt), c2: (88.36pt, 98.65pt), end: (88.36pt, 110.65pt)),)),
   ),
 )

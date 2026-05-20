@@ -10,8 +10,8 @@
     (x: 94.20pt, y: 101.58pt, width: 97.14pt, height: 28.00pt, kind: "usecase", name: [Manage Accounts], fields: (), methods: ()),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (97.48pt, 69.58pt), c2: (97.48pt, 73.58pt), end: (97.48pt, 77.58pt)), (c1: (97.48pt, 85.58pt), c2: (52.20pt, 81.58pt), end: (52.20pt, 89.58pt)), (c1: (52.20pt, 93.58pt), c2: (52.20pt, 97.58pt), end: (52.20pt, 101.58pt)))),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 52.20pt, to-x: 52.20pt, path: ((c1: (52.20pt, 167.16pt), c2: (52.20pt, 167.16pt), end: (52.20pt, 185.16pt)),)),
-    (from: 1, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (97.48pt, 69.58pt), c2: (97.48pt, 73.58pt), end: (97.48pt, 77.58pt)), (c1: (97.48pt, 85.58pt), c2: (142.77pt, 81.58pt), end: (142.77pt, 89.58pt)), (c1: (142.77pt, 93.58pt), c2: (142.77pt, 97.58pt), end: (142.77pt, 101.58pt)))),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 97.48pt, to-x: 52.20pt, path: ((c1: (82.39pt, 77.58pt), c2: (67.29pt, 89.58pt), end: (52.20pt, 101.58pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 52.20pt, to-x: 52.20pt, path: ((c1: (52.20pt, 161.16pt), c2: (52.20pt, 173.16pt), end: (52.20pt, 185.16pt)),)),
+    (from: 1, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 97.48pt, to-x: 142.77pt, path: ((c1: (112.58pt, 77.58pt), c2: (127.67pt, 89.58pt), end: (142.77pt, 101.58pt)),)),
   ),
 )

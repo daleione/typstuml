@@ -40,7 +40,7 @@ pub(super) struct ClassGeom {
     pub mid_x: f64,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Side {
     Top,
     Bot,

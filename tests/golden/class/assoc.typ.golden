@@ -9,7 +9,7 @@
     (x: -45.01pt, y: 71.00pt, width: 87.04pt, height: 17.00pt, kind: "class", name: [OrderHistory], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 74.03pt, to-x: 74.03pt, mult-from: [1], mult-to: [\*], path: ((c1: (74.03pt, 75.00pt), c2: (74.03pt, 84.00pt), end: (74.03pt, 124.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 74.03pt, to-x: 74.03pt, mult-from: [1], mult-to: [\*], path: ((c1: (74.03pt, 64.67pt), c2: (74.03pt, 94.33pt), end: (74.03pt, 124.00pt)),)),
     (from-couple: (0, 1), to: 2, head-from: "none", head-to: "none", style: "dashed", from-side: "left", to-side: "right", start: (74.03pt, 79.50pt), path: ((c1: (63.36pt, 79.50pt), c2: (52.69pt, 79.50pt), end: (42.03pt, 79.50pt)),)),
   ),
 )

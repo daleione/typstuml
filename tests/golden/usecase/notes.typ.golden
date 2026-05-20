@@ -10,8 +10,8 @@
     (x: 108.64pt, y: 101.58pt, kind: "note", body: [External actor \ (a human)]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (143.17pt, 69.58pt), c2: (143.17pt, 73.58pt), end: (143.17pt, 77.58pt)), (c1: (143.17pt, 85.58pt), c2: (54.64pt, 81.58pt), end: (54.64pt, 89.58pt)), (c1: (54.64pt, 93.58pt), c2: (54.64pt, 97.58pt), end: (54.64pt, 101.58pt)))),
-    (from: 2, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 54.64pt, to-x: 54.64pt, path: ((c1: (54.64pt, 67.79pt), c2: (54.64pt, 67.79pt), end: (54.64pt, 101.58pt)),)),
-    (from: 0, to: 3, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 143.17pt, to-x: 143.17pt, path: ((c1: (143.17pt, 83.58pt), c2: (143.17pt, 83.58pt), end: (143.17pt, 101.58pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 143.17pt, to-x: 71.44pt, path: ((c1: (119.26pt, 77.58pt), c2: (95.35pt, 89.58pt), end: (71.44pt, 101.58pt)),)),
+    (from: 2, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 54.64pt, to-x: 54.64pt, path: ((c1: (54.64pt, 56.53pt), c2: (54.64pt, 79.05pt), end: (54.64pt, 101.58pt)),)),
+    (from: 0, to: 3, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 143.17pt, to-x: 143.17pt, path: ((c1: (143.17pt, 77.58pt), c2: (143.17pt, 89.58pt), end: (143.17pt, 101.58pt)),)),
   ),
 )

@@ -14,10 +14,10 @@
     (x: 266.03pt, y: 71.00pt, width: 31.45pt, height: 17.00pt, kind: "class", name: [F], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (156.51pt, 39.00pt), c2: (156.51pt, 43.00pt), end: (156.51pt, 47.00pt)), (c1: (156.51pt, 55.00pt), c2: (31.27pt, 51.00pt), end: (31.27pt, 59.00pt)), (c1: (31.27pt, 63.00pt), c2: (31.27pt, 67.00pt), end: (31.27pt, 71.00pt)))),
-    (from: 0, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", path: ((c1: (156.51pt, 39.00pt), c2: (156.51pt, 43.00pt), end: (156.51pt, 47.00pt)), (c1: (156.51pt, 55.00pt), c2: (94.07pt, 51.00pt), end: (94.07pt, 59.00pt)), (c1: (94.07pt, 63.00pt), c2: (94.07pt, 67.00pt), end: (94.07pt, 71.00pt)))),
-    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 156.89pt, to-x: 156.89pt, path: ((c1: (156.89pt, 53.00pt), c2: (156.89pt, 53.00pt), end: (156.89pt, 71.00pt)),)),
-    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (156.51pt, 39.00pt), c2: (156.51pt, 43.00pt), end: (156.51pt, 47.00pt)), (c1: (156.51pt, 55.00pt), c2: (219.98pt, 51.00pt), end: (219.98pt, 59.00pt)), (c1: (219.98pt, 63.00pt), c2: (219.98pt, 67.00pt), end: (219.98pt, 71.00pt)))),
-    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (156.51pt, 39.00pt), c2: (156.51pt, 43.00pt), end: (156.51pt, 47.00pt)), (c1: (156.51pt, 55.00pt), c2: (281.75pt, 51.00pt), end: (281.75pt, 59.00pt)), (c1: (281.75pt, 63.00pt), c2: (281.75pt, 67.00pt), end: (281.75pt, 71.00pt)))),
+    (from: 0, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 31.27pt, path: ((c1: (114.76pt, 47.00pt), c2: (73.02pt, 59.00pt), end: (31.27pt, 71.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 94.07pt, path: ((c1: (135.70pt, 47.00pt), c2: (114.88pt, 59.00pt), end: (94.07pt, 71.00pt)),)),
+    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 156.89pt, to-x: 156.89pt, path: ((c1: (156.89pt, 47.00pt), c2: (156.89pt, 59.00pt), end: (156.89pt, 71.00pt)),)),
+    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 219.98pt, path: ((c1: (177.67pt, 47.00pt), c2: (198.83pt, 59.00pt), end: (219.98pt, 71.00pt)),)),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 281.75pt, path: ((c1: (198.26pt, 47.00pt), c2: (240.01pt, 59.00pt), end: (281.75pt, 71.00pt)),)),
   ),
 )

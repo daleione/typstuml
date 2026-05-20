@@ -49,6 +49,15 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
             compute_single_bbox(vg, c);
         }
         resolve_level(vg, &level);
+        // Each cluster at depth `d` may overlap *direct sibling nodes*
+        // in its parent (at depth d-1) — Sugiyama places those nodes
+        // on an outer rank above/below the cluster's inner content,
+        // but the cluster's label band extends past its content into
+        // the outer rank's territory, so a parent-direct node at the
+        // adjacent outer rank can clip the cluster's label band.
+        // Resolve before the parent's own bbox is computed next
+        // iteration up.
+        resolve_against_sibling_nodes(vg, &level);
     }
 }
 
@@ -225,6 +234,63 @@ fn sweep_siblings(vg: &mut VisualGraph, siblings: &[ClusterId]) {
     }
 }
 
+
+/// Resolve overlap between each cluster at this depth and its parent's
+/// direct sibling nodes. Each cluster's outer bbox already includes
+/// its `label_band` (the strip above the inner content where the
+/// painter draws the package title), so a parent-direct node sitting
+/// at the adjacent outer rank can clip into that band. Push the
+/// cluster (and its subtree) along the dominant overlap axis to clear
+/// the node by `CLUSTER_GAP_PT`.
+fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
+    for &c in level {
+        let parent = match vg.hierarchy.clusters[c].parent {
+            Some(p) => p,
+            None => continue,
+        };
+        if !vg.hierarchy.clusters[c].x_min.is_finite() {
+            continue;
+        }
+        let sibling_nodes = vg.hierarchy.clusters[parent].direct_nodes.clone();
+        let node_bboxes: Vec<(Point, Point)> = sibling_nodes
+            .iter()
+            .filter(|h| !vg.is_connector(**h))
+            .map(|h| vg.pos(*h).bbox(false))
+            .collect();
+        if node_bboxes.is_empty() {
+            continue;
+        }
+        let cb = &vg.hierarchy.clusters[c];
+        let (cx_min, cx_max, cy_min, cy_max) = (cb.x_min, cb.x_max, cb.y_min, cb.y_max);
+        let mut shift_y = 0.0f64;
+        let mut shift_x = 0.0f64;
+        for (tl, br) in &node_bboxes {
+            let x_overlap = cx_max.min(br.x) - cx_min.max(tl.x);
+            let y_overlap = cy_max.min(br.y) - cy_min.max(tl.y);
+            if x_overlap <= 0.0 || y_overlap <= 0.0 {
+                continue;
+            }
+            // Prefer pushing along the axis with the smaller overlap so
+            // we don't move a cluster across an unrelated sibling. For
+            // the common nested-package case (TopLevel above Parent),
+            // y is the smaller and we push the inner cluster down.
+            if y_overlap <= x_overlap {
+                let needed = (br.y - cy_min) + CLUSTER_GAP_PT;
+                if needed > shift_y {
+                    shift_y = needed;
+                }
+            } else {
+                let needed = (br.x - cx_min) + CLUSTER_GAP_PT;
+                if needed > shift_x {
+                    shift_x = needed;
+                }
+            }
+        }
+        if shift_x > 0.0 || shift_y > 0.0 {
+            shift_cluster_subtree(vg, c, shift_x, shift_y);
+        }
+    }
+}
 
 /// Translate every real entity in `c`'s subtree by `(dx, dy)` and apply
 /// the same delta to every descendant cluster's bbox.

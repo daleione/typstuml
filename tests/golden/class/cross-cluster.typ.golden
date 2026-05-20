@@ -16,6 +16,6 @@
     (x: 89.40pt, y: -11.00pt, w: 96.02pt, h: 69.00pt, kind: "package", label: [Right]),
   ),
   edges: (
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 23.50pt, to-y: 23.50pt, path: ((c1: (89.14pt, 23.50pt), c2: (89.14pt, 23.50pt), end: (126.88pt, 23.50pt)),)),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 23.50pt, to-y: 23.50pt, path: ((c1: (76.56pt, 23.50pt), c2: (101.72pt, 23.50pt), end: (126.88pt, 23.50pt)),)),
   ),
 )

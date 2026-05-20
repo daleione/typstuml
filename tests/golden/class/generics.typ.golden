@@ -11,7 +11,7 @@
     (x: 15.00pt, y: 18.00pt, width: 153.08pt, height: 30.22pt, kind: "class", name: [UserRepository], fields: (), methods: ((vis: "+", body: [findByEmail(email: String): User]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 91.54pt, to-x: 91.54pt, path: ((c1: (91.54pt, 145.65pt), c2: (91.54pt, 145.65pt), end: (91.54pt, 163.65pt)),)),
-    (from: 2, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 91.54pt, to-x: 91.54pt, path: ((c1: (91.54pt, 66.22pt), c2: (91.54pt, 66.22pt), end: (91.54pt, 84.22pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 91.54pt, to-x: 91.54pt, path: ((c1: (91.54pt, 139.65pt), c2: (91.54pt, 151.65pt), end: (91.54pt, 163.65pt)),)),
+    (from: 2, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 91.54pt, to-x: 91.54pt, path: ((c1: (91.54pt, 60.22pt), c2: (91.54pt, 72.22pt), end: (91.54pt, 84.22pt)),)),
   ),
 )

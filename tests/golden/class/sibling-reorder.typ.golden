@@ -20,8 +20,8 @@
     (x: -10.42pt, y: 73.00pt, w: 89.38pt, h: 80.48pt, kind: "package", label: [SinkZ]),
   ),
   edges: (
-    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 34.27pt, to-x: 34.27pt, path: ((c1: (34.27pt, 72.74pt), c2: (34.27pt, 72.74pt), end: (34.27pt, 110.48pt)),)),
-    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 136.01pt, to-x: 136.01pt, path: ((c1: (136.01pt, 72.74pt), c2: (136.01pt, 72.74pt), end: (136.01pt, 110.48pt)),)),
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 237.91pt, to-x: 237.91pt, path: ((c1: (237.91pt, 72.74pt), c2: (237.91pt, 72.74pt), end: (237.91pt, 110.48pt)),)),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 34.27pt, to-x: 34.27pt, path: ((c1: (34.27pt, 60.16pt), c2: (34.27pt, 85.32pt), end: (34.27pt, 110.48pt)),)),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 136.01pt, to-x: 136.01pt, path: ((c1: (136.01pt, 60.16pt), c2: (136.01pt, 85.32pt), end: (136.01pt, 110.48pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 237.91pt, to-x: 237.91pt, path: ((c1: (237.91pt, 60.16pt), c2: (237.91pt, 85.32pt), end: (237.91pt, 110.48pt)),)),
   ),
 )

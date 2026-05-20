@@ -13,8 +13,8 @@
     (x: 94.76pt, y: 161.16pt, width: 81.52pt, height: 29.58pt, kind: "control", name: [CheckoutController], fields: (), methods: ()),
   ),
   edges: (
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.53pt, to-x: 135.53pt, path: ((c1: (135.53pt, 81.58pt), c2: (135.53pt, 81.58pt), end: (135.53pt, 99.58pt)),)),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.53pt, to-x: 135.53pt, path: ((c1: (135.53pt, 143.16pt), c2: (135.53pt, 143.16pt), end: (135.53pt, 161.16pt)),)),
-    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 49.66pt, to-x: 49.66pt, path: ((c1: (49.66pt, 59.39pt), c2: (49.66pt, 59.39pt), end: (49.66pt, 77.39pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.53pt, to-x: 135.53pt, path: ((c1: (135.53pt, 75.58pt), c2: (135.53pt, 87.58pt), end: (135.53pt, 99.58pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.53pt, to-x: 135.53pt, path: ((c1: (135.53pt, 137.16pt), c2: (135.53pt, 149.16pt), end: (135.53pt, 161.16pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 49.66pt, to-x: 49.66pt, path: ((c1: (49.66pt, 53.39pt), c2: (49.66pt, 65.39pt), end: (49.66pt, 77.39pt)),)),
   ),
 )

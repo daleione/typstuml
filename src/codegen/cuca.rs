@@ -48,7 +48,7 @@ use self::geom::{
 };
 use self::layout::{compound_layout, LabelBand};
 use self::route::{
-    cubic_from_straight, diagonal_path, line_of_sight_clear, pick_edge_sides,
+    cubic_from_straight, line_of_sight_clear, pick_edge_sides,
     side_tangent, smart_align_coord, straight_fallback, try_manhattan_route,
     SMART_ALIGN_HEADROOM_PT,
 };
@@ -431,41 +431,205 @@ pub fn emit(
     }
 
     out.push_str("  edges: (\n");
-    for oe in &oriented {
-        let from = oe.src_idx;
-        let to = oe.dst_idx;
-        // Pick anchors based on the dominant displacement axis. Pure
-        // top/bot ↔ top/bot anchoring (or right/left for LR) breaks down
-        // when sibling clusters sit at the same rank: an edge's source
-        // bot-mid is BELOW the target top-mid, forcing a U-turn. Whichever
-        // axis the displacement is larger on, both endpoints anchor to
-        // that side of their box.
-        let (from_side, to_side) = pick_edge_sides(
-            box_center(&geoms[from], top_lefts[from]),
-            box_center(&geoms[to], top_lefts[to]),
-            (top_lefts[from], top_lefts[from].add(geoms[from].size)),
-            (top_lefts[to], top_lefts[to].add(geoms[to].size)),
-            is_lr,
-        );
-        let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
 
-        // Smart alignment: when both anchors are on the same axis and
-        // the boxes' perpendicular extents overlap, place both anchors
-        // at the same coordinate inside the overlap. This collapses
-        // the Manhattan Z (3 segments, 2 turns) into a single straight
-        // segment, which is the typical look for sibling-cluster
-        // connections in PlantUML / dot.
-        let aligned_coord = smart_align_coord(
-            &geoms[from],
-            top_lefts[from],
-            &geoms[to],
-            top_lefts[to],
+    // Pre-pass 1: pick from/to sides for every edge. Distribution needs
+    // side info before we can group siblings by shared face.
+    let edge_sides: Vec<(Side, Side)> = oriented
+        .iter()
+        .map(|oe| {
+            let from = oe.src_idx;
+            let to = oe.dst_idx;
+            pick_edge_sides(
+                box_center(&geoms[from], top_lefts[from]),
+                box_center(&geoms[to], top_lefts[to]),
+                (top_lefts[from], top_lefts[from].add(geoms[from].size)),
+                (top_lefts[to], top_lefts[to].add(geoms[to].size)),
+                is_lr,
+            )
+        })
+        .collect();
+
+    // Pre-pass 2: nudge arrowheads off each other when sibling edges
+    // collide at the same anchor point on a destination face. We DO NOT
+    // redistribute by default — `smart_align_coord` already places
+    // anchors at geometrically meaningful coords (perpendicular-overlap
+    // overlaps that yield straight sibling-rank lines), and moving them
+    // turns previously-clean horizontals into S-bends.
+    //
+    // What we do: for each destination face with >=2 edges arriving,
+    // collect their natural anchor coords (smart-aligned or midpoint).
+    // If two or more land within COLLISION_EPS_PT of each other, keep
+    // the smart-aligned anchors in place and shove the un-aligned ones
+    // to fresh slots along the face. Source faces aren't redistributed
+    // since arrowheads sit at the destination — tails fanning out from
+    // a shared point don't pile visibly.
+    const COLLISION_EPS_PT: f64 = 4.0;
+    const MIN_SEPARATION_PT: f64 = 10.0;
+    const FACE_INSET_FRAC: f64 = 0.15;
+    use std::collections::BTreeMap;
+    let mut dst_face_groups: BTreeMap<(usize, Side), Vec<usize>> = BTreeMap::new();
+    for (i, oe) in oriented.iter().enumerate() {
+        let (_, ts) = edge_sides[i];
+        dst_face_groups.entry((oe.dst_idx, ts)).or_default().push(i);
+    }
+    let mut to_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
+
+    // Per-edge pre-computed default + smart-align coords for the
+    // destination face. Needed to decide collisions before we commit to
+    // any override.
+    let mut to_natural: Vec<f64> = Vec::with_capacity(oriented.len());
+    let mut to_aligned_flag: Vec<bool> = Vec::with_capacity(oriented.len());
+    for (i, oe) in oriented.iter().enumerate() {
+        let (from_side, to_side) = edge_sides[i];
+        let default_end =
+            anchor_for_side(&geoms[oe.dst_idx], top_lefts[oe.dst_idx], to_side);
+        let aligned = smart_align_coord(
+            &geoms[oe.src_idx],
+            top_lefts[oe.src_idx],
+            &geoms[oe.dst_idx],
+            top_lefts[oe.dst_idx],
             from_side,
             to_side,
         );
+        let face_horizontal = matches!(to_side, Side::Left | Side::Right);
+        let coord = match aligned {
+            Some(c) => c,
+            None => {
+                if face_horizontal {
+                    default_end.y
+                } else {
+                    default_end.x
+                }
+            }
+        };
+        to_natural.push(coord);
+        to_aligned_flag.push(aligned.is_some());
+    }
+
+    for ((entity_idx, side), edges) in dst_face_groups.iter() {
+        if edges.len() < 2 {
+            continue;
+        }
+        let face_horizontal = matches!(side, Side::Left | Side::Right);
+        // Detect collision: any two natural coords within EPS?
+        let mut collided = false;
+        for i in 0..edges.len() {
+            for j in (i + 1)..edges.len() {
+                if (to_natural[edges[i]] - to_natural[edges[j]]).abs() < COLLISION_EPS_PT {
+                    collided = true;
+                    break;
+                }
+            }
+            if collided {
+                break;
+            }
+        }
+        if !collided {
+            continue;
+        }
+        let bbox_min = top_lefts[*entity_idx];
+        let bbox_max = bbox_min.add(geoms[*entity_idx].size);
+        let (face_min, face_max) = if face_horizontal {
+            (bbox_min.y, bbox_max.y)
+        } else {
+            (bbox_min.x, bbox_max.x)
+        };
+        // Useable portion of the face — inset slightly from the bbox
+        // corners. For ellipse-shaped entities (usecase / cloud /
+        // database) the corners are far from the actual boundary, and
+        // even for rectangles distributing edges right up to the
+        // corner looks cramped.
+        let inset = (face_max - face_min) * FACE_INSET_FRAC;
+        let face_min_use = face_min + inset;
+        let face_max_use = face_max - inset;
+        // Split into "fixed" (smart-aligned) and "flexible" (midpoint).
+        let fixed: Vec<usize> = edges
+            .iter()
+            .copied()
+            .filter(|&i| to_aligned_flag[i])
+            .collect();
+        let flexible: Vec<usize> = edges
+            .iter()
+            .copied()
+            .filter(|&i| !to_aligned_flag[i])
+            .collect();
+        let reserved: Vec<f64> = fixed.iter().map(|&i| to_natural[i]).collect();
+        // For each flexible edge, place it where its source naturally
+        // wants to enter — but force MIN_SEPARATION_PT clearance from
+        // every reserved (smart-aligned) and already-chosen anchor.
+        // Without the minimum-separation guarantee, sibling arrows
+        // land within a few pt of each other and the heads still pile
+        // visibly.
+        let mut chosen: Vec<f64> = Vec::new();
+        for &edge_idx in flexible.iter() {
+            let src_center = box_center(
+                &geoms[oriented[edge_idx].src_idx],
+                top_lefts[oriented[edge_idx].src_idx],
+            );
+            let ideal_raw = if face_horizontal {
+                src_center.y
+            } else {
+                src_center.x
+            };
+            let ideal = ideal_raw.clamp(face_min_use, face_max_use);
+            let mut coord = ideal;
+            // One pass of snap-away from each conflict. For 1 fixed +
+            // few flexible (the common case), one pass is enough; the
+            // initial ideal already biases toward the source's side.
+            for &r in reserved.iter().chain(chosen.iter()) {
+                if (coord - r).abs() < MIN_SEPARATION_PT {
+                    if ideal >= r {
+                        coord = (r + MIN_SEPARATION_PT).min(face_max_use);
+                    } else {
+                        coord = (r - MIN_SEPARATION_PT).max(face_min_use);
+                    }
+                }
+            }
+            to_overrides[edge_idx] = Some(coord);
+            chosen.push(coord);
+        }
+        // Silence unused warnings on the COLLISION_EPS_PT const if no
+        // path uses it after this restructure. Currently still used by
+        // the slot-removal logic above the loop.
+        let _ = COLLISION_EPS_PT;
+    }
+    // No source-side redistribution.
+    let from_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
+
+    for (edge_idx, oe) in oriented.iter().enumerate() {
+        let from = oe.src_idx;
+        let to = oe.dst_idx;
+        let (from_side, to_side) = edge_sides[edge_idx];
+        let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
+
         let default_start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
         let default_end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
+
+        // Smart alignment — when both ends are unconstrained AND on the
+        // same axis with overlapping perpendicular extents, place both
+        // anchors at the same coord inside the overlap. The distribution
+        // overrides take precedence: once we've assigned a sibling-spread
+        // coord to either end, smart-align is no longer applicable.
+        let aligned_coord = if from_overrides[edge_idx].is_none()
+            && to_overrides[edge_idx].is_none()
+        {
+            smart_align_coord(
+                &geoms[from],
+                top_lefts[from],
+                &geoms[to],
+                top_lefts[to],
+                from_side,
+                to_side,
+            )
+        } else {
+            None
+        };
+
+        let (mut from_emit_override, mut to_emit_override) =
+            (from_overrides[edge_idx], to_overrides[edge_idx]);
         let (start, end) = if let Some(coord) = aligned_coord {
+            from_emit_override = Some(coord);
+            to_emit_override = Some(coord);
             if mainly_vertical {
                 (
                     Point::new(coord, default_start.y),
@@ -478,7 +642,17 @@ pub fn emit(
                 )
             }
         } else {
-            (default_start, default_end)
+            let start = match (from_overrides[edge_idx], from_side) {
+                (Some(c), Side::Left | Side::Right) => Point::new(default_start.x, c),
+                (Some(c), Side::Top | Side::Bot) => Point::new(c, default_start.y),
+                (None, _) => default_start,
+            };
+            let end = match (to_overrides[edge_idx], to_side) {
+                (Some(c), Side::Left | Side::Right) => Point::new(default_end.x, c),
+                (Some(c), Side::Top | Side::Bot) => Point::new(c, default_end.y),
+                (None, _) => default_end,
+            };
+            (start, end)
         };
 
         // Entity obstacles: every entity bbox except this edge's two
@@ -492,31 +666,25 @@ pub fn emit(
             .filter(|i| *i != from && *i != to)
             .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
             .collect();
-        // Tangents follow the actual anchor sides — bezier launch
-        // direction matches the snap axis the painter will enforce,
-        // otherwise the head tangent collapses to zero on edges where
-        // we anchor on the perpendicular axis (e.g. a free-floating
-        // note pointing horizontally to a class). The pathplan convention
-        // is "direction of travel": at src we leave outward through the
-        // face; at dst we approach inward through the face (opposite
-        // sign of the outward normal).
         let route_opts = pathplan::RouteOpts {
             obstacle_padding: ROUTE_PADDING_PT,
             src_tangent: side_tangent(from_side),
             dst_tangent: side_tangent(to_side).neg(),
         };
-        // Routing priority:
-        //   1. Straight line of sight — single cubic with axis-aligned
-        //      tangents from start to end. PlantUML-style fan-out from a
-        //      hub: the line just goes diagonally across the gap, no
-        //      Manhattan turn.
+        // Routing priority (cuca-edge-routing-redesign.md §2.1):
+        //   1. Straight line of sight — single direct cubic bezier
+        //      from source anchor to dest anchor (PlantUML / dot
+        //      `splines=true` style). The control handles sit at 1/3
+        //      and 2/3 along the chord so the visible curve is a
+        //      straight line; decorated heads rotate to match.
         //   2. Manhattan Z — for blocked diagonals, fall back to a
         //      down-across-down (or right-along-right) right-angle route.
         //   3. Pathplan bezier — for routes that need to detour around
         //      multiple obstacles.
         //   4. Forced straight cubic — last resort.
-        let segments = if line_of_sight_clear(start, end, &obstacles) {
-            diagonal_path(start, end, side_tangent(from_side))
+        let line_of_sight = line_of_sight_clear(start, end, &obstacles);
+        let segments = if line_of_sight {
+            vec![cubic_from_straight(start, end)]
         } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
             segs
         } else {
@@ -529,7 +697,36 @@ pub fn emit(
             }
         };
 
-        emit_edge(out, oe, &segments, Some((from_side, to_side)), aligned_coord);
+        // For direct cubics, codegen owns the chord tangent — the head
+        // should rotate with it. Setting explicit anchor overrides
+        // signals the painter to skip the axis-snap that would
+        // otherwise force the head perpendicular to the destination
+        // face. Manhattan / pathplan routes keep midpoint anchors
+        // unless smart-align or distribution already set them, since
+        // their final segment is axis-aligned by construction.
+        if line_of_sight {
+            if from_emit_override.is_none() {
+                from_emit_override = Some(match from_side {
+                    Side::Top | Side::Bot => start.x,
+                    Side::Left | Side::Right => start.y,
+                });
+            }
+            if to_emit_override.is_none() {
+                to_emit_override = Some(match to_side {
+                    Side::Top | Side::Bot => end.x,
+                    Side::Left | Side::Right => end.y,
+                });
+            }
+        }
+
+        emit_edge(
+            out,
+            oe,
+            &segments,
+            Some((from_side, to_side)),
+            from_emit_override,
+            to_emit_override,
+        );
     }
     // Association-class edges. The layout pass placed C at the rank
     // between A and B (via virtual A→C, C→B edges), so the dashed

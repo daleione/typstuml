@@ -16,8 +16,8 @@
     (x: 316.96pt, y: -19.48pt, w: 118.46pt, h: 133.48pt, kind: "package", label: [billing]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (99.43pt, 65.44pt), c2: (99.43pt, 69.44pt), end: (99.43pt, 73.44pt)), (c1: (99.43pt, 81.44pt), c2: (48.61pt, 77.44pt), end: (48.61pt, 85.44pt)), (c1: (48.61pt, 89.44pt), c2: (48.61pt, 93.44pt), end: (48.61pt, 97.44pt)))),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 376.19pt, to-x: 376.19pt, path: ((c1: (376.19pt, 53.00pt), c2: (376.19pt, 53.00pt), end: (376.19pt, 71.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", path: ((c1: (99.43pt, 65.44pt), c2: (99.43pt, 69.44pt), end: (99.43pt, 73.44pt)), (c1: (99.43pt, 81.44pt), c2: (240.95pt, 77.44pt), end: (240.95pt, 85.44pt)), (c1: (240.95pt, 89.44pt), c2: (240.95pt, 93.44pt), end: (240.95pt, 97.44pt)))),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 99.43pt, to-x: 48.61pt, path: ((c1: (82.49pt, 73.44pt), c2: (65.55pt, 85.44pt), end: (48.61pt, 97.44pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 376.19pt, to-x: 376.19pt, path: ((c1: (376.19pt, 47.00pt), c2: (376.19pt, 59.00pt), end: (376.19pt, 71.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 99.43pt, to-x: 240.95pt, path: ((c1: (146.60pt, 73.44pt), c2: (193.78pt, 85.44pt), end: (240.95pt, 97.44pt)),)),
   ),
 )

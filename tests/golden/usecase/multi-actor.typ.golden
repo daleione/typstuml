@@ -19,10 +19,10 @@
     (x: 47.73pt, y: -11.00pt, w: 148.49pt, h: 263.79pt, kind: "package", label: [Point of Sale]),
   ),
   edges: (
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (53.21pt, 58.00pt), c2: (57.21pt, 58.00pt), end: (61.21pt, 58.00pt)), (c1: (69.21pt, 58.00pt), c2: (65.21pt, 29.00pt), end: (73.21pt, 29.00pt)), (c1: (77.21pt, 29.00pt), c2: (81.21pt, 29.00pt), end: (85.21pt, 29.00pt)))),
-    (from: 0, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (53.21pt, 58.00pt), c2: (57.21pt, 58.00pt), end: (61.21pt, 58.00pt)), (c1: (69.21pt, 58.00pt), c2: (65.21pt, 87.00pt), end: (73.21pt, 87.00pt)), (c1: (77.21pt, 87.00pt), c2: (81.21pt, 87.00pt), end: (85.21pt, 87.00pt)))),
-    (from: 1, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (58.14pt, 174.00pt), c2: (62.14pt, 174.00pt), end: (66.14pt, 174.00pt)), (c1: (74.14pt, 174.00pt), c2: (70.14pt, 145.00pt), end: (78.14pt, 145.00pt)), (c1: (82.14pt, 145.00pt), c2: (86.14pt, 145.00pt), end: (90.14pt, 145.00pt)))),
-    (from: 1, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (58.14pt, 174.00pt), c2: (62.14pt, 174.00pt), end: (66.14pt, 174.00pt)), (c1: (74.14pt, 174.00pt), c2: (70.14pt, 212.79pt), end: (78.14pt, 212.79pt)), (c1: (82.14pt, 212.79pt), c2: (86.14pt, 212.79pt), end: (90.14pt, 212.79pt)))),
-    (from: 2, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", path: ((c1: (53.61pt, 251.58pt), c2: (57.61pt, 251.58pt), end: (61.61pt, 251.58pt)), (c1: (69.88pt, 251.58pt), c2: (69.88pt, 212.79pt), end: (78.14pt, 212.79pt)), (c1: (82.14pt, 212.79pt), c2: (86.14pt, 212.79pt), end: (90.14pt, 212.79pt)))),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 29.00pt, path: ((c1: (61.21pt, 48.33pt), c2: (73.21pt, 38.67pt), end: (85.21pt, 29.00pt)),)),
+    (from: 0, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 87.00pt, path: ((c1: (61.21pt, 67.67pt), c2: (73.21pt, 77.33pt), end: (85.21pt, 87.00pt)),)),
+    (from: 1, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 174.00pt, to-y: 145.00pt, path: ((c1: (66.14pt, 164.33pt), c2: (78.14pt, 154.67pt), end: (90.14pt, 145.00pt)),)),
+    (from: 1, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 174.00pt, to-y: 202.99pt, path: ((c1: (66.14pt, 183.66pt), c2: (78.14pt, 193.33pt), end: (90.14pt, 202.99pt)),)),
+    (from: 2, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 251.58pt, to-y: 222.59pt, path: ((c1: (63.12pt, 241.92pt), c2: (76.63pt, 232.25pt), end: (90.14pt, 222.59pt)),)),
   ),
 )

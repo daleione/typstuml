@@ -12,6 +12,6 @@
     (x: -10.67pt, y: -19.48pt, w: 93.88pt, h: 80.48pt, kind: "package", label: [PkgB]),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 36.27pt, to-x: 36.27pt, path: ((c1: (36.27pt, 72.74pt), c2: (36.27pt, 72.74pt), end: (36.27pt, 110.48pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 36.27pt, to-x: 36.27pt, path: ((c1: (36.27pt, 60.16pt), c2: (36.27pt, 85.32pt), end: (36.27pt, 110.48pt)),)),
   ),
 )

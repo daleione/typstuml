@@ -299,63 +299,6 @@ fn segment_strictly_crosses_box(a: Point, b: Point, ob: &pathplan::Box) -> bool 
     t_exit - t_enter > 1e-6
 }
 
-/// Build a smooth path from `a` to `b` whose tangent at both ends
-/// follows `src_normal` (the outward face normal).
-///
-/// Long enough → 3 segments: stub from a, sweeping cubic to a
-/// pre-arrival point, stub to b. The stubs guarantee the line is
-/// axis-aligned for the first / last `HEAD_STUB_PT` units, so any
-/// arrow / diamond / triangle head drawn at the endpoints sits on a
-/// genuinely straight piece of line. Without the source stub, a
-/// cubic with perpendicular tangent at a still curves immediately;
-/// for narrow heads like a composition diamond (width ≈ ⅔ height)
-/// the curve exits through the head's *side* instead of the back.
-///
-/// Too short for both stubs → fall back to 2 segments (sweep + dst
-/// stub) or 1 segment (a single S-cubic) for very short hops.
-pub(super) fn diagonal_path(
-    a: Point,
-    b: Point,
-    src_normal: Point,
-) -> Vec<(Point, Point, Point)> {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
-    let along = (dx * src_normal.x + dy * src_normal.y).abs();
-    let perp = ((dx * -src_normal.y) + (dy * src_normal.x)).abs();
-    // Reserve room for the arrow head plus a 2pt safety margin so the
-    // base of a triangle/diamond head sits inside the axis-aligned tail.
-    const HEAD_STUB_PT: f64 = 12.0;
-    // No room to insert a stub at all — fall back to a single S-cubic.
-    if along <= HEAD_STUB_PT * 1.5 || perp < 1.0 {
-        let handle = (along * 0.5).max(8.0).min(40.0);
-        let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
-        let c2 = Point::new(b.x - src_normal.x * handle, b.y - src_normal.y * handle);
-        return vec![(c1, c2, b)];
-    }
-    let pre_b = Point::new(b.x - src_normal.x * HEAD_STUB_PT, b.y - src_normal.y * HEAD_STUB_PT);
-    let along_to_pre = along - HEAD_STUB_PT;
-    // Not enough room for a source stub → keep the legacy 2-segment
-    // (sweep + dst-stub) shape.
-    if along_to_pre <= HEAD_STUB_PT * 1.5 {
-        let handle = (along_to_pre * 0.5).max(8.0).min(40.0);
-        let c1 = Point::new(a.x + src_normal.x * handle, a.y + src_normal.y * handle);
-        let c2 = Point::new(pre_b.x - src_normal.x * handle, pre_b.y - src_normal.y * handle);
-        let sweep = (c1, c2, pre_b);
-        let stub_b = cubic_from_straight(pre_b, b);
-        return vec![sweep, stub_b];
-    }
-    // 3-segment route with stubs at both ends.
-    let post_a = Point::new(a.x + src_normal.x * HEAD_STUB_PT, a.y + src_normal.y * HEAD_STUB_PT);
-    let along_sweep = along_to_pre - HEAD_STUB_PT;
-    let handle = (along_sweep * 0.5).max(8.0).min(40.0);
-    let c1 = Point::new(post_a.x + src_normal.x * handle, post_a.y + src_normal.y * handle);
-    let c2 = Point::new(pre_b.x - src_normal.x * handle, pre_b.y - src_normal.y * handle);
-    let stub_a = cubic_from_straight(a, post_a);
-    let sweep = (c1, c2, pre_b);
-    let stub_b = cubic_from_straight(pre_b, b);
-    vec![stub_a, sweep, stub_b]
-}
-
 /// Express a straight line a→b as a (c1, c2, end) cubic Bezier whose
 /// path is exactly the line. Control handles sit at 1/3 and 2/3 along.
 pub(super) fn cubic_from_straight(a: Point, b: Point) -> (Point, Point, Point) {

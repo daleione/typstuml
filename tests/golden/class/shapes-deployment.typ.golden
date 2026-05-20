@@ -14,9 +14,9 @@
     (x: 134.55pt, y: 212.00pt, width: 81.50pt, height: 28.00pt, kind: "storage", name: [Cold Storage], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 54.19pt, to-x: 54.19pt, path: ((c1: (54.19pt, 64.00pt), c2: (54.19pt, 64.00pt), end: (54.19pt, 82.00pt)),)),
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 66.00pt), c2: (175.30pt, 66.00pt), end: (175.30pt, 84.00pt)),)),
-    (from: 4, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 194.00pt), c2: (175.30pt, 194.00pt), end: (175.30pt, 212.00pt)),)),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 130.00pt), c2: (175.30pt, 130.00pt), end: (175.30pt, 148.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 54.19pt, to-x: 54.19pt, path: ((c1: (54.19pt, 58.00pt), c2: (54.19pt, 70.00pt), end: (54.19pt, 82.00pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 60.00pt), c2: (175.30pt, 72.00pt), end: (175.30pt, 84.00pt)),)),
+    (from: 4, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 188.00pt), c2: (175.30pt, 200.00pt), end: (175.30pt, 212.00pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 124.00pt), c2: (175.30pt, 136.00pt), end: (175.30pt, 148.00pt)),)),
   ),
 )

@@ -237,7 +237,8 @@ pub(super) fn emit_edge(
     oe: &OrientedEdge,
     segments: &[(Point, Point, Point)],
     sides: Option<(Side, Side)>,
-    aligned_coord: Option<f64>,
+    from_override: Option<f64>,
+    to_override: Option<f64>,
 ) {
     let _ = write!(
         out,
@@ -254,18 +255,26 @@ pub(super) fn emit_edge(
             from_side.keyword(),
             to_side.keyword(),
         ));
-        if let Some(coord) = aligned_coord {
-            // The override applies to whichever axis is "free" given
-            // the side: left/right side fixes x, frees y; top/bot
-            // fixes y, frees x. Both endpoints share the override.
-            let key = if matches!(from_side, Side::Left | Side::Right) {
-                "y"
-            } else {
-                "x"
-            };
-            out.push_str(&format!(
-                ", from-{key}: {coord:.2}pt, to-{key}: {coord:.2}pt",
-            ));
+        // The override applies to whichever axis is "free" given the
+        // side: left/right side fixes x, frees y; top/bot fixes y,
+        // frees x. From and to are emitted independently — they may
+        // differ when sibling edges are distributed along a shared
+        // face so their arrowheads don't pile up.
+        let from_key = if matches!(from_side, Side::Left | Side::Right) {
+            "y"
+        } else {
+            "x"
+        };
+        let to_key = if matches!(to_side, Side::Left | Side::Right) {
+            "y"
+        } else {
+            "x"
+        };
+        if let Some(c) = from_override {
+            out.push_str(&format!(", from-{from_key}: {c:.2}pt"));
+        }
+        if let Some(c) = to_override {
+            out.push_str(&format!(", to-{to_key}: {c:.2}pt"));
         }
     }
     if let Some(label) = &oe.relation.label {

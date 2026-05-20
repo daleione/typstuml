@@ -102,6 +102,12 @@ fn golden_emit_typst_state_deep_history() { golden_state("deep-history"); }
 fn golden_emit_typst_state_self_transition() { golden_state("self-transition"); }
 
 #[test]
+fn golden_emit_typst_state_composite_exit_routing() { golden_state("composite-exit-routing"); }
+
+#[test]
+fn renders_svg_for_state_composite_exit_routing() { render_state_svg("composite-exit-routing"); }
+
+#[test]
 fn renders_svg_for_state_basic() { render_state_svg("basic"); }
 
 #[test]

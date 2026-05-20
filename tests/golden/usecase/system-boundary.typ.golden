@@ -6,16 +6,16 @@
   direction: "lr",
   classes: (
     (x: 18.00pt, y: 34.21pt, width: 39.96pt, height: 47.58pt, kind: "actor", name: [Customer], fields: (), methods: ()),
-    (x: 93.96pt, y: 15.00pt, width: 88.27pt, height: 28.00pt, kind: "usecase", name: [Browse Catalog], fields: (), methods: ()),
-    (x: 93.96pt, y: 73.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
-    (x: 201.86pt, y: 73.00pt, width: 77.82pt, height: 28.00pt, kind: "usecase", name: [View Receipt], fields: (), methods: ()),
+    (x: 113.44pt, y: 15.00pt, width: 88.27pt, height: 28.00pt, kind: "usecase", name: [Browse Catalog], fields: (), methods: ()),
+    (x: 113.44pt, y: 73.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
+    (x: 221.34pt, y: 73.00pt, width: 77.82pt, height: 28.00pt, kind: "usecase", name: [View Receipt], fields: (), methods: ()),
   ),
   packages: (
-    (x: 56.48pt, y: -11.00pt, w: 249.20pt, h: 138.00pt, kind: "package", label: [Shop System]),
+    (x: 75.96pt, y: -11.00pt, w: 249.20pt, h: 138.00pt, kind: "package", label: [Shop System]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 29.00pt, path: ((c1: (69.96pt, 48.33pt), c2: (81.96pt, 38.67pt), end: (93.96pt, 29.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 87.00pt, path: ((c1: (69.96pt, 67.67pt), c2: (81.96pt, 77.33pt), end: (93.96pt, 87.00pt)),)),
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 87.00pt, to-y: 87.00pt, path: ((c1: (177.86pt, 87.00pt), c2: (189.86pt, 87.00pt), end: (201.86pt, 87.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 29.00pt, path: ((c1: (76.45pt, 48.33pt), c2: (94.95pt, 38.67pt), end: (113.44pt, 29.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 87.00pt, path: ((c1: (76.45pt, 67.67pt), c2: (94.95pt, 77.33pt), end: (113.44pt, 87.00pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 87.00pt, to-y: 87.00pt, path: ((c1: (197.34pt, 87.00pt), c2: (209.34pt, 87.00pt), end: (221.34pt, 87.00pt)),)),
   ),
 )

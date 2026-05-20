@@ -11,6 +11,7 @@
 //! mincross / cluster_bubble purposes but have zero footprint, so
 //! pulling them into the bbox union would distort the cluster.
 
+use crate::layout::dag::NodeHandle;
 use crate::layout::geometry::Point;
 use crate::layout::graph::VisualGraph;
 use crate::layout::sugiyama::hierarchy::ClusterId;
@@ -59,6 +60,114 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
         // iteration up.
         resolve_against_sibling_nodes(vg, &level);
     }
+
+    // Pushing a cluster's interior down to clear stacked label bands
+    // (above) moves only that cluster's subtree — a later-rank successor
+    // living *outside* the cluster stays where compaction left it and can
+    // end up visually above the cluster it should follow (the nested
+    // composite back-edge bug). Re-assert the rank monotonicity that
+    // compaction guaranteed and the band shifts broke.
+    restore_rank_monotonicity(vg);
+}
+
+/// After cluster frames are derived, walk nodes in rank order and, for
+/// any DAG edge `u → v` whose successor `v` now sits at or above `u`'s
+/// halo-bbox bottom, push `v` back down to just below `u` — moving the
+/// largest cluster subtree that carries `v` without dragging `u`. This
+/// restores the exact `top(v) >= bottom(u)` invariant `compact::do_it`
+/// enforces (graph internal halo already encodes the rank gap), so it is
+/// a strict no-op for any layout the band shifts left monotonic.
+fn restore_rank_monotonicity(vg: &mut VisualGraph) {
+    const EPS: f64 = 1e-6;
+    let num_ranks = vg.dag.num_levels();
+    for r in 0..num_ranks {
+        let row = vg.dag.row(r).clone();
+        for v in row {
+            let mut required_top = f64::NEG_INFINITY;
+            let mut blocker = None;
+            for &u in vg.dag.predecessors(v) {
+                // When the edge crosses into one or more cluster frames
+                // (an ancestor cluster of `v` that doesn't contain `u`),
+                // reserve each frame's label band + pad above `v` so the
+                // frame top clears `u` instead of overlapping it. Handles
+                // both top-level composites entered from an outside node
+                // and inner composites entered from an outer sibling.
+                let (ux0, ux1) = {
+                    let b = vg.pos(u).bbox(false);
+                    (b.0.x, b.1.x)
+                };
+                // When the edge crosses into a labelled cluster frame whose
+                // title strip sits in `u`'s column, the frame top must clear
+                // `u`. Reserve only the distance the frame top currently sits
+                // above `v`'s node top, so a frame that already clears `u`
+                // (single-level composites) gets no extra push — only an
+                // actual band/predecessor overlap moves it.
+                let mut frame_top = f64::INFINITY;
+                if let Some(vc) = vg.hierarchy.cluster_of(v) {
+                    for c in vg.hierarchy.ancestors(vc) {
+                        let cl = &vg.hierarchy.clusters[c];
+                        if cl.label_band <= 0.0 || vg.hierarchy.is_inside(u, c) {
+                            continue;
+                        }
+                        let x_overlap = cl.x_max.min(ux1) - cl.x_min.max(ux0);
+                        if x_overlap > 0.0 {
+                            frame_top = frame_top.min(cl.y_min);
+                        }
+                    }
+                }
+                let reserve = if frame_top.is_finite() {
+                    (vg.pos(v).bbox(true).0.y - frame_top).max(0.0)
+                } else {
+                    0.0
+                };
+                let ubot = vg.pos(u).bbox(true).1.y + reserve;
+                if ubot > required_top {
+                    required_top = ubot;
+                    blocker = Some(u);
+                }
+            }
+            let Some(u) = blocker else { continue };
+            let vtop = vg.pos(v).bbox(true).0.y;
+            let delta = required_top - vtop;
+            if delta <= EPS {
+                continue;
+            }
+            shift_node_below(vg, v, u, delta);
+        }
+    }
+
+    // Member positions moved; rebuild every cluster bbox bottom-up so the
+    // frames wrap the now-monotonic subtree.
+    let depths = compute_depths(&vg.hierarchy);
+    let max_depth = depths.iter().copied().max().unwrap_or(0);
+    for d in (0..=max_depth).rev() {
+        for c in 0..vg.hierarchy.clusters.len() {
+            if depths[c] == d {
+                compute_single_bbox(vg, c);
+            }
+        }
+    }
+}
+
+/// Shift `v` down by `dy`, moving the outermost cluster subtree that
+/// contains `v` but *not* `u`. When `v` shares its whole cluster chain
+/// with `u` (true siblings) or is unclustered, `v` moves alone.
+fn shift_node_below(vg: &mut VisualGraph, v: NodeHandle, u: NodeHandle, dy: f64) {
+    let chain: Vec<ClusterId> = match vg.hierarchy.cluster_of(v) {
+        Some(c) => {
+            let mut a: Vec<_> = vg.hierarchy.ancestors(c).collect();
+            a.reverse(); // outermost first
+            a
+        }
+        None => Vec::new(),
+    };
+    for c in chain {
+        if !vg.hierarchy.is_inside(u, c) {
+            shift_cluster_subtree(vg, c, 0.0, dy);
+            return;
+        }
+    }
+    vg.pos_mut(v).translate(Point::new(0.0, dy));
 }
 
 /// Depth of each cluster: 0 for top-level (no parent), 1 for direct
@@ -251,11 +360,22 @@ fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
         if !vg.hierarchy.clusters[c].x_min.is_finite() {
             continue;
         }
+        // Only sibling nodes *above* the cluster can clip its label band
+        // (the band sits at the cluster's top). A node at the cluster's
+        // rank or below is a same-rank neighbour (x-separated) or a
+        // later-rank successor that must flow *below* the cluster — never
+        // a reason to push the cluster down. Gate by rank so a successor
+        // can't shove its own ancestor cluster downward.
+        let cluster_min_rank = cluster_min_level(vg, c);
         let sibling_nodes = vg.hierarchy.clusters[parent].direct_nodes.clone();
-        let node_bboxes: Vec<(Point, Point)> = sibling_nodes
+        let node_bboxes: Vec<(Point, Point, bool)> = sibling_nodes
             .iter()
             .filter(|h| !vg.is_connector(**h))
-            .map(|h| vg.pos(*h).bbox(false))
+            .map(|h| {
+                let (tl, br) = vg.pos(*h).bbox(false);
+                let above = vg.dag.level(*h) < cluster_min_rank;
+                (tl, br, above)
+            })
             .collect();
         if node_bboxes.is_empty() {
             continue;
@@ -264,7 +384,7 @@ fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
         let (cx_min, cx_max, cy_min, cy_max) = (cb.x_min, cb.x_max, cb.y_min, cb.y_max);
         let mut shift_y = 0.0f64;
         let mut shift_x = 0.0f64;
-        for (tl, br) in &node_bboxes {
+        for (tl, br, above) in &node_bboxes {
             let x_overlap = cx_max.min(br.x) - cx_min.max(tl.x);
             let y_overlap = cy_max.min(br.y) - cy_min.max(tl.y);
             if x_overlap <= 0.0 || y_overlap <= 0.0 {
@@ -275,6 +395,10 @@ fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
             // the common nested-package case (TopLevel above Parent),
             // y is the smaller and we push the inner cluster down.
             if y_overlap <= x_overlap {
+                // Only a node above the cluster justifies pushing it down.
+                if !above {
+                    continue;
+                }
                 let needed = (br.y - cy_min) + CLUSTER_GAP_PT;
                 if needed > shift_y {
                     shift_y = needed;
@@ -290,6 +414,21 @@ fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
             shift_cluster_subtree(vg, c, shift_x, shift_y);
         }
     }
+}
+
+/// Minimum DAG rank among the cluster's members (direct + nested).
+/// `usize::MAX` when the cluster owns no real node yet.
+fn cluster_min_level(vg: &VisualGraph, c: ClusterId) -> usize {
+    let mut min = usize::MAX;
+    for h in vg.iter_nodes() {
+        if vg.is_connector(h) {
+            continue;
+        }
+        if vg.hierarchy.is_inside(h, c) {
+            min = min.min(vg.dag.level(h));
+        }
+    }
+    min
 }
 
 /// Translate every real entity in `c`'s subtree by `(dx, dy)` and apply

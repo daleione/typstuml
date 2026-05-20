@@ -4,17 +4,17 @@
 
 #state-layout(
   nodes: (
-    (id: "__initial__", kind: "initial", x: 176.59pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Listening", kind: "simple", x: 155.56pt, y: 76.00pt, w: 60.07pt, h: 32.00pt, display: "Listening", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__", kind: "initial", x: 166.75pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Listening", kind: "simple", x: 145.71pt, y: 76.00pt, w: 60.07pt, h: 32.00pt, display: "Listening", body: (), fill: none, border-style: "solid", border-color: none),
     (id: "Handling", kind: "simple", x: 126.00pt, y: 136.00pt, w: 60.12pt, h: 32.00pt, display: "Handling", body: (), fill: none, border-style: "solid", border-color: none),
     (id: "__final__", kind: "final", x: 206.12pt, y: 136.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "__initial__", to: "Listening", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
     (from: "Listening", to: "Listening", event: "poll", guard: "no message", action: none, style: "solid", color: none, self-loop: true, back: false, bow-side: "max"),
-    (from: "Listening", to: "Handling", event: "message arrived", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Listening", to: "Handling", event: "message arrived", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (171.06pt, 108.00pt), path: ((c1: (167.81pt, 117.33pt), c2: (164.56pt, 126.67pt), end: (161.31pt, 136.00pt)), )),
     (from: "Handling", to: "Listening", event: "done", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "min"),
-    (from: "Listening", to: "__final__", event: "shutdown", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Listening", to: "__final__", event: "shutdown", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (187.06pt, 108.00pt), path: ((c1: (194.63pt, 117.93pt), c2: (202.19pt, 127.85pt), end: (209.75pt, 137.78pt)), )),
   ),
   notes: (
   ),

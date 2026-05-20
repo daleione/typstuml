@@ -238,9 +238,21 @@ fn node_geom(n: &StateNode) -> NodeGeom {
         StateKind::Fork | StateKind::Join => Point::new(70.0, 10.0),
         StateKind::SynchroBar => Point::new(60.0, 10.0),
         StateKind::Simple | StateKind::Composite => {
-            let name_w = n.display.chars().count() as f64 * CHAR_W_PT + 22.0;
+            // Names may carry a literal `\n` (backslash-n, as written in
+            // PlantUML source) — the painter's `_with-breaks` renders it
+            // as a line break, so size for the widest line and the line
+            // count, not the joined string. Mirrors states.typ's probe.
+            let name_lines: Vec<&str> = n.display.split("\\n").collect();
+            let name_cols = name_lines
+                .iter()
+                .map(|l| l.chars().count())
+                .max()
+                .unwrap_or(0);
+            let name_rows = name_lines.len() as f64;
+            let name_w = name_cols as f64 * CHAR_W_PT + 22.0;
             if n.body.is_empty() {
-                Point::new(name_w.max(56.0), 32.0)
+                let h = (name_rows * 13.0 + 14.0).max(32.0);
+                Point::new(name_w.max(56.0), h)
             } else {
                 let body_w = n
                     .body
@@ -248,7 +260,10 @@ fn node_geom(n: &StateNode) -> NodeGeom {
                     .map(|r| r.chars().count() as f64 * BODY_CHAR_W_PT + 16.0)
                     .fold(0.0_f64, f64::max);
                 let w = name_w.max(body_w).max(64.0);
-                let h = 26.0 + n.body.len() as f64 * 13.0 + 8.0;
+                // Name band scales with the name's line count; floor at
+                // the original single-line band (26pt).
+                let band = (name_rows * 13.0 + 8.0).max(26.0);
+                let h = band + n.body.len() as f64 * 13.0 + 8.0;
                 Point::new(w, h)
             }
         }
@@ -295,6 +310,302 @@ fn note_geom(body: &str) -> Point {
     let w = cols as f64 * BODY_CHAR_W_PT + 16.0;
     let h = lines.len() as f64 * 13.0 + 12.0;
     Point::new(w.max(44.0), h.max(24.0))
+}
+
+/// Perimeter-shape class for a node kind — mirrors `states.typ::_shape-of`.
+fn node_shape(kind: StateKind) -> &'static str {
+    match kind {
+        StateKind::Initial
+        | StateKind::Final
+        | StateKind::History
+        | StateKind::DeepHistory
+        | StateKind::EntryPoint
+        | StateKind::ExitPoint => "circle",
+        StateKind::Choice => "diamond",
+        _ => "rect",
+    }
+}
+
+/// Clip the ray from a node centre `(cx, cy)` toward `(tx, ty)` to the
+/// node's perimeter. Rust mirror of `states.typ::_perimeter` so the
+/// codegen-routed endpoints land exactly where the painter would put
+/// them.
+fn perimeter_point(c: Point, hw: f64, hh: f64, shape: &str, toward: Point) -> Point {
+    let dx = toward.x - c.x;
+    let dy = toward.y - c.y;
+    let adx = dx.abs();
+    let ady = dy.abs();
+    if adx < 1e-4 && ady < 1e-4 {
+        return c;
+    }
+    let t = match shape {
+        "circle" => {
+            let r = hw.min(hh);
+            let len = (adx * adx + ady * ady).sqrt();
+            r / len
+        }
+        "diamond" => 1.0 / (adx / hw + ady / hh),
+        _ => {
+            let tx = if adx > 1e-4 { hw / adx } else { 1e9 };
+            let ty = if ady > 1e-4 { hh / ady } else { 1e9 };
+            tx.min(ty)
+        }
+    };
+    Point::new(c.x + dx * t, c.y + dy * t)
+}
+
+/// True iff segment `a→b` enters the open interior of the axis-aligned
+/// box `[lo, hi]`. Endpoints merely touching the border read as
+/// outside, so an edge anchored on a box face doesn't count as
+/// crossing it. Liang-Barsky parametric clip.
+fn seg_crosses_box(a: Point, b: Point, lo: Point, hi: Point) -> bool {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    let mut t_enter = 0.0_f64;
+    let mut t_exit = 1.0_f64;
+    let clip = |p: f64, q: f64, t_enter: &mut f64, t_exit: &mut f64| -> bool {
+        if p.abs() < 1e-9 {
+            return q >= 0.0;
+        }
+        let r = q / p;
+        if p < 0.0 {
+            if r > *t_exit {
+                return false;
+            }
+            if r > *t_enter {
+                *t_enter = r;
+            }
+        } else {
+            if r < *t_enter {
+                return false;
+            }
+            if r < *t_exit {
+                *t_exit = r;
+            }
+        }
+        true
+    };
+    if !clip(-dx, a.x - lo.x, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    if !clip(dx, hi.x - a.x, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    if !clip(-dy, a.y - lo.y, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    if !clip(dy, hi.y - a.y, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    t_exit - t_enter > 1e-6
+}
+
+/// A routed transition: the resolved start anchor plus the cubic-bezier
+/// segments `(c1, c2, end)` of the detour. `None` for transitions that
+/// route as a straight line (the painter draws those itself, so no
+/// emit churn for the common case).
+struct RoutedEdge {
+    start: Point,
+    segments: Vec<(Point, Point, Point)>,
+}
+
+/// Route every "normal" transition (not self-loop, not back-edge) with
+/// the obstacle-aware spline router, treating composite frames and
+/// sibling leaf boxes as obstacles — the same job dot's spline router
+/// does via `cl_bound` + node avoidance. Returns one slot per
+/// transition; `None` means "draw straight".
+///
+/// Obstacle rule (mirrors dot's "cluster the edge doesn't own"): a node
+/// `n` blocks edge `s→d` iff `n` is neither an ancestor-or-self nor a
+/// descendant of `s` or `d`. To avoid redundant obstacles, only the
+/// *outermost* blocking node is kept (a composite frame already covers
+/// its interior), so a node whose parent is itself a blocker is skipped.
+fn route_transitions(
+    diag: &StateDiagram,
+    top_lefts: &[Point],
+    eff_geom: &[Point],
+    back: &[bool],
+    is_lr: bool,
+) -> Vec<Option<RoutedEdge>> {
+    let n = diag.nodes.len();
+    let idx: HashMap<&str, usize> = diag
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(i, nd)| (nd.id.as_str(), i))
+        .collect();
+    let parent_of: Vec<Option<usize>> = diag
+        .nodes
+        .iter()
+        .map(|nd| nd.parent.as_deref().and_then(|p| idx.get(p).copied()))
+        .collect();
+
+    // `a` is an ancestor-or-self of `x` iff walking x's parent chain hits a.
+    let anc_or_self = |a: usize, mut x: usize| -> bool {
+        loop {
+            if x == a {
+                return true;
+            }
+            match parent_of[x] {
+                Some(p) => x = p,
+                None => return false,
+            }
+        }
+    };
+    let bbox = |i: usize| -> (Point, Point) {
+        (
+            top_lefts[i],
+            Point::new(top_lefts[i].x + eff_geom[i].x, top_lefts[i].y + eff_geom[i].y),
+        )
+    };
+    let center = |i: usize| -> Point {
+        Point::new(
+            top_lefts[i].x + eff_geom[i].x / 2.0,
+            top_lefts[i].y + eff_geom[i].y / 2.0,
+        )
+    };
+
+    // Phase 1: collect the transitions whose straight line is blocked.
+    struct Pending {
+        ti: usize,
+        start: Point,
+        end: Point,
+        u_lo: Point,
+        u_hi: Point,
+    }
+    let mut pending: Vec<Pending> = Vec::new();
+    for (ti, tr) in diag.transitions.iter().enumerate() {
+        if tr.from == tr.to || back[ti] {
+            continue;
+        }
+        let (s, d) = match (idx.get(tr.from.as_str()), idx.get(tr.to.as_str())) {
+            (Some(&s), Some(&d)) => (s, d),
+            _ => continue,
+        };
+        // `n` is involved with this edge (so never an obstacle) when it
+        // contains or is contained by either endpoint.
+        let involved = |x: usize| {
+            anc_or_self(x, s) || anc_or_self(x, d) || anc_or_self(s, x) || anc_or_self(d, x)
+        };
+        let is_blocker = |x: usize| !involved(x);
+        let start = perimeter_point(
+            center(s),
+            eff_geom[s].x / 2.0,
+            eff_geom[s].y / 2.0,
+            node_shape(diag.nodes[s].kind),
+            center(d),
+        );
+        let end = perimeter_point(
+            center(d),
+            eff_geom[d].x / 2.0,
+            eff_geom[d].y / 2.0,
+            node_shape(diag.nodes[d].kind),
+            center(s),
+        );
+        // Union bbox of the obstacles the straight line actually crosses.
+        // Outermost blockers only (a composite frame already covers its
+        // interior, so skip a node whose parent also blocks).
+        let mut u_lo = Point::new(f64::INFINITY, f64::INFINITY);
+        let mut u_hi = Point::new(f64::NEG_INFINITY, f64::NEG_INFINITY);
+        let mut blocked = false;
+        for x in 0..n {
+            if !is_blocker(x) {
+                continue;
+            }
+            if let Some(p) = parent_of[x] {
+                if is_blocker(p) {
+                    continue;
+                }
+            }
+            let (lo, hi) = bbox(x);
+            if seg_crosses_box(start, end, lo, hi) {
+                blocked = true;
+                u_lo.x = u_lo.x.min(lo.x);
+                u_lo.y = u_lo.y.min(lo.y);
+                u_hi.x = u_hi.x.max(hi.x);
+                u_hi.y = u_hi.y.max(hi.y);
+            }
+        }
+        if !blocked {
+            continue; // straight line of sight — painter draws it
+        }
+        pending.push(Pending { ti, start, end, u_lo, u_hi });
+    }
+
+    // Phase 2: pick a side per detour and assign parallel lanes so
+    // sibling detours don't stack on one line. Bias to the perpendicular
+    // MIN side (left in TB, top in LR): self-loop arcs and back-edge bows
+    // always curl onto the MAX side, so detouring on the opposite side
+    // keeps the two families apart. Each successive lane sits one
+    // `LANE_GAP` farther out.
+    const DETOUR_MARGIN_PT: f64 = 14.0;
+    const LANE_GAP_PT: f64 = 14.0;
+    const SIDE_BIAS_PT: f64 = 30.0; // how much nearer right must be to win
+    let mut out: Vec<Option<RoutedEdge>> = (0..diag.transitions.len()).map(|_| None).collect();
+    // Lane counters per side.
+    let mut lane_min = 0usize;
+    let mut lane_max = 0usize;
+    // Stable order: by start coord along the rank axis.
+    pending.sort_by(|a, b| {
+        let ka = if is_lr { a.start.x } else { a.start.y };
+        let kb = if is_lr { b.start.x } else { b.start.y };
+        ka.partial_cmp(&kb).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for p in &pending {
+        let (lo_side, hi_side, mid) = if is_lr {
+            (
+                p.u_lo.y - DETOUR_MARGIN_PT,
+                p.u_hi.y + DETOUR_MARGIN_PT,
+                (p.start.y + p.end.y) / 2.0,
+            )
+        } else {
+            (
+                p.u_lo.x - DETOUR_MARGIN_PT,
+                p.u_hi.x + DETOUR_MARGIN_PT,
+                (p.start.x + p.end.x) / 2.0,
+            )
+        };
+        // Prefer the MIN side unless MAX is clearly nearer.
+        let use_min = (mid - lo_side).abs() <= (hi_side - mid).abs() + SIDE_BIAS_PT;
+        let side_coord = if use_min {
+            let lane = lane_min;
+            lane_min += 1;
+            lo_side - lane as f64 * LANE_GAP_PT
+        } else {
+            let lane = lane_max;
+            lane_max += 1;
+            hi_side + lane as f64 * LANE_GAP_PT
+        };
+        let segments = detour_around(p.start, p.end, side_coord, is_lr);
+        out[p.ti] = Some(RoutedEdge { start: p.start, segments });
+    }
+    out
+}
+
+/// A straight line `a→b` expressed as a single cubic whose control
+/// handles sit at 1/3 and 2/3 — the painter draws it as the segment.
+fn straight_cubic(a: Point, b: Point) -> (Point, Point, Point) {
+    let c1 = Point::new(a.x + (b.x - a.x) / 3.0, a.y + (b.y - a.y) / 3.0);
+    let c2 = Point::new(a.x + 2.0 * (b.x - a.x) / 3.0, a.y + 2.0 * (b.y - a.y) / 3.0);
+    (c1, c2, b)
+}
+
+/// Build an axis-aligned detour from `start` to `end` whose long run sits
+/// at `side_coord` on the perpendicular axis (an x in TB, a y in LR).
+/// Returns three cubic segments with sharp orthogonal corners — clean and
+/// unambiguous, matching PlantUML's `splines=ortho` look for routed
+/// cross-edges.
+fn detour_around(start: Point, end: Point, side_coord: f64, is_lr: bool) -> Vec<(Point, Point, Point)> {
+    let (p1, p2) = if is_lr {
+        (Point::new(start.x, side_coord), Point::new(end.x, side_coord))
+    } else {
+        (Point::new(side_coord, start.y), Point::new(side_coord, end.y))
+    };
+    vec![
+        straight_cubic(start, p1),
+        straight_cubic(p1, p2),
+        straight_cubic(p2, end),
+    ]
 }
 
 /// Order a component's members in horizontal-edge topological order
@@ -362,6 +673,13 @@ struct Layout {
     /// stored *relative to the composite frame's top-left*. Non-empty only
     /// for composite states with a `--` / `||` divider.
     dividers: Vec<Vec<(Point, Point)>>,
+    /// Per-transition routed polyline in absolute coords (same space as
+    /// `top_lefts`): `[start, ..connector-centres, end]`. Produced by the
+    /// global cluster layout from each edge's connector chain (dot's
+    /// "edges follow their virtual-node chain"). Empty for transitions
+    /// drawn by the painter itself (self-loops, back-bows, or the
+    /// per-level fallback path).
+    waypoints: HashMap<usize, Vec<Point>>,
 }
 
 /// One laid-out level: relative positions of its direct members, the
@@ -564,7 +882,10 @@ fn layout_flat(
     // Deterministic edge order, then a feedback-arc-set pass: an edge whose
     // target already reaches its source is a cycle (back-edge) — keep it
     // out of the rank graph so the placer doesn't reverse it into a
-    // rank-skipping long edge whose connector dummy shoves siblings.
+    // rank-skipping long edge. Forward edges (including rank-skipping ones)
+    // stay in the graph: dot keeps long edges as virtual-node chains so
+    // the source fans out toward its edge lane, and the edge is drawn
+    // along that chain. Removing them flattens the fan-out.
     let mut cond_edges: Vec<((usize, usize), (f64, f64, usize))> = cond.into_iter().collect();
     cond_edges.sort_by_key(|&((cs, cd), _)| (cs, cd));
     let mut rank_adj: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -684,6 +1005,601 @@ fn stack_regions(
             }
             (cursor, max_h, origins, segs)
         }
+    }
+}
+
+/// Global cluster layout — the dot/PlantUML model.
+///
+/// One `VisualGraph` holds every leaf / pseudostate as a box node;
+/// composite states become `HierarchyMap` clusters (their frame is the
+/// cluster bbox). Long edges stay in the graph as connector-dummy
+/// chains, which the engine keeps *outside* foreign cluster boxes
+/// (`graph.rs::split_long_edges` inherits the source cluster), so a
+/// transition that skips past a composite routes down a lane beside it
+/// — never through it. The edge is then drawn along its connector
+/// chain. Edges that touch a composite are wired to an interior
+/// representative (source/sink) so ranking places the composite's
+/// subtree correctly.
+///
+/// Horizontal links (`A -> B`, single dash) condense their leaf members
+/// into one super-node so they share a rank (the engine has no
+/// same-rank constraint). Concurrent regions are handled by the
+/// dedicated recursive path (`layout_nodes`); this function is only
+/// chosen when the diagram has none.
+fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orientation) -> Layout {
+    let n = diag.nodes.len();
+    let is_lr = matches!(orientation, Orientation::LeftToRight);
+    let idx: HashMap<&str, usize> = diag
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(i, nd)| (nd.id.as_str(), i))
+        .collect();
+    let parent_of: Vec<Option<usize>> = diag
+        .nodes
+        .iter()
+        .map(|nd| nd.parent.as_deref().and_then(|p| idx.get(p).copied()))
+        .collect();
+    // Derive children from `parent_of` (guaranteed consistent with the
+    // cluster assignment, unlike the parser's `nd.children` which may be
+    // unset for synthetic scoped pseudostates).
+    let mut children_of: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for i in 0..n {
+        if let Some(p) = parent_of[i] {
+            children_of[p].push(i);
+        }
+    }
+    let is_comp: Vec<bool> = diag.nodes.iter().map(|nd| nd.kind == StateKind::Composite).collect();
+    let mut depth = vec![0usize; n];
+    for i in 0..n {
+        if let Some(p) = parent_of[i] {
+            depth[i] = depth[p] + 1;
+        }
+    }
+    let all_edges: Vec<(usize, usize, usize, bool)> = diag
+        .transitions
+        .iter()
+        .enumerate()
+        .filter_map(|(ti, tr)| {
+            let s = *idx.get(tr.from.as_str())?;
+            let d = *idx.get(tr.to.as_str())?;
+            Some((ti, s, d, tr.horizontal))
+        })
+        .collect();
+
+    // --- composite representatives (deepest-first so nesting resolves) ---
+    let mut in_rep = vec![None::<usize>; n];
+    let mut out_rep = vec![None::<usize>; n];
+    let mut comps: Vec<usize> = (0..n).filter(|&i| is_comp[i]).collect();
+    comps.sort_by_key(|&c| std::cmp::Reverse(depth[c]));
+    for &c in &comps {
+        let kids = &children_of[c];
+        if kids.is_empty() {
+            continue;
+        }
+        let kset: HashSet<usize> = kids.iter().copied().collect();
+        let mut indeg: HashMap<usize, usize> = kids.iter().map(|&k| (k, 0)).collect();
+        let mut outdeg: HashMap<usize, usize> = kids.iter().map(|&k| (k, 0)).collect();
+        for &(_, s, d, _) in &all_edges {
+            if let (Some(ls), Some(ld)) = (lift(s, &kset, &parent_of), lift(d, &kset, &parent_of)) {
+                if ls != ld {
+                    *outdeg.get_mut(&ls).unwrap() += 1;
+                    *indeg.get_mut(&ld).unwrap() += 1;
+                }
+            }
+        }
+        let pick = |want_source: bool| -> usize {
+            let deg = if want_source { &indeg } else { &outdeg };
+            let pref = if want_source { StateKind::Initial } else { StateKind::Final };
+            kids.iter()
+                .copied()
+                .find(|&k| deg[&k] == 0 && diag.nodes[k].kind == pref)
+                .or_else(|| kids.iter().copied().find(|&k| deg[&k] == 0))
+                .unwrap_or(kids[0])
+        };
+        let src = pick(true);
+        let snk = pick(false);
+        in_rep[c] = Some(if is_comp[src] { in_rep[src].unwrap_or(src) } else { src });
+        out_rep[c] = Some(if is_comp[snk] { out_rep[snk].unwrap_or(snk) } else { snk });
+    }
+    // Endpoint node for an edge end: a composite resolves to its in/out
+    // representative (a non-composite descendant); a leaf is itself.
+    let endpoint = |node: usize, as_source: bool| -> usize {
+        if is_comp[node] {
+            if as_source {
+                out_rep[node].unwrap_or(node)
+            } else {
+                in_rep[node].unwrap_or(node)
+            }
+        } else {
+            node
+        }
+    };
+
+    // --- horizontal condensation over non-composite nodes ---
+    // VG gets one node per "component"; a component is a maximal set of
+    // non-composite siblings joined by horizontal links. Composites are
+    // clusters, not VG nodes.
+    let leaf: Vec<usize> = (0..n).filter(|&i| !is_comp[i]).collect();
+    let leaf_local: HashMap<usize, usize> = leaf.iter().enumerate().map(|(l, &g)| (g, l)).collect();
+    let nl = leaf.len();
+    let mut uf = UnionFind::new(nl);
+    for &(_, s, d, horizontal) in &all_edges {
+        if horizontal && !is_comp[s] && !is_comp[d] && parent_of[s] == parent_of[d] {
+            if let (Some(&ls), Some(&ld)) = (leaf_local.get(&s), leaf_local.get(&d)) {
+                uf.union(ls, ld);
+            }
+        }
+    }
+    let mut comp_id: HashMap<usize, usize> = HashMap::new();
+    let mut comp_members: Vec<Vec<usize>> = Vec::new(); // local leaf indices
+    let comp_of_leaf: Vec<usize> = (0..nl)
+        .map(|l| {
+            let r = uf.find(l);
+            *comp_id.entry(r).or_insert_with(|| {
+                comp_members.push(Vec::new());
+                comp_members.len() - 1
+            })
+        })
+        .collect();
+    for l in 0..nl {
+        comp_members[comp_of_leaf[l]].push(l);
+    }
+    // node (global) → component index
+    let comp_of_node = |g: usize| -> Option<usize> { leaf_local.get(&g).map(|&l| comp_of_leaf[l]) };
+
+    // Horizontal adjacency for ordering within a component (leaf-local).
+    let mut horiz_adj: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut seen: HashSet<(usize, usize)> = HashSet::new();
+    for &(_, s, d, horizontal) in &all_edges {
+        if horizontal && !is_comp[s] && !is_comp[d] {
+            if let (Some(&ls), Some(&ld)) = (leaf_local.get(&s), leaf_local.get(&d)) {
+                if seen.insert((ls, ld)) {
+                    horiz_adj.entry(ls).or_default().push(ld);
+                }
+            }
+        }
+    }
+
+    // Side-by-side layout of each component's members; record member
+    // offset (within the component box) + component box size.
+    let (pad_rank, pad_perp) = (LAYOUT_PAD_Y_PT, LAYOUT_PAD_X_PT);
+    let lgeom = |l: usize| base_geoms[leaf[l]].size;
+    let mut member_off: Vec<Point> = vec![Point::zero(); nl];
+    let mut comp_size: Vec<Point> = vec![Point::zero(); comp_members.len()];
+    for (cid, members) in comp_members.iter().enumerate() {
+        let ordered = order_component(members, &horiz_adj);
+        let span = ordered
+            .iter()
+            .map(|&l| if is_lr { lgeom(l).x } else { lgeom(l).y })
+            .fold(0.0_f64, f64::max);
+        let mut cursor = 0.0_f64;
+        for (k, &l) in ordered.iter().enumerate() {
+            if k > 0 {
+                cursor += COMP_GAP_PT;
+            }
+            let g = lgeom(l);
+            if is_lr {
+                member_off[l] = Point::new((span - g.x) / 2.0, cursor);
+                cursor += g.y;
+            } else {
+                member_off[l] = Point::new(cursor, (span - g.y) / 2.0);
+                cursor += g.x;
+            }
+        }
+        comp_size[cid] = if is_lr {
+            Point::new(span, cursor)
+        } else {
+            Point::new(cursor, span)
+        };
+    }
+
+    // --- build the VisualGraph + cluster hierarchy ---
+    let mut vg = VisualGraph::new(orientation);
+    let comp_handles: Vec<_> = comp_size
+        .iter()
+        .map(|sz| {
+            let inflated = if is_lr {
+                Point::new(sz.x + pad_rank, sz.y + pad_perp)
+            } else {
+                Point::new(sz.x + pad_perp, sz.y + pad_rank)
+            };
+            vg.add_node(Element::new_box(inflated, orientation))
+        })
+        .collect();
+
+    // Cluster per composite; map composite index → ClusterId.
+    let mut hierarchy = crate::layout::sugiyama::HierarchyMap::new();
+    let mut cluster_of_comp: HashMap<usize, usize> = HashMap::new();
+    // Stable order: shallowest-first so parents exist before children.
+    let mut comp_by_depth: Vec<usize> = comps.clone();
+    comp_by_depth.sort_by_key(|&c| depth[c]);
+    for &c in &comp_by_depth {
+        let cid = hierarchy.add_cluster(None);
+        cluster_of_comp.insert(c, cid);
+        hierarchy.clusters[cid].pad = COMPOSITE_PAD_PT;
+        hierarchy.clusters[cid].label_band = COMPOSITE_LABEL_BAND_PT;
+        hierarchy.clusters[cid].label_min_w = base_geoms[c].size.x;
+    }
+    // Wire cluster parents.
+    for &c in &comp_by_depth {
+        let cid = cluster_of_comp[&c];
+        if let Some(p) = parent_of[c] {
+            if let Some(&pcid) = cluster_of_comp.get(&p) {
+                hierarchy.clusters[cid].parent = Some(pcid);
+                hierarchy.clusters[pcid].direct_children.push(cid);
+            }
+        }
+    }
+    // Assign each component super-node to the innermost composite that
+    // owns its members (members share a parent).
+    for (cid, members) in comp_members.iter().enumerate() {
+        let any = leaf[members[0]];
+        if let Some(p) = parent_of[any] {
+            if let Some(&clid) = cluster_of_comp.get(&p) {
+                hierarchy.assign_node(comp_handles[cid], clid);
+            }
+        }
+    }
+    vg.set_hierarchy(hierarchy);
+
+    // Edges: one VG edge per transition (skip self-loops + dangling),
+    // wired through composite representatives + component super-nodes.
+    // Track the (vg_from, vg_to) per transition for waypoint recovery.
+    let mut edge_vg: Vec<Option<(usize, usize)>> = vec![None; diag.transitions.len()];
+    for &(ti, s, d, _) in &all_edges {
+        if s == d {
+            continue;
+        }
+        let es = endpoint(s, true);
+        let ed = endpoint(d, false);
+        let (cs, cd) = match (comp_of_node(es), comp_of_node(ed)) {
+            (Some(a), Some(b)) => (a, b),
+            _ => continue,
+        };
+        if cs == cd {
+            continue;
+        }
+        vg.add_edge(Edge::default(), comp_handles[cs], comp_handles[cd]);
+        edge_vg[ti] = Some((cs, cd));
+    }
+
+    vg.layout();
+
+    // --- extract node positions ---
+    let (deflate_x, deflate_y) = if is_lr {
+        (pad_rank / 2.0, pad_perp / 2.0)
+    } else {
+        (pad_perp / 2.0, pad_rank / 2.0)
+    };
+    let comp_topleft: Vec<Point> = comp_handles
+        .iter()
+        .map(|h| {
+            let tl = vg.pos(*h).bbox(false).0;
+            Point::new(tl.x + deflate_x, tl.y + deflate_y)
+        })
+        .collect();
+    let mut top_lefts = vec![Point::zero(); n];
+    for l in 0..nl {
+        let c = comp_topleft[comp_of_leaf[l]];
+        let off = member_off[l];
+        top_lefts[leaf[l]] = Point::new(c.x + off.x, c.y + off.y);
+    }
+
+    // Composite frames from cluster bboxes.
+    let mut eff_geom: Vec<Point> = base_geoms.iter().map(|g| g.size).collect();
+    for &c in &comps {
+        if let Some(&cid) = cluster_of_comp.get(&c) {
+            let cl = &vg.hierarchy.clusters[cid];
+            if cl.x_min.is_finite() && cl.x_max.is_finite() {
+                top_lefts[c] = Point::new(cl.x_min, cl.y_min);
+                eff_geom[c] = Point::new(cl.x_max - cl.x_min, cl.y_max - cl.y_min);
+            }
+        }
+    }
+
+    // --- connector waypoints per transition ---
+    // Walk the lowered edges in insertion order, matching them to the
+    // transitions we added (same order). The lowered handle list is
+    // `[from, ..connectors, to]`, possibly reversed if the engine made
+    // it a back-edge; orient it source→target.
+    let mut back = vec![false; diag.transitions.len()];
+    let mut waypoints: HashMap<usize, Vec<Point>> = HashMap::new();
+    let added_tis: Vec<usize> = (0..diag.transitions.len()).filter(|&ti| edge_vg[ti].is_some()).collect();
+    let lowered: Vec<(usize, Vec<Point>, bool)> = vg
+        .iter_edges()
+        .map(|(_, chain)| {
+            let pts: Vec<Point> = chain
+                .iter()
+                .map(|h| {
+                    let (lo, hi) = vg.pos(*h).bbox(false);
+                    Point::new((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0)
+                })
+                .collect();
+            // is the chain longer than a direct hop? connectors present.
+            let has_conn = chain.len() > 2;
+            (chain.len(), pts, has_conn)
+        })
+        .collect();
+    for (k, &ti) in added_tis.iter().enumerate() {
+        if k >= lowered.len() {
+            break;
+        }
+        let (cs, _cd) = edge_vg[ti].unwrap();
+        let (_, pts, has_conn) = &lowered[k];
+        // Orient source→target: the lowered chain's first handle is the
+        // (possibly swapped) tail. If it sits nearer the *target* end,
+        // the engine reversed it into a back-edge — flip + mark.
+        let want_first = comp_topleft[cs];
+        let first = pts.first().copied().unwrap_or(want_first);
+        let reversed = {
+            let to_first = (first.x - want_first.x).abs() + (first.y - want_first.y).abs();
+            let to_last = pts
+                .last()
+                .map(|p| (p.x - want_first.x).abs() + (p.y - want_first.y).abs())
+                .unwrap_or(f64::INFINITY);
+            to_last + 1.0 < to_first
+        };
+        if reversed {
+            back[ti] = true;
+        }
+        // Keep only the connector centres (drop the two component-centre
+        // endpoints); the emit clips real start/end to the node faces.
+        if *has_conn && pts.len() > 2 {
+            let mut mids: Vec<Point> = pts[1..pts.len() - 1].to_vec();
+            if reversed {
+                mids.reverse();
+            }
+            waypoints.insert(ti, mids);
+        }
+    }
+
+    let inside = |mut node: usize, c: usize| -> bool {
+        loop {
+            if node == c {
+                return true;
+            }
+            match parent_of[node] {
+                Some(p) => node = p,
+                None => return false,
+            }
+        }
+    };
+
+    // --- frame-exit clearance -----------------------------------------
+    // When an edge leaves a composite frame to a node below it, that node
+    // should sit a rank gap below the *frame bottom*, not hard against the
+    // composite's lower border (a terminal/sink otherwise hangs on the
+    // edge). This is the bottom-side mirror of the title-band clearance
+    // `restore_rank_monotonicity` does at the top — but it lives here, not
+    // in the shared `tighten`, because it must add room even when the node
+    // already barely clears the frame, which would churn cuca packages.
+    // Push such targets down and relax the shift through their successors
+    // so rank monotonicity is preserved.
+    {
+        const FRAME_EXIT_GAP: f64 = 16.0;
+        // Operate on the *rank* axis (x for left-to-right, y for top-to-
+        // bottom): successors flow along it, so "below the frame" means
+        // "further along the rank axis", not literally down in y.
+        let rank_lo = |tl: &[Point], i: usize| if is_lr { tl[i].x } else { tl[i].y };
+        let rank_hi =
+            |tl: &[Point], i: usize| if is_lr { tl[i].x + eff_geom[i].x } else { tl[i].y + eff_geom[i].y };
+        let mut moved: HashSet<usize> = HashSet::new();
+        for _ in 0..(n + 2) {
+            let mut changed = false;
+            for &(ti, s, d, horizontal) in &all_edges {
+                // Skip self-loops, back-edges, and horizontal links. A
+                // back-edge runs against the rank flow (cycles like
+                // Red→Green→Yellow→Red); a horizontal `->` link places its
+                // ends side by side on the *same* rank. Treating either as
+                // a forward rank constraint would scramble the layout.
+                if s == d || back[ti] || horizontal {
+                    continue;
+                }
+                let mut req = rank_hi(&top_lefts, s); // keep d past s along rank
+                for &c in &comps {
+                    if inside(s, c) && !inside(d, c) {
+                        req = req.max(rank_hi(&top_lefts, c) + FRAME_EXIT_GAP);
+                    }
+                }
+                let delta = req - rank_lo(&top_lefts, d);
+                if delta > 1e-6 {
+                    for i in 0..n {
+                        if i == d || inside(i, d) {
+                            if is_lr {
+                                top_lefts[i].x += delta;
+                            } else {
+                                top_lefts[i].y += delta;
+                            }
+                            moved.insert(i);
+                        }
+                    }
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        if !moved.is_empty() {
+            for &(ti, s, d, _) in &all_edges {
+                if moved.contains(&s) || moved.contains(&d) {
+                    waypoints.remove(&ti);
+                }
+            }
+        }
+    }
+
+    // --- perp-axis centering ------------------------------------------
+    // Straighten chains and centre a fork's parent over its children:
+    // pull each node that is *alone in its rank* toward the average perp
+    // coordinate of its graph neighbours. The rank axis is x (left-to-
+    // right) or y (top-to-bottom); the perp axis is the other. A fork's
+    // children share a rank, so they're held at the engine's symmetric
+    // placement and the parent settles on their midpoint — giving the
+    // straight spine + symmetric branch dot produces.
+    {
+        let is_perp_x = !is_lr;
+        let pc = |tl: &[Point], i: usize| {
+            if is_perp_x {
+                tl[i].x + eff_geom[i].x / 2.0
+            } else {
+                tl[i].y + eff_geom[i].y / 2.0
+            }
+        };
+        let rlo = |tl: &[Point], i: usize| if is_lr { tl[i].x } else { tl[i].y };
+        let rhi =
+            |tl: &[Point], i: usize| if is_lr { tl[i].x + eff_geom[i].x } else { tl[i].y + eff_geom[i].y };
+        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for &(_, s, d, _) in &all_edges {
+            if s != d {
+                adj[s].push(d);
+                adj[d].push(s);
+            }
+        }
+        let movable: Vec<usize> = (0..n)
+            .filter(|&i| parent_of[i].is_none() && !is_comp[i] && !adj[i].is_empty())
+            .filter(|&i| {
+                let (lo, hi) = (rlo(&top_lefts, i), rhi(&top_lefts, i));
+                !(0..n).any(|j| {
+                    j != i
+                        && parent_of[j].is_none()
+                        && rhi(&top_lefts, j) > lo + 1.0
+                        && rlo(&top_lefts, j) < hi - 1.0
+                })
+            })
+            .collect();
+        let mut moved: HashSet<usize> = HashSet::new();
+        for _ in 0..12 {
+            for &i in &movable {
+                let desired =
+                    adj[i].iter().map(|&j| pc(&top_lefts, j)).sum::<f64>() / adj[i].len() as f64;
+                let delta = desired - pc(&top_lefts, i);
+                if delta.abs() > 1e-6 {
+                    if is_perp_x {
+                        top_lefts[i].x += delta;
+                    } else {
+                        top_lefts[i].y += delta;
+                    }
+                    moved.insert(i);
+                }
+            }
+        }
+        if !moved.is_empty() {
+            for &(ti, s, d, _) in &all_edges {
+                if moved.contains(&s) || moved.contains(&d) {
+                    waypoints.remove(&ti);
+                }
+            }
+        }
+    }
+
+    // --- dot-style composite offset ----------------------------------
+    // Brandes-Köpf centres the State1→State2→State3→terminal chain in one
+    // column, so a shared terminal lands directly under the composite and
+    // the "bypass" edges (a sibling above the composite going to the
+    // terminal below it) get squeezed into lanes beside / through it. dot
+    // instead pushes the composite to one side and keeps the bypass
+    // sources + terminal in a clear column on the other. Replicate that
+    // here (state-only; cuca/records never take this path): when a
+    // top-level composite has bypass traffic, align the sink(s) to the
+    // bypass column and slide the composite subtree clear of it.
+    // Geometry below is written for top-to-bottom flow (rank = y); skip
+    // it for left-to-right diagrams rather than mis-apply the axes.
+    let cx = |tl: &[Point], i: usize| tl[i].x + eff_geom[i].x / 2.0;
+    for &c in &comps {
+        if is_lr {
+            break;
+        }
+        if parent_of[c].is_some() {
+            continue; // top-level composites only
+        }
+        let c_top = top_lefts[c].y;
+        let c_bot = top_lefts[c].y + eff_geom[c].y;
+        let (c_l, c_r) = (top_lefts[c].x, top_lefts[c].x + eff_geom[c].x);
+        // Collect bypass edges: endpoints both outside C, one above C and
+        // one below it, whose span crosses C's column.
+        let mut sources: Vec<usize> = Vec::new();
+        let mut sinks: Vec<usize> = Vec::new();
+        for &(_, s, d, _) in &all_edges {
+            if s == d || inside(s, c) || inside(d, c) {
+                continue;
+            }
+            let sy = top_lefts[s].y + eff_geom[s].y / 2.0;
+            let dy = top_lefts[d].y + eff_geom[d].y / 2.0;
+            let (above, below) = if sy < dy { (s, d) } else { (d, s) };
+            let crosses_y = top_lefts[above].y + eff_geom[above].y <= c_top + 1.0
+                && top_lefts[below].y >= c_bot - 1.0;
+            if !crosses_y {
+                continue;
+            }
+            let (ax, bx) = (cx(&top_lefts, above), cx(&top_lefts, below));
+            if ax.min(bx) <= c_r && ax.max(bx) >= c_l {
+                sources.push(above);
+                sinks.push(below);
+            }
+        }
+        if sinks.is_empty() {
+            continue;
+        }
+        let mut col: Vec<f64> = sources.iter().map(|&i| cx(&top_lefts, i)).collect();
+        col.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let col_x = col[col.len() / 2];
+        let go_left = col_x >= (c_l + c_r) / 2.0;
+        // Align top-level sinks onto the bypass column.
+        let mut moved: HashSet<usize> = HashSet::new();
+        for &t in &sinks {
+            if parent_of[t].is_some() {
+                continue;
+            }
+            let dx = col_x - cx(&top_lefts, t);
+            if dx.abs() > f64::EPSILON {
+                top_lefts[t].x += dx;
+                moved.insert(t);
+            }
+        }
+        // Slide C's subtree clear of the column on the chosen side.
+        const LANE: f64 = 14.0;
+        let col_l = sources
+            .iter()
+            .chain(sinks.iter())
+            .map(|&i| top_lefts[i].x)
+            .fold(f64::INFINITY, f64::min);
+        let col_r = sources
+            .iter()
+            .chain(sinks.iter())
+            .map(|&i| top_lefts[i].x + eff_geom[i].x)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let shift = if go_left {
+            (c_r - (col_l - LANE)).max(0.0).copysign(-1.0)
+        } else {
+            (col_r + LANE - c_l).max(0.0)
+        };
+        if shift.abs() > f64::EPSILON {
+            for i in 0..n {
+                if inside(i, c) {
+                    top_lefts[i].x += shift;
+                    moved.insert(i);
+                }
+            }
+        }
+        // Any edge touching a moved node has stale waypoints — drop them
+        // so the emit re-routes from final positions (straight or detour).
+        if !moved.is_empty() {
+            for &(ti, s, d, _) in &all_edges {
+                if moved.contains(&s) || moved.contains(&d) {
+                    waypoints.remove(&ti);
+                }
+            }
+        }
+    }
+
+    Layout {
+        top_lefts,
+        eff_geom,
+        back,
+        dividers: vec![Vec::new(); n],
+        waypoints,
     }
 }
 
@@ -936,6 +1852,7 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
         eff_geom,
         back,
         dividers,
+        waypoints: HashMap::new(),
     }
 }
 
@@ -965,11 +1882,25 @@ pub fn emit(
 
     let id_to_idx = |id: &str| diag.nodes.iter().position(|n| n.id == id);
 
-    let layout = layout_nodes(diag, &geoms, orientation);
+    // `layout_global` (dot-style global cluster layout) handles flat
+    // diagrams, single-level and nested composites: leaves/pseudostates
+    // are box nodes, composites are HierarchyMap clusters, long edges
+    // route down lanes beside the composite like dot, sources fan out,
+    // the final sits at the bottom, and `tighten::restore_rank_monotonicity`
+    // keeps a composite's outside successors below its frame. Concurrent
+    // regions still need the dedicated recursive layout. See
+    // docs/state-routing-redesign.md.
+    let use_global = diag.regions.is_empty();
+    let layout = if use_global {
+        layout_global(diag, &geoms, orientation)
+    } else {
+        layout_nodes(diag, &geoms, orientation)
+    };
     let mut top_lefts = layout.top_lefts;
     let eff_geom = layout.eff_geom;
     let back = layout.back;
     let dividers = layout.dividers;
+    let mut waypoints = layout.waypoints;
     let is_lr = matches!(orientation, Orientation::LeftToRight);
 
     // Normalize so the content starts at (MARGIN, MARGIN).
@@ -978,6 +1909,12 @@ pub fn emit(
     for p in &mut top_lefts {
         p.x = p.x - min_x + MARGIN_PT;
         p.y = p.y - min_y + MARGIN_PT;
+    }
+    for chain in waypoints.values_mut() {
+        for p in chain.iter_mut() {
+            p.x = p.x - min_x + MARGIN_PT;
+            p.y = p.y - min_y + MARGIN_PT;
+        }
     }
 
     // Per-back-edge bow side. PlantUML routes a back-edge around the
@@ -1078,6 +2015,15 @@ pub fn emit(
             p.y += reserve_lo;
         } else {
             p.x += reserve_lo;
+        }
+    }
+    for chain in waypoints.values_mut() {
+        for p in chain.iter_mut() {
+            if is_lr {
+                p.y += reserve_lo;
+            } else {
+                p.x += reserve_lo;
+            }
         }
     }
 
@@ -1316,6 +2262,12 @@ pub fn emit(
         p.x += shift_x;
         p.y += shift_y;
     }
+    for chain in waypoints.values_mut() {
+        for p in chain.iter_mut() {
+            p.x += shift_x;
+            p.y += shift_y;
+        }
+    }
     for nb in &mut note_boxes {
         nb.x += shift_x;
         nb.y += shift_y;
@@ -1325,6 +2277,230 @@ pub fn emit(
     for lb in &mut label_boxes {
         lb.0 += shift_x;
         lb.1 += shift_y;
+    }
+
+    // Per-transition routed path. The global cluster layout supplies
+    // connector waypoints (dot's "edge follows its virtual-node chain");
+    // we clip the real endpoints to the node faces and stitch the chain
+    // into cubic segments. Diagrams on the recursive (concurrent) path
+    // have no waypoints and fall back to the obstacle detour router.
+    let id_pos = |id: &str| id_to_idx(id);
+    let node_center = |i: usize| -> Point {
+        Point::new(
+            top_lefts[i].x + eff_geom[i].x / 2.0,
+            top_lefts[i].y + eff_geom[i].y / 2.0,
+        )
+    };
+    let mut routed: Vec<Option<RoutedEdge>> = if waypoints.is_empty() {
+        route_transitions(diag, &top_lefts, &eff_geom, &back, is_lr)
+    } else {
+        (0..diag.transitions.len()).map(|_| None).collect()
+    };
+    if !waypoints.is_empty() {
+        // Composite frames are routing obstacles: an edge between two
+        // states that both live *outside* a composite must skirt its
+        // frame, not cut diagonally through it. The connector waypoints
+        // alone don't guarantee this — compaction bunches the side-lane
+        // dummies near the top, leaving a long straight tail that pierces
+        // the box — so detect a crossing and replace the path with a
+        // clean ortho detour down a side lane (dot's `splines=ortho`
+        // look). Parallel detours around the same side get spread into
+        // distinct lanes.
+        const ROUTE_LANE_GAP: f64 = 14.0;
+        let comp_boxes: Vec<(usize, Point, Point)> = diag
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n.kind == StateKind::Composite)
+            .map(|(i, _)| {
+                (
+                    i,
+                    top_lefts[i],
+                    Point::new(top_lefts[i].x + eff_geom[i].x, top_lefts[i].y + eff_geom[i].y),
+                )
+            })
+            .collect();
+        let is_descendant = |mut node: usize, comp: usize| -> bool {
+            loop {
+                if node == comp {
+                    return true;
+                }
+                match diag.nodes[node].parent.as_deref().and_then(id_to_idx) {
+                    Some(p) => node = p,
+                    None => return false,
+                }
+            }
+        };
+        let mut lane_count: HashMap<(usize, bool), usize> = HashMap::new();
+        for (ti, tr) in diag.transitions.iter().enumerate() {
+            let (Some(s), Some(d)) = (id_pos(&tr.from), id_pos(&tr.to)) else { continue };
+            if s == d {
+                continue;
+            }
+            let mids = waypoints.get(&ti);
+            let toward_s = mids.and_then(|m| m.first().copied()).unwrap_or_else(|| node_center(d));
+            let toward_d = mids.and_then(|m| m.last().copied()).unwrap_or_else(|| node_center(s));
+            let start = perimeter_point(
+                node_center(s),
+                eff_geom[s].x / 2.0,
+                eff_geom[s].y / 2.0,
+                node_shape(diag.nodes[s].kind),
+                toward_s,
+            );
+            let end = perimeter_point(
+                node_center(d),
+                eff_geom[d].x / 2.0,
+                eff_geom[d].y / 2.0,
+                node_shape(diag.nodes[d].kind),
+                toward_d,
+            );
+            let obstacle = comp_boxes.iter().find(|(ci, lo, hi)| {
+                !is_descendant(s, *ci)
+                    && !is_descendant(d, *ci)
+                    && seg_crosses_box(
+                        start,
+                        end,
+                        Point::new(lo.x - 1.0, lo.y - 1.0),
+                        Point::new(hi.x + 1.0, hi.y + 1.0),
+                    )
+            });
+            if let Some((ci, lo, hi)) = obstacle {
+                let side_hi = if is_lr {
+                    (start.y + end.y) / 2.0 >= (lo.y + hi.y) / 2.0
+                } else {
+                    (start.x + end.x) / 2.0 >= (lo.x + hi.x) / 2.0
+                };
+                let k = {
+                    let e = lane_count.entry((*ci, side_hi)).or_insert(0);
+                    let v = *e;
+                    *e += 1;
+                    v
+                };
+                let off = ROUTE_LANE_GAP * (1.0 + k as f64);
+                let side_coord = match (is_lr, side_hi) {
+                    (false, true) => hi.x + off,
+                    (false, false) => lo.x - off,
+                    (true, true) => hi.y + off,
+                    (true, false) => lo.y - off,
+                };
+                let segments = detour_around(start, end, side_coord, is_lr);
+                routed[ti] = Some(RoutedEdge { start, segments });
+            } else if let Some(mids) = mids {
+                if mids.is_empty() {
+                    continue;
+                }
+                let mut pts = Vec::with_capacity(mids.len() + 2);
+                pts.push(start);
+                pts.extend_from_slice(mids);
+                pts.push(end);
+                let segments: Vec<(Point, Point, Point)> =
+                    pts.windows(2).map(|w| straight_cubic(w[0], w[1])).collect();
+                routed[ti] = Some(RoutedEdge { start, segments });
+            }
+        }
+    }
+
+    // Port assignment. dot routes every edge through its own virtual-node
+    // lane, so several edges incident on one node face leave/enter at
+    // *distinct points* spread along that face (ordered toward their far
+    // ends) rather than one shared perimeter point. That is why State3's
+    // two exits to the terminal leave from the bottom-right corner and the
+    // bottom-middle, not as one coincident line. Replicate it generally:
+    // group each non-detoured edge endpoint by (node, face), and for any
+    // face carrying >= 2 edges, fan the ports around the natural exit
+    // direction and route a smooth spline that leaves each box outward.
+    {
+        struct Ep {
+            ti: usize,
+            node: usize,
+            is_src: bool,
+            other: Point,
+        }
+        let face_of = |node: usize, other: Point| -> u8 {
+            let c = node_center(node);
+            let (dx, dy) = (other.x - c.x, other.y - c.y);
+            if dy.abs() >= dx.abs() {
+                if dy >= 0.0 { 1 } else { 0 } // bottom / top
+            } else if dx >= 0.0 {
+                3 // right
+            } else {
+                2 // left
+            }
+        };
+        let mut eps: Vec<Ep> = Vec::new();
+        for (ti, tr) in diag.transitions.iter().enumerate() {
+            let (Some(s), Some(d)) = (id_pos(&tr.from), id_pos(&tr.to)) else { continue };
+            if s == d || back[ti] || routed[ti].is_some() {
+                continue;
+            }
+            eps.push(Ep { ti, node: s, is_src: true, other: node_center(d) });
+            eps.push(Ep { ti, node: d, is_src: false, other: node_center(s) });
+        }
+        let mut groups: HashMap<(usize, u8), Vec<usize>> = HashMap::new();
+        for (i, ep) in eps.iter().enumerate() {
+            groups.entry((ep.node, face_of(ep.node, ep.other))).or_default().push(i);
+        }
+        let mut port: HashMap<(usize, bool), Point> = HashMap::new();
+        for ((node, face), mut idxs) in groups {
+            if idxs.len() < 2 {
+                continue; // single-edge faces keep the painter's perimeter point
+            }
+            let c = node_center(node);
+            let (hw, hh) = (eff_geom[node].x / 2.0, eff_geom[node].y / 2.0);
+            let shape = node_shape(diag.nodes[node].kind);
+            let horiz = face <= 1; // top/bottom spread along x; left/right along y
+            let along = |p: Point| if horiz { p.x } else { p.y };
+            idxs.sort_by(|&a, &b| {
+                along(eps[a].other)
+                    .partial_cmp(&along(eps[b].other))
+                    .unwrap()
+                    .then(eps[a].ti.cmp(&eps[b].ti))
+            });
+            let count = idxs.len();
+            let centroid = idxs
+                .iter()
+                .map(|&i| along(perimeter_point(c, hw, hh, shape, eps[i].other)))
+                .sum::<f64>()
+                / count as f64;
+            let (lo, hi) = if horiz {
+                (c.x - hw + 4.0, c.x + hw - 4.0)
+            } else {
+                (c.y - hh + 4.0, c.y + hh - 4.0)
+            };
+            let spacing = ((hi - lo) / count as f64).clamp(6.0, 16.0);
+            for (k, &i) in idxs.iter().enumerate() {
+                let pos = (centroid + (k as f64 - (count as f64 - 1.0) / 2.0) * spacing).clamp(lo, hi);
+                let pt = match face {
+                    0 => Point::new(pos, c.y - hh),
+                    1 => Point::new(pos, c.y + hh),
+                    2 => Point::new(c.x - hw, pos),
+                    _ => Point::new(c.x + hw, pos),
+                };
+                port.insert((eps[i].ti, eps[i].is_src), pt);
+            }
+        }
+        for (ti, tr) in diag.transitions.iter().enumerate() {
+            let (Some(s), Some(d)) = (id_pos(&tr.from), id_pos(&tr.to)) else { continue };
+            if s == d || back[ti] || routed[ti].is_some() {
+                continue;
+            }
+            let (ps, pd) = (port.get(&(ti, true)).copied(), port.get(&(ti, false)).copied());
+            if ps.is_none() && pd.is_none() {
+                continue; // no multi-edge face on either end
+            }
+            let (cs, cd) = (node_center(s), node_center(d));
+            let start = ps.unwrap_or_else(|| {
+                perimeter_point(cs, eff_geom[s].x / 2.0, eff_geom[s].y / 2.0, node_shape(diag.nodes[s].kind), cd)
+            });
+            let end = pd.unwrap_or_else(|| {
+                perimeter_point(cd, eff_geom[d].x / 2.0, eff_geom[d].y / 2.0, node_shape(diag.nodes[d].kind), cs)
+            });
+            // The distinct port already separates this edge from its
+            // siblings, so draw a straight line — a curved spline would
+            // bow an edge that should run straight (fork bar → worker,
+            // worker → join bar, etc.).
+            routed[ti] = Some(RoutedEdge { start, segments: vec![straight_cubic(start, end)] });
+        }
     }
 
     let max_x = top_lefts
@@ -1408,6 +2584,21 @@ pub fn emit(
         write!(out, "self-loop: {}, ", tr.from == tr.to).unwrap();
         write!(out, "back: {}, ", back[ti]).unwrap();
         write!(out, "bow-side: \"{}\"", bow_side[ti]).unwrap();
+        // Obstacle-routed detour: explicit start anchor + cubic path. The
+        // painter draws this instead of a straight center-to-center line.
+        if let Some(re) = &routed[ti] {
+            write!(out, ", start: ({:.2}pt, {:.2}pt)", re.start.x, re.start.y).unwrap();
+            out.push_str(", path: (");
+            for seg in &re.segments {
+                write!(
+                    out,
+                    "(c1: ({:.2}pt, {:.2}pt), c2: ({:.2}pt, {:.2}pt), end: ({:.2}pt, {:.2}pt)), ",
+                    seg.0.x, seg.0.y, seg.1.x, seg.1.y, seg.2.x, seg.2.y
+                )
+                .unwrap();
+            }
+            out.push(')');
+        }
         out.push_str("),\n");
     }
     out.push_str("  ),\n");

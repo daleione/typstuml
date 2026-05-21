@@ -11,6 +11,8 @@
 
 mod bk;
 mod compact;
+mod ns;
+mod xcoord;
 mod edge_fix;
 pub mod hierarchy;
 mod port_align;
@@ -48,12 +50,19 @@ impl<'a> Placer<'a> {
         simple::do_it(self.vg);
         verify::do_it(self.vg);
 
-        bk::BK::new(self.vg).do_it();
-
-        verify::do_it(self.vg);
-        port_align::do_it(self.vg);
-        verify::do_it(self.vg);
-        edge_fix::do_it(self.vg);
+        if self.vg.ns_xcoord {
+            // dot's network-simplex x-assignment: globally straight edges
+            // and centred parents, so the BK companions (port_align /
+            // edge_fix) aren't needed.
+            xcoord::do_it(self.vg);
+            verify::do_it(self.vg);
+        } else {
+            bk::BK::new(self.vg).do_it();
+            verify::do_it(self.vg);
+            port_align::do_it(self.vg);
+            verify::do_it(self.vg);
+            edge_fix::do_it(self.vg);
+        }
         compact::do_it(self.vg);
         // Tighten runs in the internal TB working frame (x = row axis,
         // y = rank axis). The post-transpose step below also flips

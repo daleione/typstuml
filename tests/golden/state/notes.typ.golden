@@ -12,9 +12,9 @@
   ),
   transitions: (
     (from: "__initial__", to: "Draft", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
-    (from: "Draft", to: "Review", event: "submit", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", label-pos: (129.89pt, 133.50pt)),
-    (from: "Review", to: "Published", event: "approve", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", label-pos: (129.89pt, 216.50pt)),
-    (from: "Review", to: "Draft", event: "reject", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "max"),
+    (from: "Draft", to: "Review", event: "submit", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (123.92pt, 108.00pt), path: ((c1: (119.64pt, 116.50pt), c2: (115.36pt, 125.00pt), end: (111.08pt, 133.50pt)), (c1: (115.36pt, 142.00pt), c2: (119.64pt, 150.50pt), end: (123.92pt, 159.00pt)), ), label-pos: (111.08pt, 133.50pt)),
+    (from: "Review", to: "Published", event: "approve", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (131.98pt, 191.00pt), path: ((c1: (131.98pt, 199.50pt), c2: (131.98pt, 208.00pt), end: (131.98pt, 216.50pt)), (c1: (131.98pt, 225.00pt), c2: (131.98pt, 233.50pt), end: (131.98pt, 242.00pt)), ), label-pos: (131.98pt, 216.50pt)),
+    (from: "Review", to: "Draft", event: "reject", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "max", start: (131.98pt, 159.00pt), path: ((c1: (131.98pt, 147.83pt), c2: (131.98pt, 136.67pt), end: (131.98pt, 125.50pt)), (c1: (131.98pt, 119.67pt), c2: (131.98pt, 113.83pt), end: (131.98pt, 108.00pt)), )),
     (from: "Published", to: "__final__", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
   ),
   notes: (

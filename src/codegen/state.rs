@@ -1201,6 +1201,7 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
 
     // --- build the VisualGraph + cluster hierarchy ---
     let mut vg = VisualGraph::new(orientation);
+    vg.enable_ns_xcoord(); // dot's network-simplex x-assignment
     let comp_handles: Vec<_> = comp_size
         .iter()
         .map(|sz| {
@@ -1491,70 +1492,6 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
             }
             if !changed {
                 break;
-            }
-        }
-        if !moved.is_empty() {
-            for &(ti, s, d, _) in &all_edges {
-                if moved.contains(&s) || moved.contains(&d) {
-                    waypoints.remove(&ti);
-                }
-            }
-        }
-    }
-
-    // --- perp-axis centering ------------------------------------------
-    // Straighten chains and centre a fork's parent over its children:
-    // pull each node that is *alone in its rank* toward the average perp
-    // coordinate of its graph neighbours. The rank axis is x (left-to-
-    // right) or y (top-to-bottom); the perp axis is the other. A fork's
-    // children share a rank, so they're held at the engine's symmetric
-    // placement and the parent settles on their midpoint — giving the
-    // straight spine + symmetric branch dot produces.
-    {
-        let is_perp_x = !is_lr;
-        let pc = |tl: &[Point], i: usize| {
-            if is_perp_x {
-                tl[i].x + eff_geom[i].x / 2.0
-            } else {
-                tl[i].y + eff_geom[i].y / 2.0
-            }
-        };
-        let rlo = |tl: &[Point], i: usize| if is_lr { tl[i].x } else { tl[i].y };
-        let rhi =
-            |tl: &[Point], i: usize| if is_lr { tl[i].x + eff_geom[i].x } else { tl[i].y + eff_geom[i].y };
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for &(_, s, d, _) in &all_edges {
-            if s != d {
-                adj[s].push(d);
-                adj[d].push(s);
-            }
-        }
-        let movable: Vec<usize> = (0..n)
-            .filter(|&i| parent_of[i].is_none() && !is_comp[i] && !adj[i].is_empty())
-            .filter(|&i| {
-                let (lo, hi) = (rlo(&top_lefts, i), rhi(&top_lefts, i));
-                !(0..n).any(|j| {
-                    j != i
-                        && parent_of[j].is_none()
-                        && rhi(&top_lefts, j) > lo + 1.0
-                        && rlo(&top_lefts, j) < hi - 1.0
-                })
-            })
-            .collect();
-        let mut moved: HashSet<usize> = HashSet::new();
-        for _ in 0..12 {
-            for &i in &movable {
-                let desired =
-                    adj[i].iter().map(|&j| pc(&top_lefts, j)).sum::<f64>() / adj[i].len() as f64;
-                let delta = desired - pc(&top_lefts, i);
-                if delta.abs() > 1e-6 {
-                    if is_perp_x {
-                        top_lefts[i].x += delta;
-                    } else {
-                        top_lefts[i].y += delta;
-                    }
-                    moved.insert(i);
-                }
             }
         }
         if !moved.is_empty() {

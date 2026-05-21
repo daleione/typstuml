@@ -157,6 +157,11 @@ pub struct VisualGraph {
     /// keep each cluster's members contiguous in row order and inside a
     /// shared x-extent. Empty by default → original flat behaviour.
     pub hierarchy: crate::layout::sugiyama::HierarchyMap,
+    /// When set, x-coordinates are assigned by dot's network-simplex
+    /// method instead of Brandes-Köpf (and the BK companion passes
+    /// port_align / edge_fix are skipped). Enabled for dot-style state
+    /// diagrams; record graphs keep BK + port alignment.
+    pub ns_xcoord: bool,
 }
 
 impl VisualGraph {
@@ -168,7 +173,13 @@ impl VisualGraph {
             dag: DAG::new(),
             orientation,
             hierarchy: crate::layout::sugiyama::HierarchyMap::new(),
+            ns_xcoord: false,
         }
+    }
+
+    /// Use dot's network-simplex x-coordinate assignment for this graph.
+    pub fn enable_ns_xcoord(&mut self) {
+        self.ns_xcoord = true;
     }
 
     pub fn set_hierarchy(&mut self, h: crate::layout::sugiyama::HierarchyMap) {

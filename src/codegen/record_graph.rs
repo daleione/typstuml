@@ -140,6 +140,7 @@ pub fn emit_record_graph(
                 src_row: *row_idx,
                 source_perp_offset: Some(geoms[parent_idx].row_centers[*row_idx]),
                 target_perp_offset: Some(geoms[*child_idx].size.y / 2.0),
+                ..Edge::default()
             };
             vg.add_edge(edge, handles[parent_idx], handles[*child_idx]);
         }

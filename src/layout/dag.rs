@@ -255,6 +255,16 @@ impl DAG {
         }
     }
 
+    /// Install externally-computed integer levels (e.g. from network
+    /// simplex), rebuilding the rank rows. `levels` is indexed by node.
+    pub fn set_node_levels(&mut self, levels: &[usize]) {
+        debug_assert_eq!(levels.len(), self.nodes.len());
+        self.ranks.clear();
+        for (i, &level) in levels.iter().enumerate() {
+            self.add_element_to_rank(NodeHandle::from(i), level);
+        }
+    }
+
     fn count_nodes_in_ranks(&self) -> usize {
         self.ranks.iter().map(|r| r.len()).sum()
     }

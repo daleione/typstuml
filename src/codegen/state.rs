@@ -1202,6 +1202,7 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
     // --- build the VisualGraph + cluster hierarchy ---
     let mut vg = VisualGraph::new(orientation);
     vg.enable_ns_xcoord(); // dot's network-simplex x-assignment
+    vg.enable_ns_rank(); // dot's network-simplex rank assignment (minlen)
     let comp_handles: Vec<_> = comp_size
         .iter()
         .map(|sz| {
@@ -1316,15 +1317,20 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
         // label placement, which the cluster path already lays out well.
         let both_top = comp_cluster[cs].is_none() && comp_cluster[cd].is_none();
         let want_label = !(horizontal || is_back) && both_top;
+        // dot's minlen from the dash count. The label node sits one rank
+        // below the source; the target keeps the full minlen below the
+        // label, so `-->` and `--->` still differ by a rank.
+        let minlen = diag.transitions[ti].min_rank.max(1);
+        let mk = |ml: usize| Edge { min_rank: ml, ..Edge::default() };
         match (edge_label_size(&diag.transitions[ti]), want_label) {
             (Some((lw, lh_h)), true) => {
                 let lh = vg.add_node(Element::new_box(Point::new(lw, lh_h), orientation));
-                vg.add_edge(Edge::default(), comp_handles[cs], lh);
-                vg.add_edge(Edge::default(), lh, comp_handles[cd]);
+                vg.add_edge(mk(1), comp_handles[cs], lh);
+                vg.add_edge(mk(minlen), lh, comp_handles[cd]);
                 label_handle[ti] = Some(lh);
             }
             _ => {
-                vg.add_edge(Edge::default(), comp_handles[cs], comp_handles[cd]);
+                vg.add_edge(mk(minlen), comp_handles[cs], comp_handles[cd]);
             }
         }
     }

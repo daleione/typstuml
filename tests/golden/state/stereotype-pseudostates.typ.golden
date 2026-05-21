@@ -1,0 +1,35 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#state-layout(
+  nodes: (
+    (id: "start1", kind: "initial", x: 164.40pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "start1", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "choice1", kind: "choice", x: 86.60pt, y: 110.00pt, w: 32.00pt, h: 32.00pt, display: "choice1", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "fork1", kind: "fork", x: 126.40pt, y: 204.00pt, w: 70.00pt, h: 10.00pt, display: "fork1", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "join2", kind: "join", x: 67.60pt, y: 370.00pt, w: 70.00pt, h: 10.00pt, display: "join2", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "end3", kind: "final", x: 30.00pt, y: 204.00pt, w: 18.00pt, h: 18.00pt, display: "end3", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__", kind: "initial", x: 93.60pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "State1", kind: "simple", x: 170.10pt, y: 336.00pt, w: 46.86pt, h: 32.00pt, display: "State1", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "State2", kind: "simple", x: 116.10pt, y: 276.00pt, w: 46.86pt, h: 32.00pt, display: "State2", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 165.60pt, y: 464.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+  ),
+  transitions: (
+    (from: "__initial__", to: "choice1", event: "from start\\nto choice", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (102.60pt, 48.00pt), path: ((c1: (102.60pt, 58.33pt), c2: (102.60pt, 68.67pt), end: (102.60pt, 79.00pt)), (c1: (102.60pt, 89.33pt), c2: (102.60pt, 99.67pt), end: (102.60pt, 110.00pt)), ), label-pos: (102.60pt, 79.00pt)),
+    (from: "start1", to: "choice1", event: "from start stereo\\nto choice", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (173.40pt, 48.00pt), path: ((c1: (173.40pt, 58.33pt), c2: (173.40pt, 68.67pt), end: (173.40pt, 79.00pt)), (c1: (153.01pt, 92.54pt), c2: (132.61pt, 106.08pt), end: (112.22pt, 119.62pt)), ), label-pos: (173.40pt, 79.00pt)),
+    (from: "choice1", to: "fork1", event: "from choice\\nto fork", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (111.49pt, 133.11pt), path: ((c1: (128.13pt, 146.41pt), c2: (144.76pt, 159.70pt), end: (161.40pt, 173.00pt)), (c1: (161.40pt, 183.33pt), c2: (161.40pt, 193.67pt), end: (161.40pt, 204.00pt)), ), label-pos: (161.40pt, 173.00pt)),
+    (from: "choice1", to: "join2", event: "from choice\\nto join", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (102.60pt, 142.00pt), path: ((c1: (102.60pt, 152.33pt), c2: (102.60pt, 162.67pt), end: (102.60pt, 173.00pt)), (c1: (102.60pt, 179.83pt), c2: (102.60pt, 186.67pt), end: (102.60pt, 193.50pt)), (c1: (102.60pt, 195.83pt), c2: (102.60pt, 198.17pt), end: (102.60pt, 200.50pt)), (c1: (102.60pt, 202.83pt), c2: (102.60pt, 205.17pt), end: (102.60pt, 207.50pt)), (c1: (102.60pt, 209.83pt), c2: (102.60pt, 212.17pt), end: (102.60pt, 214.50pt)), (c1: (102.60pt, 266.33pt), c2: (102.60pt, 318.17pt), end: (102.60pt, 370.00pt)), ), label-pos: (102.60pt, 173.00pt)),
+    (from: "choice1", to: "end3", event: "from choice\\nto end stereo", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (93.40pt, 132.80pt), path: ((c1: (75.27pt, 146.20pt), c2: (57.13pt, 159.60pt), end: (39.00pt, 173.00pt)), (c1: (39.00pt, 183.33pt), c2: (39.00pt, 193.67pt), end: (39.00pt, 204.00pt)), ), label-pos: (39.00pt, 173.00pt)),
+    (from: "fork1", to: "State1", event: "from fork\\nto state", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (165.86pt, 214.00pt), path: ((c1: (175.09pt, 224.33pt), c2: (184.31pt, 234.67pt), end: (193.53pt, 245.00pt)), (c1: (193.53pt, 251.83pt), c2: (193.53pt, 258.67pt), end: (193.53pt, 265.50pt)), (c1: (193.53pt, 289.00pt), c2: (193.53pt, 312.50pt), end: (193.53pt, 336.00pt)), ), label-pos: (193.53pt, 245.00pt)),
+    (from: "fork1", to: "State2", event: "from fork\\nto state", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (159.03pt, 214.00pt), path: ((c1: (154.13pt, 224.33pt), c2: (149.23pt, 234.67pt), end: (144.33pt, 245.00pt)), (c1: (143.27pt, 255.33pt), c2: (142.22pt, 265.67pt), end: (141.16pt, 276.00pt)), ), label-pos: (144.33pt, 245.00pt)),
+    (from: "State2", to: "join2", event: "from state\\nto join", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (137.34pt, 308.00pt), path: ((c1: (135.93pt, 318.33pt), c2: (134.51pt, 328.67pt), end: (133.10pt, 339.00pt)), (c1: (124.35pt, 349.33pt), c2: (115.59pt, 359.67pt), end: (106.84pt, 370.00pt)), ), label-pos: (133.10pt, 339.00pt)),
+    (from: "State1", to: "__final__", event: "from state\\nto end", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (187.09pt, 368.00pt), path: ((c1: (182.92pt, 378.33pt), c2: (178.76pt, 388.67pt), end: (174.60pt, 399.00pt)), (c1: (174.60pt, 405.83pt), c2: (174.60pt, 412.67pt), end: (174.60pt, 419.50pt)), (c1: (174.60pt, 434.33pt), c2: (174.60pt, 449.17pt), end: (174.60pt, 464.00pt)), ), label-pos: (174.60pt, 399.00pt)),
+    (from: "join2", to: "__final__", event: "from join\\nto end", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (106.38pt, 380.00pt), path: ((c1: (119.76pt, 397.67pt), c2: (133.13pt, 415.33pt), end: (146.50pt, 433.00pt)), (c1: (154.14pt, 443.88pt), c2: (161.78pt, 454.76pt), end: (169.43pt, 465.64pt)), ), label-pos: (146.50pt, 433.00pt)),
+  ),
+  notes: (
+  ),
+  page: (285.00pt, 512.00pt),
+  title: none,
+  hide-empty-description: false,
+  direction: "tb",
+)

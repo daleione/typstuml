@@ -107,6 +107,15 @@ fn golden_emit_typst_state_composite_exit_routing() { golden_state("composite-ex
 #[test]
 fn renders_svg_for_state_composite_exit_routing() { render_state_svg("composite-exit-routing"); }
 
+// `fork1 ---> State1` (3 dashes → minlen 2) must rank State1 one level
+// below `fork1 --> State2` (minlen 1); also exercises every pseudostate
+// stereotype + label nodes.
+#[test]
+fn golden_emit_typst_state_stereotype_pseudostates() { golden_state("stereotype-pseudostates"); }
+
+#[test]
+fn renders_svg_for_state_stereotype_pseudostates() { render_state_svg("stereotype-pseudostates"); }
+
 #[test]
 fn renders_svg_for_state_basic() { render_state_svg("basic"); }
 

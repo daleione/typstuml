@@ -1173,6 +1173,11 @@ pub struct Transition {
     /// horizontal transitions out of the Sugiyama rank graph so they
     /// don't push the target down a rank.
     pub horizontal: bool,
+    /// Minimum rank span (dot's `minlen`): PlantUML maps the dash count to
+    /// `minlen = dashes − 1`, so `-->` = 1, `--->` = 2, … The target sits
+    /// at least this many ranks below the source. 1 for horizontal links
+    /// (rank handled separately). Default 1.
+    pub min_rank: usize,
     pub line: usize,
 }
 

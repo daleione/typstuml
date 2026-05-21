@@ -11,7 +11,7 @@
 
 mod bk;
 mod compact;
-mod ns;
+pub(crate) mod ns;
 mod xcoord;
 mod edge_fix;
 pub mod hierarchy;

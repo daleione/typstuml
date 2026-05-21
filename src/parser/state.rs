@@ -625,11 +625,15 @@ impl<'a> Parser<'a> {
         // PlantUML: single-dash `->` (or a left/right hint) is a horizontal
         // link; double-dash `-->` (or an up/down hint) is a vertical rank
         // edge. The dash count is the tie-breaker when no hint is given.
+        let dashes = count_arrow_dashes(arrow);
         let horizontal = match direction {
             Some(Direction::Left) | Some(Direction::Right) => true,
             Some(Direction::Up) | Some(Direction::Down) => false,
-            None => count_arrow_dashes(arrow) <= 1,
+            None => dashes <= 1,
         };
+        // dot's minlen = dashes − 1 (`-->` = 1, `--->` = 2, …); floor 1 for
+        // any rank edge.
+        let min_rank = dashes.saturating_sub(1).max(1);
         let (event, guard, action) = match &label {
             Some(l) => split_label(l),
             None => (None, None, None),
@@ -645,6 +649,7 @@ impl<'a> Parser<'a> {
             color,
             direction,
             horizontal,
+            min_rank,
             line: line_no,
         });
         Ok(())

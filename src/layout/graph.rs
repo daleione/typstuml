@@ -139,11 +139,26 @@ impl Element {
 /// axis perpendicular to rank progression, measured from the box's
 /// top/left edge. It is *not* transposed when the placer flips the
 /// graph — the field is a length, not a coordinate.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Edge {
     pub src_row: usize,
     pub source_perp_offset: Option<f64>,
     pub target_perp_offset: Option<f64>,
+    /// Minimum rank span (dot's `minlen`). `head` sits at least this many
+    /// ranks below `tail`. Only consulted by the network-simplex ranking
+    /// path (`ns_rank`); the longest-path path treats every edge as 1.
+    pub min_rank: usize,
+}
+
+impl Default for Edge {
+    fn default() -> Self {
+        Edge {
+            src_row: 0,
+            source_perp_offset: None,
+            target_perp_offset: None,
+            min_rank: 1,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -162,6 +177,9 @@ pub struct VisualGraph {
     /// port_align / edge_fix are skipped). Enabled for dot-style state
     /// diagrams; record graphs keep BK + port alignment.
     pub ns_xcoord: bool,
+    /// When set, rank (y) assignment uses network simplex honouring each
+    /// edge's `min_rank` (dot's minlen) instead of longest-path + sinking.
+    pub ns_rank: bool,
 }
 
 impl VisualGraph {
@@ -174,12 +192,19 @@ impl VisualGraph {
             orientation,
             hierarchy: crate::layout::sugiyama::HierarchyMap::new(),
             ns_xcoord: false,
+            ns_rank: false,
         }
     }
 
     /// Use dot's network-simplex x-coordinate assignment for this graph.
     pub fn enable_ns_xcoord(&mut self) {
         self.ns_xcoord = true;
+    }
+
+    /// Use dot's network-simplex rank assignment (honouring edge
+    /// `min_rank` / minlen) for this graph.
+    pub fn enable_ns_rank(&mut self) {
+        self.ns_rank = true;
     }
 
     pub fn set_hierarchy(&mut self, h: crate::layout::sugiyama::HierarchyMap) {
@@ -295,9 +320,25 @@ impl VisualGraph {
     /// Insert connector dummies so each remaining edge spans exactly one
     /// rank, then run the rank/edge-cross optimizers and expand self-edges.
     fn split_long_edges(&mut self) {
-        self.dag.recompute_node_ranks();
-        self.dag.verify();
-        crate::layout::sugiyama::RankOptimizer::new(&mut self.dag).optimize();
+        if self.ns_rank {
+            // dot's network-simplex rank assignment, honouring each edge's
+            // min_rank (minlen). Replaces longest-path + greedy sinking.
+            let n = self.dag.len();
+            let ns_edges: Vec<(usize, usize, f64, f64)> = self
+                .edges
+                .iter()
+                .map(|(e, lst)| {
+                    (lst[0].get_index(), lst[1].get_index(), e.min_rank.max(1) as f64, 1.0)
+                })
+                .collect();
+            let ranks = crate::layout::sugiyama::ns::solve(n, &ns_edges);
+            let levels: Vec<usize> = ranks.iter().map(|&r| r.round().max(0.0) as usize).collect();
+            self.dag.set_node_levels(&levels);
+        } else {
+            self.dag.recompute_node_ranks();
+            self.dag.verify();
+            crate::layout::sugiyama::RankOptimizer::new(&mut self.dag).optimize();
+        }
 
         let mut edges = std::mem::take(&mut self.edges);
         for (_, lst) in edges.iter_mut() {

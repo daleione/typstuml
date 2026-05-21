@@ -4,9 +4,9 @@
 
 #state-layout(
   nodes: (
-    (id: "Processing", kind: "composite", x: 30.00pt, y: 62.00pt, w: 106.00pt, h: 242.00pt, display: "Processing", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "ep", kind: "entry-point", x: 77.00pt, y: 108.00pt, w: 12.00pt, h: 12.00pt, display: "ep", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "xp", kind: "exit-point", x: 77.00pt, y: 268.00pt, w: 12.00pt, h: 12.00pt, display: "xp", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Processing", kind: "composite", x: 30.00pt, y: 110.00pt, w: 106.00pt, h: 146.00pt, display: "Processing", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "ep", kind: "entry-point", x: 77.00pt, y: 104.00pt, w: 12.00pt, h: 12.00pt, display: "ep", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "xp", kind: "exit-point", x: 77.00pt, y: 250.00pt, w: 12.00pt, h: 12.00pt, display: "xp", body: (), fill: none, border-style: "solid", border-color: none),
     (id: "Working", kind: "simple", x: 54.14pt, y: 148.00pt, w: 57.72pt, h: 32.00pt, display: "Working", body: (), fill: none, border-style: "solid", border-color: none),
     (id: "Verifying", kind: "simple", x: 53.00pt, y: 208.00pt, w: 60.00pt, h: 32.00pt, display: "Verifying", body: (), fill: none, border-style: "solid", border-color: none),
     (id: "__initial__", kind: "initial", x: 74.00pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),

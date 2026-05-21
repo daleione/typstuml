@@ -19,7 +19,7 @@
     (from: "Idle", to: "Running", event: "start", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
     (from: "Running", to: "Idle", event: "pause", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "max"),
     (from: "Operating", to: "Suspended", event: "suspend", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (153.05pt, 270.00pt), path: ((c1: (151.18pt, 275.33pt), c2: (149.31pt, 280.67pt), end: (147.44pt, 286.00pt)), )),
-    (from: "Suspended", to: "__history__Operating", event: "resume", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Suspended", to: "__history__Operating", event: "resume", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", label-pos: (153.08pt, 211.50pt)),
     (from: "Operating", to: "__final__", event: "shutdown", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (169.05pt, 270.00pt), path: ((c1: (182.43pt, 276.05pt), c2: (195.80pt, 282.10pt), end: (209.18pt, 288.15pt)), )),
   ),
   notes: (

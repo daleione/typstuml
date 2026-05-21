@@ -4,22 +4,22 @@
 
 #state-layout(
   nodes: (
-    (id: "Open", kind: "simple", x: 116.33pt, y: 76.00pt, w: 84.95pt, h: 43.12pt, display: "Open", body: ("entry / reserve stock", "exit / release hold"), fill: none, border-style: "solid", border-color: none),
-    (id: "Paid", kind: "simple", x: 138.93pt, y: 147.12pt, w: 39.75pt, h: 32.00pt, display: "Paid", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Shipped", kind: "simple", x: 131.31pt, y: 207.12pt, w: 54.99pt, h: 32.00pt, display: "Shipped", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__initial__", kind: "initial", x: 149.80pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__final__", kind: "final", x: 149.80pt, y: 267.12pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Open", kind: "simple", x: 49.54pt, y: 76.00pt, w: 84.95pt, h: 43.12pt, display: "Open", body: ("entry / reserve stock", "exit / release hold"), fill: none, border-style: "solid", border-color: none),
+    (id: "Paid", kind: "simple", x: 72.13pt, y: 170.12pt, w: 39.75pt, h: 32.00pt, display: "Paid", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Shipped", kind: "simple", x: 64.52pt, y: 253.12pt, w: 54.99pt, h: 32.00pt, display: "Shipped", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__", kind: "initial", x: 83.01pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 83.01pt, y: 313.12pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "__initial__", to: "Open", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
-    (from: "Open", to: "Paid", event: "pay", guard: "funds ok", action: "capture()", style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
-    (from: "Paid", to: "Shipped", event: "dispatch", guard: none, action: "notify()", style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
+    (from: "Open", to: "Paid", event: "pay", guard: "funds ok", action: "capture()", style: "solid", color: none, self-loop: false, back: false, bow-side: "max", label-pos: (30.00pt, 144.62pt)),
+    (from: "Paid", to: "Shipped", event: "dispatch", guard: none, action: "notify()", style: "solid", color: none, self-loop: false, back: false, bow-side: "max", label-pos: (98.90pt, 227.62pt)),
     (from: "Paid", to: "Open", event: "refund", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "max"),
     (from: "Shipped", to: "__final__", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
   ),
   notes: (
   ),
-  page: (327.27pt, 315.12pt),
+  page: (316.10pt, 361.12pt),
   title: "Order lifecycle",
   hide-empty-description: false,
   direction: "tb",

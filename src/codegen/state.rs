@@ -28,6 +28,7 @@ use crate::ir::{
     BorderStyle, Direction, LayoutDirection, LineStyle, NoteAnchor, NotePosition, RegionGroup,
     RegionOrient, StateDiagram, StateKind, StateNode, Transition,
 };
+use crate::layout::dag::NodeHandle;
 use crate::layout::geometry::Point;
 use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
 use crate::runtime::MeasurementSet;
@@ -680,6 +681,10 @@ struct Layout {
     /// drawn by the painter itself (self-loops, back-bows, or the
     /// per-level fallback path).
     waypoints: HashMap<usize, Vec<Point>>,
+    /// Per-transition reserved label position (absolute centre), for
+    /// transitions whose label was laid out as a dot-style label node.
+    /// The painter draws the label here instead of computing a midpoint.
+    label_pos: HashMap<usize, Point>,
 }
 
 /// One laid-out level: relative positions of its direct members, the
@@ -1243,11 +1248,48 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
     }
     vg.set_hierarchy(hierarchy);
 
+    // Cluster id of each component (for assigning label nodes so they
+    // don't break cluster contiguity — mirrors how connector dummies
+    // inherit their source's cluster).
+    let comp_cluster: Vec<Option<usize>> = comp_members
+        .iter()
+        .map(|members| {
+            let any = leaf[members[0]];
+            parent_of[any].and_then(|p| cluster_of_comp.get(&p).copied())
+        })
+        .collect();
+
     // Edges: one VG edge per transition (skip self-loops + dangling),
     // wired through composite representatives + component super-nodes.
-    // Track the (vg_from, vg_to) per transition for waypoint recovery.
+    // A labelled transition gets a **label node** sized to its text
+    // inserted between source and target (dot's edge-label virtual node):
+    // it reserves a rank + perpendicular space so the diagram spreads to
+    // fit the labels and each label owns a clear position on its edge.
     let mut edge_vg: Vec<Option<(usize, usize)>> = vec![None; diag.transitions.len()];
-    for &(ti, s, d, _) in &all_edges {
+    let mut label_handle: Vec<Option<NodeHandle>> = vec![None; diag.transitions.len()];
+    // Component-graph reachability, built in transition order to mirror the
+    // engine's `normalize_dag`: an edge whose target can already reach its
+    // source is a back-edge (cycle). We must NOT give back-edges a label
+    // node — a label node on a reversed edge scrambles the cluster/rank
+    // layout; the painter draws those labels on its bow instead.
+    let mut comp_adj: HashMap<usize, Vec<usize>> = HashMap::new();
+    let reaches = |adj: &HashMap<usize, Vec<usize>>, from: usize, to: usize| -> bool {
+        let mut stack = vec![from];
+        let mut seen: HashSet<usize> = HashSet::new();
+        while let Some(x) = stack.pop() {
+            if x == to {
+                return true;
+            }
+            if !seen.insert(x) {
+                continue;
+            }
+            if let Some(ns) = adj.get(&x) {
+                stack.extend(ns.iter().copied());
+            }
+        }
+        false
+    };
+    for &(ti, s, d, horizontal) in &all_edges {
         if s == d {
             continue;
         }
@@ -1260,8 +1302,30 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
         if cs == cd {
             continue;
         }
-        vg.add_edge(Edge::default(), comp_handles[cs], comp_handles[cd]);
         edge_vg[ti] = Some((cs, cd));
+        let is_back = reaches(&comp_adj, cd, cs);
+        if !is_back {
+            comp_adj.entry(cs).or_default().push(cd);
+        }
+        // Label nodes are a flat-graph device (they reserve a rank +
+        // perpendicular slot, dot-style). Inside / across composite frames
+        // they fight cluster contiguity and the frame-clearance passes, so
+        // restrict them to top-level edges whose both ends sit outside any
+        // composite. Edges touching a composite keep the painter's own
+        // label placement, which the cluster path already lays out well.
+        let both_top = comp_cluster[cs].is_none() && comp_cluster[cd].is_none();
+        let want_label = !(horizontal || is_back) && both_top;
+        match (edge_label_size(&diag.transitions[ti]), want_label) {
+            (Some((lw, lh_h)), true) => {
+                let lh = vg.add_node(Element::new_box(Point::new(lw, lh_h), orientation));
+                vg.add_edge(Edge::default(), comp_handles[cs], lh);
+                vg.add_edge(Edge::default(), lh, comp_handles[cd]);
+                label_handle[ti] = Some(lh);
+            }
+            _ => {
+                vg.add_edge(Edge::default(), comp_handles[cs], comp_handles[cd]);
+            }
+        }
     }
 
     vg.layout();
@@ -1298,59 +1362,67 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
         }
     }
 
-    // --- connector waypoints per transition ---
-    // Walk the lowered edges in insertion order, matching them to the
-    // transitions we added (same order). The lowered handle list is
-    // `[from, ..connectors, to]`, possibly reversed if the engine made
-    // it a back-edge; orient it source→target.
+    // --- per-transition waypoints + label positions ---
+    // A labelled edge was split into source→label and label→target, so
+    // match the lowered edges by their endpoint handles (not insertion
+    // order) and stitch each transition's path. The label node centre is
+    // both a routing waypoint and the label's reserved position.
+    let center = |h: NodeHandle| -> Point {
+        let (lo, hi) = vg.pos(h).bbox(false);
+        Point::new((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0)
+    };
+    let mut chain_of: HashMap<(usize, usize), Vec<Point>> = HashMap::new();
+    for (_, chain) in vg.iter_edges() {
+        if chain.len() < 2 {
+            continue;
+        }
+        let pts: Vec<Point> = chain.iter().map(|h| center(*h)).collect();
+        chain_of.insert(
+            (chain.first().unwrap().get_index(), chain.last().unwrap().get_index()),
+            pts,
+        );
+    }
+    // Oriented connector mids for segment a→b (drops the two endpoints).
+    let seg_mids = |a: NodeHandle, b: NodeHandle| -> (Vec<Point>, bool) {
+        let mids = |pts: &Vec<Point>| -> Vec<Point> {
+            if pts.len() > 2 {
+                pts[1..pts.len() - 1].to_vec()
+            } else {
+                Vec::new()
+            }
+        };
+        if let Some(pts) = chain_of.get(&(a.get_index(), b.get_index())) {
+            (mids(pts), false)
+        } else if let Some(pts) = chain_of.get(&(b.get_index(), a.get_index())) {
+            let mut m = mids(pts);
+            m.reverse();
+            (m, true)
+        } else {
+            (Vec::new(), false)
+        }
+    };
     let mut back = vec![false; diag.transitions.len()];
     let mut waypoints: HashMap<usize, Vec<Point>> = HashMap::new();
-    let added_tis: Vec<usize> = (0..diag.transitions.len()).filter(|&ti| edge_vg[ti].is_some()).collect();
-    let lowered: Vec<(usize, Vec<Point>, bool)> = vg
-        .iter_edges()
-        .map(|(_, chain)| {
-            let pts: Vec<Point> = chain
-                .iter()
-                .map(|h| {
-                    let (lo, hi) = vg.pos(*h).bbox(false);
-                    Point::new((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0)
-                })
-                .collect();
-            // is the chain longer than a direct hop? connectors present.
-            let has_conn = chain.len() > 2;
-            (chain.len(), pts, has_conn)
-        })
-        .collect();
-    for (k, &ti) in added_tis.iter().enumerate() {
-        if k >= lowered.len() {
-            break;
-        }
-        let (cs, _cd) = edge_vg[ti].unwrap();
-        let (_, pts, has_conn) = &lowered[k];
-        // Orient source→target: the lowered chain's first handle is the
-        // (possibly swapped) tail. If it sits nearer the *target* end,
-        // the engine reversed it into a back-edge — flip + mark.
-        let want_first = comp_topleft[cs];
-        let first = pts.first().copied().unwrap_or(want_first);
-        let reversed = {
-            let to_first = (first.x - want_first.x).abs() + (first.y - want_first.y).abs();
-            let to_last = pts
-                .last()
-                .map(|p| (p.x - want_first.x).abs() + (p.y - want_first.y).abs())
-                .unwrap_or(f64::INFINITY);
-            to_last + 1.0 < to_first
-        };
-        if reversed {
-            back[ti] = true;
-        }
-        // Keep only the connector centres (drop the two component-centre
-        // endpoints); the emit clips real start/end to the node faces.
-        if *has_conn && pts.len() > 2 {
-            let mut mids: Vec<Point> = pts[1..pts.len() - 1].to_vec();
-            if reversed {
-                mids.reverse();
-            }
+    let mut label_pos: HashMap<usize, Point> = HashMap::new();
+    for ti in 0..diag.transitions.len() {
+        let Some((cs, cd)) = edge_vg[ti] else { continue };
+        let (sh, th) = (comp_handles[cs], comp_handles[cd]);
+        if let Some(lh) = label_handle[ti] {
+            let lc = center(lh);
+            label_pos.insert(ti, lc);
+            let (mut mids, _) = seg_mids(sh, lh);
+            mids.push(lc);
+            let (tail, _) = seg_mids(lh, th);
+            mids.extend(tail);
             waypoints.insert(ti, mids);
+        } else {
+            let (mids, reversed) = seg_mids(sh, th);
+            if reversed {
+                back[ti] = true;
+            }
+            if !mids.is_empty() {
+                waypoints.insert(ti, mids);
+            }
         }
     }
 
@@ -1594,12 +1666,86 @@ fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orie
         }
     }
 
+    // --- entry/exit points on the composite border -------------------
+    // PlantUML draws <<entryPoint>>/<<exitPoint>> straddling the frame
+    // edge (entry on the inflow edge, exit on the outflow edge), centred
+    // on the border line — not as interior nodes. Recompute each owning
+    // frame to exclude them, then snap them onto the edge, aligned with
+    // the interior node they connect to.
+    {
+        let is_pt =
+            |i: usize| matches!(diag.nodes[i].kind, StateKind::EntryPoint | StateKind::ExitPoint);
+        // Rank-axis low / high edge of node `i` (x for LR, y for TB).
+        let rank_lo = |tl: &[Point], i: usize| if is_lr { tl[i].x } else { tl[i].y };
+        let rank_hi =
+            |tl: &[Point], g: &[Point], i: usize| rank_lo(tl, i) + if is_lr { g[i].x } else { g[i].y };
+        let perp_c =
+            |tl: &[Point], g: &[Point], i: usize| if is_lr { tl[i].y + g[i].y / 2.0 } else { tl[i].x + g[i].x / 2.0 };
+        let mut moved: HashSet<usize> = HashSet::new();
+        for &c in &comps {
+            let points: Vec<usize> =
+                (0..n).filter(|&i| parent_of[i] == Some(c) && is_pt(i)).collect();
+            let interior: Vec<usize> =
+                (0..n).filter(|&i| i != c && inside(i, c) && !is_pt(i)).collect();
+            if points.is_empty() || interior.is_empty() {
+                continue;
+            }
+            // Recompute the frame on the rank axis to exclude the points.
+            // The title band sits on the inflow (lo) side, but only in TB.
+            let lo_inset = COMPOSITE_PAD_PT + if is_lr { 0.0 } else { COMPOSITE_LABEL_BAND_PT };
+            let lo = interior.iter().map(|&i| rank_lo(&top_lefts, i)).fold(f64::INFINITY, f64::min)
+                - lo_inset;
+            let hi = interior
+                .iter()
+                .map(|&i| rank_hi(&top_lefts, &eff_geom, i))
+                .fold(f64::NEG_INFINITY, f64::max)
+                + COMPOSITE_PAD_PT;
+            if is_lr {
+                top_lefts[c].x = lo;
+                eff_geom[c].x = hi - lo;
+            } else {
+                top_lefts[c].y = lo;
+                eff_geom[c].y = hi - lo;
+            }
+            for &pt in &points {
+                // Entry sits on the inflow edge aligned to its successor;
+                // exit on the outflow edge aligned to its predecessor.
+                let entry = diag.nodes[pt].kind == StateKind::EntryPoint;
+                let conn = diag.transitions.iter().find_map(|t| {
+                    if entry && t.from == diag.nodes[pt].id {
+                        idx.get(t.to.as_str()).copied()
+                    } else if !entry && t.to == diag.nodes[pt].id {
+                        idx.get(t.from.as_str()).copied()
+                    } else {
+                        None
+                    }
+                });
+                let perp = perp_c(&top_lefts, &eff_geom, conn.unwrap_or(c));
+                let edge = if entry { lo } else { hi };
+                top_lefts[pt] = if is_lr {
+                    Point::new(edge - eff_geom[pt].x / 2.0, perp - eff_geom[pt].y / 2.0)
+                } else {
+                    Point::new(perp - eff_geom[pt].x / 2.0, edge - eff_geom[pt].y / 2.0)
+                };
+                moved.insert(pt);
+            }
+        }
+        if !moved.is_empty() {
+            for &(ti, s, d, _) in &all_edges {
+                if moved.contains(&s) || moved.contains(&d) {
+                    waypoints.remove(&ti);
+                }
+            }
+        }
+    }
+
     Layout {
         top_lefts,
         eff_geom,
         back,
         dividers: vec![Vec::new(); n],
         waypoints,
+        label_pos,
     }
 }
 
@@ -1853,6 +1999,7 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
         back,
         dividers,
         waypoints: HashMap::new(),
+        label_pos: HashMap::new(),
     }
 }
 
@@ -1901,6 +2048,7 @@ pub fn emit(
     let back = layout.back;
     let dividers = layout.dividers;
     let mut waypoints = layout.waypoints;
+    let mut label_pos = layout.label_pos;
     let is_lr = matches!(orientation, Orientation::LeftToRight);
 
     // Normalize so the content starts at (MARGIN, MARGIN).
@@ -1915,6 +2063,10 @@ pub fn emit(
             p.x = p.x - min_x + MARGIN_PT;
             p.y = p.y - min_y + MARGIN_PT;
         }
+    }
+    for p in label_pos.values_mut() {
+        p.x = p.x - min_x + MARGIN_PT;
+        p.y = p.y - min_y + MARGIN_PT;
     }
 
     // Per-back-edge bow side. PlantUML routes a back-edge around the
@@ -2024,6 +2176,13 @@ pub fn emit(
             } else {
                 p.x += reserve_lo;
             }
+        }
+    }
+    for p in label_pos.values_mut() {
+        if is_lr {
+            p.y += reserve_lo;
+        } else {
+            p.x += reserve_lo;
         }
     }
 
@@ -2228,6 +2387,13 @@ pub fn emit(
         let Some((w, h)) = edge_label_size(tr) else {
             continue;
         };
+        // A label laid out as a dot-style label node has a reserved
+        // position; the painter draws it just right of that point. Box it
+        // there. Otherwise fall back to the perpendicular-midpoint estimate.
+        if let Some(p) = label_pos.get(&ti) {
+            label_boxes.push((p.x, p.y - h / 2.0, w, h));
+            continue;
+        }
         let (sc, dc) = (center(s), center(d));
         let (mx, my) = ((sc.x + dc.x) / 2.0, (sc.y + dc.y) / 2.0);
         let (dx, dy) = (dc.x - sc.x, dc.y - sc.y);
@@ -2267,6 +2433,10 @@ pub fn emit(
             p.x += shift_x;
             p.y += shift_y;
         }
+    }
+    for p in label_pos.values_mut() {
+        p.x += shift_x;
+        p.y += shift_y;
     }
     for nb in &mut note_boxes {
         nb.x += shift_x;
@@ -2598,6 +2768,12 @@ pub fn emit(
                 .unwrap();
             }
             out.push(')');
+        }
+        // Reserved label position from the dot-style label node: the
+        // painter draws the label just right of this point instead of
+        // computing its own midpoint.
+        if let Some(p) = label_pos.get(&ti) {
+            write!(out, ", label-pos: ({:.2}pt, {:.2}pt)", p.x, p.y).unwrap();
         }
         out.push_str("),\n");
     }

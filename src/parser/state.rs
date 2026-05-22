@@ -687,9 +687,17 @@ impl<'a> Parser<'a> {
         }
         // History endpoints: `[H]`, `[H*]`, and the `Composite[H]` form.
         // A bare `[H]` is scoped to the enclosing composite.
-        if let Some(hist) = strip_history_suffix(tok, self.current_parent().as_deref()) {
-            let (kind, id) = hist;
-            self.ensure_pseudo(&id, kind, line_no);
+        if let Some((kind, id, scope)) = strip_history_suffix(tok, self.current_parent().as_deref()) {
+            let nidx = self.ensure_pseudo(&id, kind, line_no);
+            // The `Composite[H]` form scopes the history pseudostate to the
+            // named composite even when the transition line sits outside that
+            // composite's block (e.g. `Suspended --> Operating[H]` at top
+            // level). `ensure_pseudo` parents by lexical scope, which is wrong
+            // here, so re-parent into the named composite so it lays out
+            // inside the frame, matching PlantUML.
+            if let Some(scope_id) = scope {
+                self.reparent_into(nidx, &id, &scope_id);
+            }
             return Some(id);
         }
         // Synchronization bar: `==Name==`.
@@ -722,6 +730,28 @@ impl<'a> Parser<'a> {
             .push(id.to_string());
         self.diag.nodes[idx].parent = Some(pid.clone());
         if let Some(&pidx) = self.index.get(&pid) {
+            self.diag.nodes[pidx].children.push(id.to_string());
+        }
+    }
+
+    /// Move node `idx` (id `id`) under composite `parent_id`, fixing up both
+    /// the old parent's and the new parent's `children` lists. No-op when it
+    /// is already parented there or when `parent_id` doesn't resolve.
+    fn reparent_into(&mut self, idx: usize, id: &str, parent_id: &str) {
+        if self.diag.nodes[idx].parent.as_deref() == Some(parent_id) {
+            return;
+        }
+        let Some(&pidx) = self.index.get(parent_id) else {
+            return;
+        };
+        // Detach from the lexical parent that `ensure_pseudo` assigned.
+        if let Some(old) = self.diag.nodes[idx].parent.clone() {
+            if let Some(&oidx) = self.index.get(&old) {
+                self.diag.nodes[oidx].children.retain(|c| c != id);
+            }
+        }
+        self.diag.nodes[idx].parent = Some(parent_id.to_string());
+        if !self.diag.nodes[pidx].children.iter().any(|c| c == id) {
             self.diag.nodes[pidx].children.push(id.to_string());
         }
     }
@@ -1175,10 +1205,15 @@ fn scoped_pseudo_id(base: &str, scope: Option<&str>) -> String {
     }
 }
 
-/// `[H]` / `[H*]` / `Composite[H]` / `Composite[H*]` → `(kind, id)`. A bare
-/// `[H]` is scoped to `parent`; the `Composite[H]` form uses its explicit
-/// prefix as the scope.
-fn strip_history_suffix(tok: &str, parent: Option<&str>) -> Option<(StateKind, String)> {
+/// `[H]` / `[H*]` / `Composite[H]` / `Composite[H*]` → `(kind, id, scope)`.
+/// A bare `[H]` is scoped to `parent`; the `Composite[H]` form uses its
+/// explicit prefix as the scope. `scope` is the composite the history
+/// pseudostate belongs to (so it lays out *inside* that frame even when the
+/// transition line sits outside the composite's block).
+fn strip_history_suffix(
+    tok: &str,
+    parent: Option<&str>,
+) -> Option<(StateKind, String, Option<String>)> {
     let (prefix, kind, base) = if let Some(p) = tok.strip_suffix("[H*]") {
         (p, StateKind::DeepHistory, "__deephistory__")
     } else if let Some(p) = tok.strip_suffix("[H]") {
@@ -1187,7 +1222,7 @@ fn strip_history_suffix(tok: &str, parent: Option<&str>) -> Option<(StateKind, S
         return None;
     };
     let scope = if prefix.is_empty() { parent } else { Some(prefix) };
-    Some((kind, scoped_pseudo_id(base, scope)))
+    Some((kind, scoped_pseudo_id(base, scope), scope.map(str::to_string)))
 }
 
 /// `==Name==` → `Name`.

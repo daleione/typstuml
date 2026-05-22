@@ -34,6 +34,15 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
     for r in 0..num_ranks {
         let row = vg.dag.row(r).clone();
         for &n in &row {
+            // On the network-simplex (state) path, leave connector dummies at
+            // their rank's rank-axis coordinate: sliding a long edge's chain
+            // up to touch its predecessor bunches every dummy near the top,
+            // leaving one long straight tail that the spline smoother kinks.
+            // dot keeps virtual nodes at their rank, so the lane stays evenly
+            // spread and the edge bows smoothly.
+            if vg.ns_xcoord && vg.is_connector(n) {
+                continue;
+            }
             let n_bbox = vg.pos(n).bbox(true);
             let n_x = (n_bbox.0.x, n_bbox.1.x);
 

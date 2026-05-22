@@ -71,6 +71,7 @@ pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
     "state-layout",
     "state-probe",
     "state-note-probe",
+    "state-edge-label-probe",
     // activity atoms used as args inside the activity painters
     "process",
     "decision",

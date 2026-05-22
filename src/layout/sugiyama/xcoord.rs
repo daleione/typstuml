@@ -43,18 +43,24 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
         }
     }
     // Separation constraints: adjacent nodes in a rank must keep their
-    // half-widths (halo-inclusive) apart, in row order. Weight 0 — pure
-    // constraint.
+    // half-widths plus dot's `nodesep` apart, in row order. Weight 0 — pure
+    // constraint. The box halo alone (~6pt) is far tighter than dot's
+    // nodesep (0.25in ≈ 18pt at a 14pt body); scaled to our 10pt body that
+    // is ~13pt, which the halo doesn't supply — so the whole diagram came
+    // out compressed (bypass lanes hugging the spine, skip edges too short).
+    // Add the shortfall so within-rank spacing matches dot.
+    const NODESEP_PT: f64 = 13.0;
     for r in 0..vg.dag.num_levels() {
         let row = vg.dag.row(r);
         for pair in row.windows(2) {
             let (l, rt) = (pair[0], pair[1]);
-            let sep = vg.pos(l).size(true).x / 2.0 + vg.pos(rt).size(true).x / 2.0;
+            let sep =
+                vg.pos(l).size(true).x / 2.0 + vg.pos(rt).size(true).x / 2.0 + NODESEP_PT;
             edges.push((l.get_index(), rt.get_index(), sep, 0.0));
         }
     }
 
-    let x = ns::solve(next, &edges);
+    let x = ns::solve_balanced(next, &edges);
     for u in 0..n {
         vg.pos_mut(NodeHandle::from(u)).set_x(x[u]);
     }

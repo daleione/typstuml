@@ -30,6 +30,21 @@ struct Edge {
 /// The input must be acyclic (a DAG); callers feed lowered Sugiyama
 /// graphs and the x-auxiliary graph, both DAGs.
 pub fn solve(n: usize, edges: &[(usize, usize, f64, f64)]) -> Vec<f64> {
+    solve_impl(n, edges, false)
+}
+
+/// As [`solve`], but with dot's left-right balancing applied afterwards
+/// (graphviz `LR_balance`, ns.c): a node whose tree edge has cut value 0
+/// can slide within a slack range without changing total edge length, so
+/// it is centred in that range. Used for the x-coordinate assignment so
+/// symmetric structures (a choice fanning to two balanced branches, a
+/// straight spine beside a sibling) lay out symmetrically instead of
+/// jammed against one neighbour. Not used for rank (y) assignment.
+pub fn solve_balanced(n: usize, edges: &[(usize, usize, f64, f64)]) -> Vec<f64> {
+    solve_impl(n, edges, true)
+}
+
+fn solve_impl(n: usize, edges: &[(usize, usize, f64, f64)], balance: bool) -> Vec<f64> {
     if n == 0 {
         return Vec::new();
     }
@@ -86,8 +101,47 @@ pub fn solve(n: usize, edges: &[(usize, usize, f64, f64)]) -> Vec<f64> {
         e[enter].tree = true;
     }
 
+    if balance {
+        balance_lr(n, &e, &mut rank);
+    }
     normalize(&mut rank);
     rank
+}
+
+/// dot's `LR_balance` (ns.c): centre any node whose tree edge has cut
+/// value 0 within its feasible slide range. The tree edge is tight (one
+/// end of the range); the min-slack non-tree edge crossing the cut bounds
+/// the other end at `delta`, so shifting the head-side component by
+/// `delta/2` centres it. Single forward pass over tree edges, matching dot.
+fn balance_lr(n: usize, e: &[Edge], rank: &mut [f64]) {
+    for i in 0..e.len() {
+        if !e[i].tree {
+            continue;
+        }
+        if cutvalue(n, e, i).abs() > EPS {
+            continue;
+        }
+        let (in_head, _) = components(n, e, i);
+        // Slide range of the head component: bounded by the smallest slack
+        // among non-tree edges running from the head side back to the tail
+        // side (increasing the head ranks tightens them).
+        let mut delta = f64::INFINITY;
+        for ed in e.iter() {
+            if ed.tree {
+                continue;
+            }
+            if in_head[ed.tail] && !in_head[ed.head] {
+                delta = delta.min(slack(rank, ed));
+            }
+        }
+        if delta.is_finite() && delta > EPS {
+            for v in 0..n {
+                if in_head[v] {
+                    rank[v] += delta / 2.0;
+                }
+            }
+        }
+    }
 }
 
 fn slack(rank: &[f64], e: &Edge) -> f64 {

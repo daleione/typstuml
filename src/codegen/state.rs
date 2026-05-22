@@ -1,21 +1,26 @@
 //! State-diagram codegen.
 //!
-//! S1 scope (see `docs/state-diagram-design.md`): flat layout, no composite
-//! states, no concurrent regions, no measure protocol. Pipeline:
+//! Layout follows Graphviz `dot` (PlantUML's engine). Pipeline:
 //!
 //! 1. Heuristic per-node geometry (`node_geom`) — char-count width estimate
 //!    for text-bearing states, fixed sizes for pseudostates.
-//! 2. Layout via `layout::graph::VisualGraph` (the same placer cuca uses).
-//!    PlantUML's single-dash `A -> B` is a *horizontal* link — `A` and `B`
-//!    must sit on the same rank, side by side. The Sugiyama placer only
-//!    does layered (rank) layout, so we **condense** each maximal
-//!    horizontal-linked component into one super-node, lay out the
-//!    condensed graph (whose edges are all vertical rank edges), then
-//!    expand each component back into its left-to-right members. This
-//!    keeps the rank optimizer / `compact` pass happy — every condensed
-//!    node is properly connected — while honoring the horizontal links.
+//! 2. **Recursive cluster layout** (`layout_nodes`): each composite's
+//!    interior is laid out as its own sub-graph (`layout_flat`), the
+//!    resulting bbox fixes the composite's frame size, and that frame
+//!    becomes a single box node in the parent level — so a composite's
+//!    outside successors rank below the whole box and bypass edges route
+//!    beside it (no post-hoc frame patches). Concurrent regions are
+//!    sibling sub-layouts inside their composite.
+//!    Within a level (`layout_flat`) the placer is dot's network simplex:
+//!    rank assignment honours each edge's `minlen` (the dash count), x is
+//!    NS on the auxiliary graph, and labelled edges carry a virtual label
+//!    node that reserves rank + perpendicular space. PlantUML's single-dash
+//!    `A -> B` is a *horizontal* link — `A`/`B` share a rank — so each
+//!    maximal horizontal-linked component is **condensed** into one
+//!    super-node for the rank pass and expanded back afterwards.
 //! 3. Emit a single `#state-layout(...)` call with absolute coordinates;
-//!    the painter draws shapes + straight edges + labels.
+//!    the painter draws shapes + edges + labels. Obstructed edges are
+//!    detoured around composite frames by `route_transitions`.
 //!
 //! Self-loop transitions are kept out of the layout graph (the painter
 //! draws them as an arc on the node itself) but still emitted so the
@@ -125,6 +130,11 @@ fn state_note_id(diagram_idx: usize, note_idx: usize) -> String {
     format!("msn-{diagram_idx}-{note_idx}")
 }
 
+/// Stable probe id for a transition's edge label (keyed by index).
+fn state_edge_label_id(diagram_idx: usize, ti: usize) -> String {
+    format!("mse-{diagram_idx}-{ti}")
+}
+
 /// Collapse an IR node id into a string safe to embed in a probe id.
 fn sanitize_id(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -148,6 +158,14 @@ pub fn has_probes(diag: &StateDiagram) -> bool {
         .iter()
         .any(|n| matches!(n.kind, StateKind::Simple | StateKind::Composite))
         || !diag.notes.is_empty()
+        || diag.transitions.iter().any(has_edge_label)
+}
+
+/// True iff the transition carries an `event [guard] / action` label.
+fn has_edge_label(tr: &Transition) -> bool {
+    [tr.event.as_deref(), tr.guard.as_deref(), tr.action.as_deref()]
+        .iter()
+        .any(|p| p.is_some_and(|s| !s.is_empty()))
 }
 
 /// Emit one `#state-probe(...)` per simple / composite state and one
@@ -191,6 +209,18 @@ pub fn collect_probes(
             typst_str_escape(&note.body)
         )
         .unwrap();
+        expected_ids.push(id);
+    }
+    for (ti, tr) in diag.transitions.iter().enumerate() {
+        if !has_edge_label(tr) {
+            continue;
+        }
+        let id = state_edge_label_id(diagram_idx, ti);
+        write!(out, "#state-edge-label-probe(id: \"{id}\", ").unwrap();
+        emit_opt_str(out, "event", tr.event.as_deref());
+        emit_opt_str(out, "guard", tr.guard.as_deref());
+        emit_opt_str(out, "action", tr.action.as_deref());
+        out.push_str(")\n");
         expected_ids.push(id);
     }
 }
@@ -270,6 +300,30 @@ fn node_geom(n: &StateNode) -> NodeGeom {
         }
     };
     NodeGeom { size }
+}
+
+/// Rendered `(width, height)` (pt) of a transition's label: the painter
+/// measurement from pass-1 when available, else the char-count heuristic.
+/// `None` when the transition carries no label. Mirrors `resolve_node_geom`.
+fn resolve_edge_label_size(
+    tr: &Transition,
+    ti: usize,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) -> Option<(f64, f64)> {
+    if !has_edge_label(tr) {
+        return None;
+    }
+    if let Some(set) = measurements {
+        if let Some(m) = set.get(&state_edge_label_id(diagram_idx, ti)) {
+            // A measured-but-empty label (0×0) means the probe found no
+            // text; fall through to the heuristic only if that ever happens.
+            if m.width_pt > 0.0 || m.height_pt > 0.0 {
+                return Some((m.width_pt, m.height_pt));
+            }
+        }
+    }
+    edge_label_size(tr)
 }
 
 /// Estimate the rendered `(width, height)` (pt) of a transition's
@@ -583,6 +637,30 @@ fn route_transitions(
     out
 }
 
+/// Smooth a polyline `pts` (≥2 points) into a chain of cubic bezier
+/// segments passing through every point, using the Catmull-Rom →
+/// Bezier construction (tangent at each interior point is parallel to the
+/// chord between its neighbours, scaled by 1/6). A 2-point polyline yields
+/// a straight cubic; a polyline that bends (a long edge running out to a
+/// side lane and back) yields a smooth arc — dot's spline look without the
+/// full pathplan router.
+fn smooth_polyline(pts: &[Point]) -> Vec<(Point, Point, Point)> {
+    if pts.len() < 2 {
+        return Vec::new();
+    }
+    let mut segs = Vec::with_capacity(pts.len() - 1);
+    for i in 0..pts.len() - 1 {
+        let p0 = pts[i.saturating_sub(1)];
+        let p1 = pts[i];
+        let p2 = pts[i + 1];
+        let p3 = pts[(i + 2).min(pts.len() - 1)];
+        let c1 = Point::new(p1.x + (p2.x - p0.x) / 6.0, p1.y + (p2.y - p0.y) / 6.0);
+        let c2 = Point::new(p2.x - (p3.x - p1.x) / 6.0, p2.y - (p3.y - p1.y) / 6.0);
+        segs.push((c1, c2, p2));
+    }
+    segs
+}
+
 /// A straight line `a→b` expressed as a single cubic whose control
 /// handles sit at 1/3 and 2/3 — the painter draws it as the segment.
 fn straight_cubic(a: Point, b: Point) -> (Point, Point, Point) {
@@ -675,11 +753,11 @@ struct Layout {
     /// for composite states with a `--` / `||` divider.
     dividers: Vec<Vec<(Point, Point)>>,
     /// Per-transition routed polyline in absolute coords (same space as
-    /// `top_lefts`): `[start, ..connector-centres, end]`. Produced by the
-    /// global cluster layout from each edge's connector chain (dot's
-    /// "edges follow their virtual-node chain"). Empty for transitions
-    /// drawn by the painter itself (self-loops, back-bows, or the
-    /// per-level fallback path).
+    /// `top_lefts`): `[start, ..mid-points, end]`. Currently always empty —
+    /// the layout places composites as wide boxes, so `route_transitions`
+    /// detours obstructed edges around them from final node positions and
+    /// the painter draws unobstructed edges straight. Retained for a future
+    /// connector-chain router.
     waypoints: HashMap<usize, Vec<Point>>,
     /// Per-transition reserved label position (absolute centre), for
     /// transitions whose label was laid out as a dot-style label node.
@@ -696,6 +774,14 @@ struct FlatLayout {
     bbox: Point,
     /// `(transition index, is_back)` for each input edge.
     back: Vec<(usize, bool)>,
+    /// Transition index → reserved label centre, in the same normalized
+    /// frame as `rel`. Present only for labelled forward edges that were
+    /// laid out as a dot-style label node at this level.
+    label_pos: HashMap<usize, Point>,
+    /// Transition index → interior connector-chain centres (the side lane a
+    /// long forward edge runs through), in the same normalized frame as
+    /// `rel`. Empty for adjacent-rank edges.
+    waypoints: HashMap<usize, Vec<Point>>,
 }
 
 /// Walk `node`'s ancestor chain until a member of `set` is reached.
@@ -756,9 +842,11 @@ fn reaches(adj: &HashMap<usize, Vec<usize>>, from: usize, to: usize) -> bool {
 /// Sugiyama. `edges` are the lifted transitions among these members. See
 /// the module docs for the condensed-component rationale.
 fn layout_flat(
+    diag: &StateDiagram,
     members: &[usize],
     eff_geom: &[Point],
     edges: &[(usize, usize, usize, bool)],
+    label_sizes: &[Option<(f64, f64)>],
     orientation: Orientation,
 ) -> FlatLayout {
     let m = members.len();
@@ -767,6 +855,8 @@ fn layout_flat(
             rel: HashMap::new(),
             bbox: Point::zero(),
             back: edges.iter().map(|&(ti, ..)| (ti, false)).collect(),
+            label_pos: HashMap::new(),
+            waypoints: HashMap::new(),
         };
     }
     // Local index space `0..m`; edges arrive in global indices.
@@ -846,19 +936,14 @@ fn layout_flat(
         };
     }
 
-    // Perpendicular-axis center of each member within its component box.
-    let member_perp: Vec<f64> = (0..m)
-        .map(|l| {
-            if is_lr {
-                member_offset[l].y + lgeom(l).y / 2.0 + pad_perp / 2.0
-            } else {
-                member_offset[l].x + lgeom(l).x / 2.0 + pad_perp / 2.0
-            }
-        })
-        .collect();
-
-    // 5. Condensed graph — one box per component, only vertical edges.
+    // 5. Condensed graph — one box per component. Edges are dot's network
+    // simplex on both axes (rank = minlen-honouring NS, x = NS on the
+    // auxiliary graph), with each labelled forward edge carrying a
+    // **label node** (dot's edge-label virtual node) that reserves a rank
+    // + perpendicular slot so the diagram spreads to fit its label.
     let mut vg = VisualGraph::new(orientation);
+    vg.enable_ns_rank(); // dot's minlen-honouring rank assignment
+    vg.enable_ns_xcoord(); // dot's network-simplex x-assignment
     let comp_handles: Vec<_> = comp_size
         .iter()
         .map(|sz| {
@@ -870,8 +955,19 @@ fn layout_flat(
             vg.add_node(Element::new_box(inflated, orientation))
         })
         .collect();
-    let mut cond: HashMap<(usize, usize), (f64, f64, usize)> = HashMap::new();
-    for &(_, s, d, horizontal) in &ledges {
+    let is_comp_l = |l: usize| diag.nodes[members[l]].kind == StateKind::Composite;
+    // Feedback-arc-set pass: an edge whose target already reaches its
+    // source is a cycle (back-edge) — keep it out of the rank graph so the
+    // placer doesn't reverse it into a rank-skipping long edge; the painter
+    // bows it instead. Forward edges (including rank-skipping ones from
+    // `--->` minlen) stay so the source fans out toward its edge lane.
+    let mut rank_adj: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut back_pairs: HashSet<(usize, usize)> = HashSet::new();
+    let mut label_handle: HashMap<usize, NodeHandle> = HashMap::new();
+    // Forward (non-back) transition → its component endpoints, for
+    // reconstructing the connector chain into routing waypoints.
+    let mut edge_comp: HashMap<usize, (usize, usize)> = HashMap::new();
+    for &(ti, s, d, horizontal) in &ledges {
         if horizontal {
             continue;
         }
@@ -879,34 +975,32 @@ fn layout_flat(
         if cs == cd {
             continue;
         }
-        let e = cond.entry((cs, cd)).or_insert((0.0, 0.0, 0));
-        e.0 += member_perp[s];
-        e.1 += member_perp[d];
-        e.2 += 1;
-    }
-    // Deterministic edge order, then a feedback-arc-set pass: an edge whose
-    // target already reaches its source is a cycle (back-edge) — keep it
-    // out of the rank graph so the placer doesn't reverse it into a
-    // rank-skipping long edge. Forward edges (including rank-skipping ones)
-    // stay in the graph: dot keeps long edges as virtual-node chains so
-    // the source fans out toward its edge lane, and the edge is drawn
-    // along that chain. Removing them flattens the fan-out.
-    let mut cond_edges: Vec<((usize, usize), (f64, f64, usize))> = cond.into_iter().collect();
-    cond_edges.sort_by_key(|&((cs, cd), _)| (cs, cd));
-    let mut rank_adj: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut back_pairs: HashSet<(usize, usize)> = HashSet::new();
-    for ((cs, cd), (sum_s, sum_d, count)) in cond_edges {
         if reaches(&rank_adj, cd, cs) {
             back_pairs.insert((cs, cd));
             continue;
         }
         rank_adj.entry(cs).or_default().push(cd);
-        let edge = Edge {
-            source_perp_offset: Some(sum_s / count as f64),
-            target_perp_offset: Some(sum_d / count as f64),
-            ..Edge::default()
-        };
-        vg.add_edge(edge, comp_handles[cs], comp_handles[cd]);
+        edge_comp.insert(ti, (cs, cd));
+        // dot's minlen from the dash count. A label node sits one rank below
+        // the source; the target keeps the full minlen below the label so
+        // `-->` and `--->` still differ by a rank. Only give a label node to
+        // edges between two *leaf* members — an edge touching a composite box
+        // keeps the painter's own label placement (the box already reserves
+        // ample room and a label node there fights the frame).
+        let minlen = diag.transitions[ti].min_rank.max(1);
+        let both_leaf = !is_comp_l(s) && !is_comp_l(d);
+        let mk = |ml: usize| Edge { min_rank: ml, ..Edge::default() };
+        match (label_sizes.get(ti).copied().flatten(), both_leaf) {
+            (Some((lw, lh_h)), true) => {
+                let lhn = vg.add_node(Element::new_box(Point::new(lw, lh_h), orientation));
+                vg.add_edge(mk(1), comp_handles[cs], lhn);
+                vg.add_edge(mk(minlen), lhn, comp_handles[cd]);
+                label_handle.insert(ti, lhn);
+            }
+            _ => {
+                vg.add_edge(mk(minlen), comp_handles[cs], comp_handles[cd]);
+            }
+        }
     }
     vg.layout();
 
@@ -929,6 +1023,126 @@ fn layout_flat(
         let off = member_offset[l];
         rel.insert(members[l], Point::new(c.x + off.x, c.y + off.y));
     }
+
+    // History pseudostates re-enter the composite "from after": the resume
+    // transition comes from a state reached by leaving the composite, so in
+    // dot it is a reversed back-edge and network simplex ranks the history
+    // node at the *bottom* of the cluster (minimising that edge). Our
+    // per-level placer can't see the external resume edge, so an isolated
+    // history node (no internal edges) defaults to rank 0 — beside the entry
+    // — and the resume arc then bows across the interior. Re-seat it on the
+    // interior's last rank, off to the perpendicular side, so the resume
+    // edge enters cleanly from the exit side.
+    {
+        let is_hist =
+            |l: usize| matches!(diag.nodes[members[l]].kind, StateKind::History | StateKind::DeepHistory);
+        let mut incident = vec![false; m];
+        for &(_, s, d, _) in &ledges {
+            incident[s] = true;
+            incident[d] = true;
+        }
+        for l in 0..m {
+            if !is_hist(l) || incident[l] {
+                continue;
+            }
+            let g = members[l];
+            let (mut rank_hi, mut perp_hi) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+            let mut found = false;
+            for o in 0..m {
+                if o == l || is_hist(o) {
+                    continue;
+                }
+                let p = rel[&members[o]];
+                let gg = eff_geom[members[o]];
+                found = true;
+                if is_lr {
+                    rank_hi = rank_hi.max(p.x + gg.x);
+                    perp_hi = perp_hi.max(p.y + gg.y);
+                } else {
+                    rank_hi = rank_hi.max(p.y + gg.y);
+                    perp_hi = perp_hi.max(p.x + gg.x);
+                }
+            }
+            if !found {
+                continue;
+            }
+            let gg = eff_geom[g];
+            // Bottom-aligned on the rank axis (the exit rank), placed past
+            // the interior on the perpendicular side with a gap.
+            let new = if is_lr {
+                Point::new(rank_hi - gg.x, perp_hi + COMP_GAP_PT)
+            } else {
+                Point::new(perp_hi + COMP_GAP_PT, rank_hi - gg.y)
+            };
+            rel.insert(g, new);
+        }
+    }
+
+    // Label-node centres + extents, in the same VG frame as `rel`.
+    let mut label_pos: HashMap<usize, Point> = HashMap::new();
+    let mut label_box: Vec<(Point, Point)> = Vec::new();
+    for (&ti, &lhn) in &label_handle {
+        let (lo, hi) = vg.pos(lhn).bbox(false);
+        label_pos.insert(ti, Point::new((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0));
+        label_box.push((lo, hi));
+    }
+
+    // Connector-chain waypoints (dot's "edge follows its virtual-node
+    // chain"): each lowered edge is a handle chain `[src, ..connectors.., dst]`.
+    // The connector centres are the side-lane the long bypass edge runs
+    // through — keeping them as waypoints spreads parallel skip-edges into
+    // distinct lanes and lets the painter bow them into splines, instead of
+    // a straight diagonal squeezed against the spine.
+    let center = |h: NodeHandle| -> Point {
+        let (lo, hi) = vg.pos(h).bbox(false);
+        Point::new((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0)
+    };
+    let mut chain_of: HashMap<(usize, usize), Vec<Point>> = HashMap::new();
+    for (_, chain) in vg.iter_edges() {
+        if chain.len() < 2 {
+            continue;
+        }
+        let pts: Vec<Point> = chain.iter().map(|h| center(*h)).collect();
+        chain_of.insert(
+            (chain.first().unwrap().get_index(), chain.last().unwrap().get_index()),
+            pts,
+        );
+    }
+    // Interior connector centres for an a→b handle segment (drops endpoints).
+    let seg_mids = |a: NodeHandle, b: NodeHandle| -> Vec<Point> {
+        let inner = |pts: &Vec<Point>| -> Vec<Point> {
+            if pts.len() > 2 {
+                pts[1..pts.len() - 1].to_vec()
+            } else {
+                Vec::new()
+            }
+        };
+        if let Some(pts) = chain_of.get(&(a.get_index(), b.get_index())) {
+            inner(pts)
+        } else if let Some(pts) = chain_of.get(&(b.get_index(), a.get_index())) {
+            let mut m = inner(pts);
+            m.reverse();
+            m
+        } else {
+            Vec::new()
+        }
+    };
+    let mut waypoints: HashMap<usize, Vec<Point>> = HashMap::new();
+    for (&ti, &(cs, cd)) in &edge_comp {
+        let (sh, th) = (comp_handles[cs], comp_handles[cd]);
+        let mids = if let Some(&lh) = label_handle.get(&ti) {
+            let mut m = seg_mids(sh, lh);
+            m.push(center(lh));
+            m.extend(seg_mids(lh, th));
+            m
+        } else {
+            seg_mids(sh, th)
+        };
+        if !mids.is_empty() {
+            waypoints.insert(ti, mids);
+        }
+    }
+
     // Normalize the level so it starts at (0, 0).
     let min_x = rel.values().map(|p| p.x).fold(f64::INFINITY, f64::min);
     let min_y = rel.values().map(|p| p.y).fold(f64::INFINITY, f64::min);
@@ -936,10 +1150,27 @@ fn layout_flat(
         p.x -= min_x;
         p.y -= min_y;
     }
+    for p in label_pos.values_mut() {
+        p.x -= min_x;
+        p.y -= min_y;
+    }
+    for chain in waypoints.values_mut() {
+        for p in chain.iter_mut() {
+            p.x -= min_x;
+            p.y -= min_y;
+        }
+    }
     let mut bbox = Point::zero();
     for (&g, p) in &rel {
         bbox.x = bbox.x.max(p.x + eff_geom[g].x);
         bbox.y = bbox.y.max(p.y + eff_geom[g].y);
+    }
+    // A wide label can stick out past every member — keep it inside the bbox
+    // (and thus inside an enclosing composite frame).
+    for (lo, hi) in &label_box {
+        bbox.x = bbox.x.max(hi.x - min_x);
+        bbox.y = bbox.y.max(hi.y - min_y);
+        let _ = lo;
     }
 
     let back: Vec<(usize, bool)> = ledges
@@ -949,7 +1180,7 @@ fn layout_flat(
         })
         .collect();
 
-    FlatLayout { rel, bbox, back }
+    FlatLayout { rel, bbox, back, label_pos, waypoints }
 }
 
 /// Stack a composite's per-region layouts into one interior block.
@@ -1013,692 +1244,18 @@ fn stack_regions(
     }
 }
 
-/// Global cluster layout — the dot/PlantUML model.
-///
-/// One `VisualGraph` holds every leaf / pseudostate as a box node;
-/// composite states become `HierarchyMap` clusters (their frame is the
-/// cluster bbox). Long edges stay in the graph as connector-dummy
-/// chains, which the engine keeps *outside* foreign cluster boxes
-/// (`graph.rs::split_long_edges` inherits the source cluster), so a
-/// transition that skips past a composite routes down a lane beside it
-/// — never through it. The edge is then drawn along its connector
-/// chain. Edges that touch a composite are wired to an interior
-/// representative (source/sink) so ranking places the composite's
-/// subtree correctly.
-///
-/// Horizontal links (`A -> B`, single dash) condense their leaf members
-/// into one super-node so they share a rank (the engine has no
-/// same-rank constraint). Concurrent regions are handled by the
-/// dedicated recursive path (`layout_nodes`); this function is only
-/// chosen when the diagram has none.
-fn layout_global(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orientation) -> Layout {
-    let n = diag.nodes.len();
-    let is_lr = matches!(orientation, Orientation::LeftToRight);
-    let idx: HashMap<&str, usize> = diag
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(i, nd)| (nd.id.as_str(), i))
-        .collect();
-    let parent_of: Vec<Option<usize>> = diag
-        .nodes
-        .iter()
-        .map(|nd| nd.parent.as_deref().and_then(|p| idx.get(p).copied()))
-        .collect();
-    // Derive children from `parent_of` (guaranteed consistent with the
-    // cluster assignment, unlike the parser's `nd.children` which may be
-    // unset for synthetic scoped pseudostates).
-    let mut children_of: Vec<Vec<usize>> = vec![Vec::new(); n];
-    for i in 0..n {
-        if let Some(p) = parent_of[i] {
-            children_of[p].push(i);
-        }
-    }
-    let is_comp: Vec<bool> = diag.nodes.iter().map(|nd| nd.kind == StateKind::Composite).collect();
-    let mut depth = vec![0usize; n];
-    for i in 0..n {
-        if let Some(p) = parent_of[i] {
-            depth[i] = depth[p] + 1;
-        }
-    }
-    let all_edges: Vec<(usize, usize, usize, bool)> = diag
-        .transitions
-        .iter()
-        .enumerate()
-        .filter_map(|(ti, tr)| {
-            let s = *idx.get(tr.from.as_str())?;
-            let d = *idx.get(tr.to.as_str())?;
-            Some((ti, s, d, tr.horizontal))
-        })
-        .collect();
-
-    // --- composite representatives (deepest-first so nesting resolves) ---
-    let mut in_rep = vec![None::<usize>; n];
-    let mut out_rep = vec![None::<usize>; n];
-    let mut comps: Vec<usize> = (0..n).filter(|&i| is_comp[i]).collect();
-    comps.sort_by_key(|&c| std::cmp::Reverse(depth[c]));
-    for &c in &comps {
-        let kids = &children_of[c];
-        if kids.is_empty() {
-            continue;
-        }
-        let kset: HashSet<usize> = kids.iter().copied().collect();
-        let mut indeg: HashMap<usize, usize> = kids.iter().map(|&k| (k, 0)).collect();
-        let mut outdeg: HashMap<usize, usize> = kids.iter().map(|&k| (k, 0)).collect();
-        for &(_, s, d, _) in &all_edges {
-            if let (Some(ls), Some(ld)) = (lift(s, &kset, &parent_of), lift(d, &kset, &parent_of)) {
-                if ls != ld {
-                    *outdeg.get_mut(&ls).unwrap() += 1;
-                    *indeg.get_mut(&ld).unwrap() += 1;
-                }
-            }
-        }
-        let pick = |want_source: bool| -> usize {
-            let deg = if want_source { &indeg } else { &outdeg };
-            let pref = if want_source { StateKind::Initial } else { StateKind::Final };
-            kids.iter()
-                .copied()
-                .find(|&k| deg[&k] == 0 && diag.nodes[k].kind == pref)
-                .or_else(|| kids.iter().copied().find(|&k| deg[&k] == 0))
-                .unwrap_or(kids[0])
-        };
-        let src = pick(true);
-        let snk = pick(false);
-        in_rep[c] = Some(if is_comp[src] { in_rep[src].unwrap_or(src) } else { src });
-        out_rep[c] = Some(if is_comp[snk] { out_rep[snk].unwrap_or(snk) } else { snk });
-    }
-    // Endpoint node for an edge end: a composite resolves to its in/out
-    // representative (a non-composite descendant); a leaf is itself.
-    let endpoint = |node: usize, as_source: bool| -> usize {
-        if is_comp[node] {
-            if as_source {
-                out_rep[node].unwrap_or(node)
-            } else {
-                in_rep[node].unwrap_or(node)
-            }
-        } else {
-            node
-        }
-    };
-
-    // --- horizontal condensation over non-composite nodes ---
-    // VG gets one node per "component"; a component is a maximal set of
-    // non-composite siblings joined by horizontal links. Composites are
-    // clusters, not VG nodes.
-    let leaf: Vec<usize> = (0..n).filter(|&i| !is_comp[i]).collect();
-    let leaf_local: HashMap<usize, usize> = leaf.iter().enumerate().map(|(l, &g)| (g, l)).collect();
-    let nl = leaf.len();
-    let mut uf = UnionFind::new(nl);
-    for &(_, s, d, horizontal) in &all_edges {
-        if horizontal && !is_comp[s] && !is_comp[d] && parent_of[s] == parent_of[d] {
-            if let (Some(&ls), Some(&ld)) = (leaf_local.get(&s), leaf_local.get(&d)) {
-                uf.union(ls, ld);
-            }
-        }
-    }
-    let mut comp_id: HashMap<usize, usize> = HashMap::new();
-    let mut comp_members: Vec<Vec<usize>> = Vec::new(); // local leaf indices
-    let comp_of_leaf: Vec<usize> = (0..nl)
-        .map(|l| {
-            let r = uf.find(l);
-            *comp_id.entry(r).or_insert_with(|| {
-                comp_members.push(Vec::new());
-                comp_members.len() - 1
-            })
-        })
-        .collect();
-    for l in 0..nl {
-        comp_members[comp_of_leaf[l]].push(l);
-    }
-    // node (global) → component index
-    let comp_of_node = |g: usize| -> Option<usize> { leaf_local.get(&g).map(|&l| comp_of_leaf[l]) };
-
-    // Horizontal adjacency for ordering within a component (leaf-local).
-    let mut horiz_adj: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut seen: HashSet<(usize, usize)> = HashSet::new();
-    for &(_, s, d, horizontal) in &all_edges {
-        if horizontal && !is_comp[s] && !is_comp[d] {
-            if let (Some(&ls), Some(&ld)) = (leaf_local.get(&s), leaf_local.get(&d)) {
-                if seen.insert((ls, ld)) {
-                    horiz_adj.entry(ls).or_default().push(ld);
-                }
-            }
-        }
-    }
-
-    // Side-by-side layout of each component's members; record member
-    // offset (within the component box) + component box size.
-    let (pad_rank, pad_perp) = (LAYOUT_PAD_Y_PT, LAYOUT_PAD_X_PT);
-    let lgeom = |l: usize| base_geoms[leaf[l]].size;
-    let mut member_off: Vec<Point> = vec![Point::zero(); nl];
-    let mut comp_size: Vec<Point> = vec![Point::zero(); comp_members.len()];
-    for (cid, members) in comp_members.iter().enumerate() {
-        let ordered = order_component(members, &horiz_adj);
-        let span = ordered
-            .iter()
-            .map(|&l| if is_lr { lgeom(l).x } else { lgeom(l).y })
-            .fold(0.0_f64, f64::max);
-        let mut cursor = 0.0_f64;
-        for (k, &l) in ordered.iter().enumerate() {
-            if k > 0 {
-                cursor += COMP_GAP_PT;
-            }
-            let g = lgeom(l);
-            if is_lr {
-                member_off[l] = Point::new((span - g.x) / 2.0, cursor);
-                cursor += g.y;
-            } else {
-                member_off[l] = Point::new(cursor, (span - g.y) / 2.0);
-                cursor += g.x;
-            }
-        }
-        comp_size[cid] = if is_lr {
-            Point::new(span, cursor)
-        } else {
-            Point::new(cursor, span)
-        };
-    }
-
-    // --- build the VisualGraph + cluster hierarchy ---
-    let mut vg = VisualGraph::new(orientation);
-    vg.enable_ns_xcoord(); // dot's network-simplex x-assignment
-    vg.enable_ns_rank(); // dot's network-simplex rank assignment (minlen)
-    let comp_handles: Vec<_> = comp_size
-        .iter()
-        .map(|sz| {
-            let inflated = if is_lr {
-                Point::new(sz.x + pad_rank, sz.y + pad_perp)
-            } else {
-                Point::new(sz.x + pad_perp, sz.y + pad_rank)
-            };
-            vg.add_node(Element::new_box(inflated, orientation))
-        })
-        .collect();
-
-    // Cluster per composite; map composite index → ClusterId.
-    let mut hierarchy = crate::layout::sugiyama::HierarchyMap::new();
-    let mut cluster_of_comp: HashMap<usize, usize> = HashMap::new();
-    // Stable order: shallowest-first so parents exist before children.
-    let mut comp_by_depth: Vec<usize> = comps.clone();
-    comp_by_depth.sort_by_key(|&c| depth[c]);
-    for &c in &comp_by_depth {
-        let cid = hierarchy.add_cluster(None);
-        cluster_of_comp.insert(c, cid);
-        hierarchy.clusters[cid].pad = COMPOSITE_PAD_PT;
-        hierarchy.clusters[cid].label_band = COMPOSITE_LABEL_BAND_PT;
-        hierarchy.clusters[cid].label_min_w = base_geoms[c].size.x;
-    }
-    // Wire cluster parents.
-    for &c in &comp_by_depth {
-        let cid = cluster_of_comp[&c];
-        if let Some(p) = parent_of[c] {
-            if let Some(&pcid) = cluster_of_comp.get(&p) {
-                hierarchy.clusters[cid].parent = Some(pcid);
-                hierarchy.clusters[pcid].direct_children.push(cid);
-            }
-        }
-    }
-    // Assign each component super-node to the innermost composite that
-    // owns its members (members share a parent).
-    for (cid, members) in comp_members.iter().enumerate() {
-        let any = leaf[members[0]];
-        if let Some(p) = parent_of[any] {
-            if let Some(&clid) = cluster_of_comp.get(&p) {
-                hierarchy.assign_node(comp_handles[cid], clid);
-            }
-        }
-    }
-    vg.set_hierarchy(hierarchy);
-
-    // Cluster id of each component (for assigning label nodes so they
-    // don't break cluster contiguity — mirrors how connector dummies
-    // inherit their source's cluster).
-    let comp_cluster: Vec<Option<usize>> = comp_members
-        .iter()
-        .map(|members| {
-            let any = leaf[members[0]];
-            parent_of[any].and_then(|p| cluster_of_comp.get(&p).copied())
-        })
-        .collect();
-
-    // Edges: one VG edge per transition (skip self-loops + dangling),
-    // wired through composite representatives + component super-nodes.
-    // A labelled transition gets a **label node** sized to its text
-    // inserted between source and target (dot's edge-label virtual node):
-    // it reserves a rank + perpendicular space so the diagram spreads to
-    // fit the labels and each label owns a clear position on its edge.
-    let mut edge_vg: Vec<Option<(usize, usize)>> = vec![None; diag.transitions.len()];
-    let mut label_handle: Vec<Option<NodeHandle>> = vec![None; diag.transitions.len()];
-    // Component-graph reachability, built in transition order to mirror the
-    // engine's `normalize_dag`: an edge whose target can already reach its
-    // source is a back-edge (cycle). We must NOT give back-edges a label
-    // node — a label node on a reversed edge scrambles the cluster/rank
-    // layout; the painter draws those labels on its bow instead.
-    let mut comp_adj: HashMap<usize, Vec<usize>> = HashMap::new();
-    let reaches = |adj: &HashMap<usize, Vec<usize>>, from: usize, to: usize| -> bool {
-        let mut stack = vec![from];
-        let mut seen: HashSet<usize> = HashSet::new();
-        while let Some(x) = stack.pop() {
-            if x == to {
-                return true;
-            }
-            if !seen.insert(x) {
-                continue;
-            }
-            if let Some(ns) = adj.get(&x) {
-                stack.extend(ns.iter().copied());
-            }
-        }
-        false
-    };
-    for &(ti, s, d, horizontal) in &all_edges {
-        if s == d {
-            continue;
-        }
-        let es = endpoint(s, true);
-        let ed = endpoint(d, false);
-        let (cs, cd) = match (comp_of_node(es), comp_of_node(ed)) {
-            (Some(a), Some(b)) => (a, b),
-            _ => continue,
-        };
-        if cs == cd {
-            continue;
-        }
-        edge_vg[ti] = Some((cs, cd));
-        let is_back = reaches(&comp_adj, cd, cs);
-        if !is_back {
-            comp_adj.entry(cs).or_default().push(cd);
-        }
-        // Label nodes are a flat-graph device (they reserve a rank +
-        // perpendicular slot, dot-style). Inside / across composite frames
-        // they fight cluster contiguity and the frame-clearance passes, so
-        // restrict them to top-level edges whose both ends sit outside any
-        // composite. Edges touching a composite keep the painter's own
-        // label placement, which the cluster path already lays out well.
-        let both_top = comp_cluster[cs].is_none() && comp_cluster[cd].is_none();
-        let want_label = !(horizontal || is_back) && both_top;
-        // dot's minlen from the dash count. The label node sits one rank
-        // below the source; the target keeps the full minlen below the
-        // label, so `-->` and `--->` still differ by a rank.
-        let minlen = diag.transitions[ti].min_rank.max(1);
-        let mk = |ml: usize| Edge { min_rank: ml, ..Edge::default() };
-        match (edge_label_size(&diag.transitions[ti]), want_label) {
-            (Some((lw, lh_h)), true) => {
-                let lh = vg.add_node(Element::new_box(Point::new(lw, lh_h), orientation));
-                vg.add_edge(mk(1), comp_handles[cs], lh);
-                vg.add_edge(mk(minlen), lh, comp_handles[cd]);
-                label_handle[ti] = Some(lh);
-            }
-            _ => {
-                vg.add_edge(mk(minlen), comp_handles[cs], comp_handles[cd]);
-            }
-        }
-    }
-
-    vg.layout();
-
-    // --- extract node positions ---
-    let (deflate_x, deflate_y) = if is_lr {
-        (pad_rank / 2.0, pad_perp / 2.0)
-    } else {
-        (pad_perp / 2.0, pad_rank / 2.0)
-    };
-    let comp_topleft: Vec<Point> = comp_handles
-        .iter()
-        .map(|h| {
-            let tl = vg.pos(*h).bbox(false).0;
-            Point::new(tl.x + deflate_x, tl.y + deflate_y)
-        })
-        .collect();
-    let mut top_lefts = vec![Point::zero(); n];
-    for l in 0..nl {
-        let c = comp_topleft[comp_of_leaf[l]];
-        let off = member_off[l];
-        top_lefts[leaf[l]] = Point::new(c.x + off.x, c.y + off.y);
-    }
-
-    // Composite frames from cluster bboxes.
-    let mut eff_geom: Vec<Point> = base_geoms.iter().map(|g| g.size).collect();
-    for &c in &comps {
-        if let Some(&cid) = cluster_of_comp.get(&c) {
-            let cl = &vg.hierarchy.clusters[cid];
-            if cl.x_min.is_finite() && cl.x_max.is_finite() {
-                top_lefts[c] = Point::new(cl.x_min, cl.y_min);
-                eff_geom[c] = Point::new(cl.x_max - cl.x_min, cl.y_max - cl.y_min);
-            }
-        }
-    }
-
-    // --- per-transition waypoints + label positions ---
-    // A labelled edge was split into source→label and label→target, so
-    // match the lowered edges by their endpoint handles (not insertion
-    // order) and stitch each transition's path. The label node centre is
-    // both a routing waypoint and the label's reserved position.
-    let center = |h: NodeHandle| -> Point {
-        let (lo, hi) = vg.pos(h).bbox(false);
-        Point::new((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0)
-    };
-    let mut chain_of: HashMap<(usize, usize), Vec<Point>> = HashMap::new();
-    for (_, chain) in vg.iter_edges() {
-        if chain.len() < 2 {
-            continue;
-        }
-        let pts: Vec<Point> = chain.iter().map(|h| center(*h)).collect();
-        chain_of.insert(
-            (chain.first().unwrap().get_index(), chain.last().unwrap().get_index()),
-            pts,
-        );
-    }
-    // Oriented connector mids for segment a→b (drops the two endpoints).
-    let seg_mids = |a: NodeHandle, b: NodeHandle| -> (Vec<Point>, bool) {
-        let mids = |pts: &Vec<Point>| -> Vec<Point> {
-            if pts.len() > 2 {
-                pts[1..pts.len() - 1].to_vec()
-            } else {
-                Vec::new()
-            }
-        };
-        if let Some(pts) = chain_of.get(&(a.get_index(), b.get_index())) {
-            (mids(pts), false)
-        } else if let Some(pts) = chain_of.get(&(b.get_index(), a.get_index())) {
-            let mut m = mids(pts);
-            m.reverse();
-            (m, true)
-        } else {
-            (Vec::new(), false)
-        }
-    };
-    let mut back = vec![false; diag.transitions.len()];
-    let mut waypoints: HashMap<usize, Vec<Point>> = HashMap::new();
-    let mut label_pos: HashMap<usize, Point> = HashMap::new();
-    for ti in 0..diag.transitions.len() {
-        let Some((cs, cd)) = edge_vg[ti] else { continue };
-        let (sh, th) = (comp_handles[cs], comp_handles[cd]);
-        if let Some(lh) = label_handle[ti] {
-            let lc = center(lh);
-            label_pos.insert(ti, lc);
-            let (mut mids, _) = seg_mids(sh, lh);
-            mids.push(lc);
-            let (tail, _) = seg_mids(lh, th);
-            mids.extend(tail);
-            waypoints.insert(ti, mids);
-        } else {
-            let (mids, reversed) = seg_mids(sh, th);
-            if reversed {
-                back[ti] = true;
-            }
-            if !mids.is_empty() {
-                waypoints.insert(ti, mids);
-            }
-        }
-    }
-
-    let inside = |mut node: usize, c: usize| -> bool {
-        loop {
-            if node == c {
-                return true;
-            }
-            match parent_of[node] {
-                Some(p) => node = p,
-                None => return false,
-            }
-        }
-    };
-
-    // --- frame-exit clearance -----------------------------------------
-    // When an edge leaves a composite frame to a node below it, that node
-    // should sit a rank gap below the *frame bottom*, not hard against the
-    // composite's lower border (a terminal/sink otherwise hangs on the
-    // edge). This is the bottom-side mirror of the title-band clearance
-    // `restore_rank_monotonicity` does at the top — but it lives here, not
-    // in the shared `tighten`, because it must add room even when the node
-    // already barely clears the frame, which would churn cuca packages.
-    // Push such targets down and relax the shift through their successors
-    // so rank monotonicity is preserved.
-    {
-        const FRAME_EXIT_GAP: f64 = 16.0;
-        // Operate on the *rank* axis (x for left-to-right, y for top-to-
-        // bottom): successors flow along it, so "below the frame" means
-        // "further along the rank axis", not literally down in y.
-        let rank_lo = |tl: &[Point], i: usize| if is_lr { tl[i].x } else { tl[i].y };
-        let rank_hi =
-            |tl: &[Point], i: usize| if is_lr { tl[i].x + eff_geom[i].x } else { tl[i].y + eff_geom[i].y };
-        let mut moved: HashSet<usize> = HashSet::new();
-        for _ in 0..(n + 2) {
-            let mut changed = false;
-            for &(ti, s, d, horizontal) in &all_edges {
-                // Skip self-loops, back-edges, and horizontal links. A
-                // back-edge runs against the rank flow (cycles like
-                // Red→Green→Yellow→Red); a horizontal `->` link places its
-                // ends side by side on the *same* rank. Treating either as
-                // a forward rank constraint would scramble the layout.
-                if s == d || back[ti] || horizontal {
-                    continue;
-                }
-                let mut req = rank_hi(&top_lefts, s); // keep d past s along rank
-                for &c in &comps {
-                    if inside(s, c) && !inside(d, c) {
-                        req = req.max(rank_hi(&top_lefts, c) + FRAME_EXIT_GAP);
-                    }
-                }
-                let delta = req - rank_lo(&top_lefts, d);
-                if delta > 1e-6 {
-                    for i in 0..n {
-                        if i == d || inside(i, d) {
-                            if is_lr {
-                                top_lefts[i].x += delta;
-                            } else {
-                                top_lefts[i].y += delta;
-                            }
-                            moved.insert(i);
-                        }
-                    }
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-        if !moved.is_empty() {
-            for &(ti, s, d, _) in &all_edges {
-                if moved.contains(&s) || moved.contains(&d) {
-                    waypoints.remove(&ti);
-                }
-            }
-        }
-    }
-
-    // --- dot-style composite offset ----------------------------------
-    // Brandes-Köpf centres the State1→State2→State3→terminal chain in one
-    // column, so a shared terminal lands directly under the composite and
-    // the "bypass" edges (a sibling above the composite going to the
-    // terminal below it) get squeezed into lanes beside / through it. dot
-    // instead pushes the composite to one side and keeps the bypass
-    // sources + terminal in a clear column on the other. Replicate that
-    // here (state-only; cuca/records never take this path): when a
-    // top-level composite has bypass traffic, align the sink(s) to the
-    // bypass column and slide the composite subtree clear of it.
-    // Geometry below is written for top-to-bottom flow (rank = y); skip
-    // it for left-to-right diagrams rather than mis-apply the axes.
-    let cx = |tl: &[Point], i: usize| tl[i].x + eff_geom[i].x / 2.0;
-    for &c in &comps {
-        if is_lr {
-            break;
-        }
-        if parent_of[c].is_some() {
-            continue; // top-level composites only
-        }
-        let c_top = top_lefts[c].y;
-        let c_bot = top_lefts[c].y + eff_geom[c].y;
-        let (c_l, c_r) = (top_lefts[c].x, top_lefts[c].x + eff_geom[c].x);
-        // Collect bypass edges: endpoints both outside C, one above C and
-        // one below it, whose span crosses C's column.
-        let mut sources: Vec<usize> = Vec::new();
-        let mut sinks: Vec<usize> = Vec::new();
-        for &(_, s, d, _) in &all_edges {
-            if s == d || inside(s, c) || inside(d, c) {
-                continue;
-            }
-            let sy = top_lefts[s].y + eff_geom[s].y / 2.0;
-            let dy = top_lefts[d].y + eff_geom[d].y / 2.0;
-            let (above, below) = if sy < dy { (s, d) } else { (d, s) };
-            let crosses_y = top_lefts[above].y + eff_geom[above].y <= c_top + 1.0
-                && top_lefts[below].y >= c_bot - 1.0;
-            if !crosses_y {
-                continue;
-            }
-            let (ax, bx) = (cx(&top_lefts, above), cx(&top_lefts, below));
-            if ax.min(bx) <= c_r && ax.max(bx) >= c_l {
-                sources.push(above);
-                sinks.push(below);
-            }
-        }
-        if sinks.is_empty() {
-            continue;
-        }
-        let mut col: Vec<f64> = sources.iter().map(|&i| cx(&top_lefts, i)).collect();
-        col.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let col_x = col[col.len() / 2];
-        let go_left = col_x >= (c_l + c_r) / 2.0;
-        // Align top-level sinks onto the bypass column.
-        let mut moved: HashSet<usize> = HashSet::new();
-        for &t in &sinks {
-            if parent_of[t].is_some() {
-                continue;
-            }
-            let dx = col_x - cx(&top_lefts, t);
-            if dx.abs() > f64::EPSILON {
-                top_lefts[t].x += dx;
-                moved.insert(t);
-            }
-        }
-        // Slide C's subtree clear of the column on the chosen side.
-        const LANE: f64 = 14.0;
-        let col_l = sources
-            .iter()
-            .chain(sinks.iter())
-            .map(|&i| top_lefts[i].x)
-            .fold(f64::INFINITY, f64::min);
-        let col_r = sources
-            .iter()
-            .chain(sinks.iter())
-            .map(|&i| top_lefts[i].x + eff_geom[i].x)
-            .fold(f64::NEG_INFINITY, f64::max);
-        let shift = if go_left {
-            (c_r - (col_l - LANE)).max(0.0).copysign(-1.0)
-        } else {
-            (col_r + LANE - c_l).max(0.0)
-        };
-        if shift.abs() > f64::EPSILON {
-            for i in 0..n {
-                if inside(i, c) {
-                    top_lefts[i].x += shift;
-                    moved.insert(i);
-                }
-            }
-        }
-        // Any edge touching a moved node has stale waypoints — drop them
-        // so the emit re-routes from final positions (straight or detour).
-        if !moved.is_empty() {
-            for &(ti, s, d, _) in &all_edges {
-                if moved.contains(&s) || moved.contains(&d) {
-                    waypoints.remove(&ti);
-                }
-            }
-        }
-    }
-
-    // --- entry/exit points on the composite border -------------------
-    // PlantUML draws <<entryPoint>>/<<exitPoint>> straddling the frame
-    // edge (entry on the inflow edge, exit on the outflow edge), centred
-    // on the border line — not as interior nodes. Recompute each owning
-    // frame to exclude them, then snap them onto the edge, aligned with
-    // the interior node they connect to.
-    {
-        let is_pt =
-            |i: usize| matches!(diag.nodes[i].kind, StateKind::EntryPoint | StateKind::ExitPoint);
-        // Rank-axis low / high edge of node `i` (x for LR, y for TB).
-        let rank_lo = |tl: &[Point], i: usize| if is_lr { tl[i].x } else { tl[i].y };
-        let rank_hi =
-            |tl: &[Point], g: &[Point], i: usize| rank_lo(tl, i) + if is_lr { g[i].x } else { g[i].y };
-        let perp_c =
-            |tl: &[Point], g: &[Point], i: usize| if is_lr { tl[i].y + g[i].y / 2.0 } else { tl[i].x + g[i].x / 2.0 };
-        let mut moved: HashSet<usize> = HashSet::new();
-        for &c in &comps {
-            let points: Vec<usize> =
-                (0..n).filter(|&i| parent_of[i] == Some(c) && is_pt(i)).collect();
-            let interior: Vec<usize> =
-                (0..n).filter(|&i| i != c && inside(i, c) && !is_pt(i)).collect();
-            if points.is_empty() || interior.is_empty() {
-                continue;
-            }
-            // Recompute the frame on the rank axis to exclude the points.
-            // The title band sits on the inflow (lo) side, but only in TB.
-            let lo_inset = COMPOSITE_PAD_PT + if is_lr { 0.0 } else { COMPOSITE_LABEL_BAND_PT };
-            let lo = interior.iter().map(|&i| rank_lo(&top_lefts, i)).fold(f64::INFINITY, f64::min)
-                - lo_inset;
-            let hi = interior
-                .iter()
-                .map(|&i| rank_hi(&top_lefts, &eff_geom, i))
-                .fold(f64::NEG_INFINITY, f64::max)
-                + COMPOSITE_PAD_PT;
-            if is_lr {
-                top_lefts[c].x = lo;
-                eff_geom[c].x = hi - lo;
-            } else {
-                top_lefts[c].y = lo;
-                eff_geom[c].y = hi - lo;
-            }
-            for &pt in &points {
-                // Entry sits on the inflow edge aligned to its successor;
-                // exit on the outflow edge aligned to its predecessor.
-                let entry = diag.nodes[pt].kind == StateKind::EntryPoint;
-                let conn = diag.transitions.iter().find_map(|t| {
-                    if entry && t.from == diag.nodes[pt].id {
-                        idx.get(t.to.as_str()).copied()
-                    } else if !entry && t.to == diag.nodes[pt].id {
-                        idx.get(t.from.as_str()).copied()
-                    } else {
-                        None
-                    }
-                });
-                let perp = perp_c(&top_lefts, &eff_geom, conn.unwrap_or(c));
-                let edge = if entry { lo } else { hi };
-                top_lefts[pt] = if is_lr {
-                    Point::new(edge - eff_geom[pt].x / 2.0, perp - eff_geom[pt].y / 2.0)
-                } else {
-                    Point::new(perp - eff_geom[pt].x / 2.0, edge - eff_geom[pt].y / 2.0)
-                };
-                moved.insert(pt);
-            }
-        }
-        if !moved.is_empty() {
-            for &(ti, s, d, _) in &all_edges {
-                if moved.contains(&s) || moved.contains(&d) {
-                    waypoints.remove(&ti);
-                }
-            }
-        }
-    }
-
-    Layout {
-        top_lefts,
-        eff_geom,
-        back,
-        dividers: vec![Vec::new(); n],
-        waypoints,
-        label_pos,
-    }
-}
-
 /// Compute the absolute top-left + effective size of every node.
 ///
 /// Composite states are laid out recursively: each composite's interior
 /// is a sub-diagram with its own `layout_flat` pass, the resulting bbox
 /// fixes the composite's frame size, and that size feeds the parent
 /// level's layout. Positions are propagated top-down at the end.
-fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orientation) -> Layout {
+fn layout_nodes(
+    diag: &StateDiagram,
+    base_geoms: &[NodeGeom],
+    label_sizes: &[Option<(f64, f64)>],
+    orientation: Orientation,
+) -> Layout {
     let n = diag.nodes.len();
     let is_lr = matches!(orientation, Orientation::LeftToRight);
     let idx: HashMap<&str, usize> = diag
@@ -1751,6 +1308,11 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
     let mut eff_geom: Vec<Point> = base_geoms.iter().map(|g| g.size).collect();
     let mut frame_offset: Vec<Point> = vec![Point::zero(); n];
     let mut interior: Vec<HashMap<usize, Point>> = vec![HashMap::new(); n];
+    // Frame-relative reserved label centres per composite (label nodes laid
+    // out by the per-level placer), translated to absolute on propagate.
+    let mut interior_label: Vec<HashMap<usize, Point>> = vec![HashMap::new(); n];
+    // Frame-relative connector-chain waypoints per composite, likewise.
+    let mut interior_waypoints: Vec<HashMap<usize, Vec<Point>>> = vec![HashMap::new(); n];
     // Frame-relative divider segments per composite (empty unless it has
     // `--` / `||` concurrent regions).
     let mut dividers: Vec<Vec<(Point, Point)>> = vec![Vec::new(); n];
@@ -1796,7 +1358,7 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
             .iter()
             .map(|part| {
                 let edges = lift_edges(&all_edges, part, &parent_of);
-                let fl = layout_flat(part, &eff_geom, &edges, orientation);
+                let fl = layout_flat(diag, part, &eff_geom, &edges, label_sizes, orientation);
                 for &(ti, b) in &fl.back {
                     back[ti] |= b;
                 }
@@ -1819,7 +1381,7 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
                 if !is_back {
                     continue;
                 }
-                let need = match edge_label_size(&diag.transitions[ti]) {
+                let need = match label_sizes.get(ti).copied().flatten() {
                     // bow apex (`bow + 3pt`) + label width + margin.
                     Some((w, _)) => 33.0 + w + 6.0,
                     // just the C-bow line (curve apex ~22.5pt past the node).
@@ -1827,6 +1389,35 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
                 };
                 bow_reserve = bow_reserve.max(need);
             }
+        }
+        // Self-loops are dropped from the layout graph (from == to), so they
+        // never show up in `fl.back`; reserve for their arc separately. Unlike
+        // a back-edge bow (which `bow_reserve` pads symmetrically to keep the
+        // interior centered), the painter always bulges a self-loop onto the
+        // *high* perpendicular side only — 26pt for the arc plus the label
+        // 3pt past it (`states.typ`). So this reserve is one-sided: it widens
+        // the frame on the high side while the interior content stays put,
+        // matching how dot draws a self-edge in the node's right margin.
+        let members: std::collections::HashSet<usize> =
+            parts.iter().flatten().copied().collect();
+        let mut loop_reserve = 0.0_f64;
+        for (ti, tr) in diag.transitions.iter().enumerate() {
+            if tr.from != tr.to {
+                continue;
+            }
+            let Some(&s) = idx.get(tr.from.as_str()) else {
+                continue;
+            };
+            if !members.contains(&s) {
+                continue;
+            }
+            let need = match label_sizes.get(ti).copied().flatten() {
+                // arc apex (`26 + 3pt`) + label width + margin.
+                Some((w, _)) => 29.0 + w + 6.0,
+                // bare arc (bulges ~26pt past the node) + margin.
+                None => 32.0,
+            };
+            loop_reserve = loop_reserve.max(need);
         }
         let bow_shift = if is_lr {
             Point::new(0.0, bow_reserve)
@@ -1847,17 +1438,35 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
             for (&g, p) in &fl.rel {
                 interior[c].insert(g, Point::new(o.x + p.x, o.y + p.y));
             }
+            for (&ti, lp) in &fl.label_pos {
+                interior_label[c].insert(ti, Point::new(o.x + lp.x, o.y + lp.y));
+            }
+            for (&ti, chain) in &fl.waypoints {
+                interior_waypoints[c].insert(
+                    ti,
+                    chain.iter().map(|p| Point::new(o.x + p.x, o.y + p.y)).collect(),
+                );
+            }
         }
 
         // Floor the frame width to the label box (measured when available).
         let label_w = base_geoms[c].size.x;
-        let outer_w = (interior_w + 2.0 * COMPOSITE_PAD_PT).max(label_w + 2.0 * COMPOSITE_PAD_PT);
-        let outer_h = interior_h + 2.0 * COMPOSITE_PAD_PT + COMPOSITE_LABEL_BAND_PT;
+        // Content box (interior + padding, floored to the label). The
+        // self-loop reserve is then appended to the high perpendicular side
+        // only — never recentered — so the arc has room without pushing the
+        // interior off-center or shifting the frame's entry edge.
+        let content_w = (interior_w + 2.0 * COMPOSITE_PAD_PT).max(label_w + 2.0 * COMPOSITE_PAD_PT);
+        let content_h = interior_h + 2.0 * COMPOSITE_PAD_PT + COMPOSITE_LABEL_BAND_PT;
+        let (outer_w, outer_h) = if is_lr {
+            (content_w, content_h + loop_reserve)
+        } else {
+            (content_w + loop_reserve, content_h)
+        };
         eff_geom[c] = Point::new(outer_w, outer_h);
-        // Interior content is centered horizontally; the label band sits
-        // above it.
+        // Interior content is centered within the content box (excluding the
+        // one-sided loop reserve); the label band sits above it.
         let foff = Point::new(
-            (outer_w - interior_w) / 2.0,
+            (content_w - interior_w) / 2.0,
             COMPOSITE_PAD_PT + COMPOSITE_LABEL_BAND_PT,
         );
         frame_offset[c] = foff;
@@ -1887,7 +1496,7 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
     // Top level.
     let top_members: Vec<usize> = (0..n).filter(|&i| parent_of[i].is_none()).collect();
     let top_edges = lift_edges(&all_edges, &top_members, &parent_of);
-    let top_fl = layout_flat(&top_members, &eff_geom, &top_edges, orientation);
+    let top_fl = layout_flat(diag, &top_members, &eff_geom, &top_edges, label_sizes, orientation);
     for &(ti, b) in &top_fl.back {
         back[ti] |= b;
     }
@@ -1900,12 +1509,23 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
             top_lefts[mem] = *p;
         }
     }
+    // Top-level labels are already in the top frame (= absolute, modulo the
+    // global normalize emit applies). Composite-interior labels are
+    // translated by their frame's absolute origin below.
+    let mut label_pos: HashMap<usize, Point> = top_fl.label_pos.clone();
+    let mut waypoints: HashMap<usize, Vec<Point>> = top_fl.waypoints.clone();
     let mut composites_pre = composites.clone();
     composites_pre.sort_by_key(|&c| depth[c]);
     for &c in &composites_pre {
         let base = top_lefts[c].add(frame_offset[c]);
         for (&child, &child_rel) in &interior[c] {
             top_lefts[child] = base.add(child_rel);
+        }
+        for (&ti, lp) in &interior_label[c] {
+            label_pos.insert(ti, base.add(*lp));
+        }
+        for (&ti, chain) in &interior_waypoints[c] {
+            waypoints.insert(ti, chain.iter().map(|p| base.add(*p)).collect());
         }
     }
 
@@ -1941,8 +1561,8 @@ fn layout_nodes(diag: &StateDiagram, base_geoms: &[NodeGeom], orientation: Orien
         eff_geom,
         back,
         dividers,
-        waypoints: HashMap::new(),
-        label_pos: HashMap::new(),
+        waypoints,
+        label_pos,
     }
 }
 
@@ -1965,6 +1585,16 @@ pub fn emit(
         .map(|n| resolve_node_geom(n, measurements, diagram_idx))
         .collect();
 
+    // Per-transition label sizes (painter-measured when pass-1 ran), indexed
+    // by transition. Threaded into the layout so label virtual nodes and bow
+    // reserves use the true rendered size instead of a char-count estimate.
+    let label_sizes: Vec<Option<(f64, f64)>> = diag
+        .transitions
+        .iter()
+        .enumerate()
+        .map(|(ti, tr)| resolve_edge_label_size(tr, ti, measurements, diagram_idx))
+        .collect();
+
     let orientation = match diag.direction {
         LayoutDirection::TopToBottom => Orientation::TopToBottom,
         LayoutDirection::LeftToRight => Orientation::LeftToRight,
@@ -1972,27 +1602,39 @@ pub fn emit(
 
     let id_to_idx = |id: &str| diag.nodes.iter().position(|n| n.id == id);
 
-    // `layout_global` (dot-style global cluster layout) handles flat
-    // diagrams, single-level and nested composites: leaves/pseudostates
-    // are box nodes, composites are HierarchyMap clusters, long edges
-    // route down lanes beside the composite like dot, sources fan out,
-    // the final sits at the bottom, and `tighten::restore_rank_monotonicity`
-    // keeps a composite's outside successors below its frame. Concurrent
-    // regions still need the dedicated recursive layout. See
-    // docs/state-routing-redesign.md.
-    let use_global = diag.regions.is_empty();
-    let layout = if use_global {
-        layout_global(diag, &geoms, orientation)
-    } else {
-        layout_nodes(diag, &geoms, orientation)
-    };
+    // Recursive cluster layout (dot's model): each composite's interior is
+    // laid out as its own sub-graph (network-simplex rank + x, minlen from
+    // the dash count, edge labels as virtual nodes), the resulting frame
+    // size becomes a single box node in the parent level, and a composite's
+    // outside successors rank below that whole box — so the frame placement
+    // and exit spacing fall out of the layout instead of post-hoc patches.
+    // Concurrent regions are sibling sub-layouts inside their composite.
+    let layout = layout_nodes(diag, &geoms, &label_sizes, orientation);
     let mut top_lefts = layout.top_lefts;
     let eff_geom = layout.eff_geom;
-    let back = layout.back;
+    let mut back = layout.back;
     let dividers = layout.dividers;
     let mut waypoints = layout.waypoints;
     let mut label_pos = layout.label_pos;
     let is_lr = matches!(orientation, Orientation::LeftToRight);
+
+    // A re-entry edge into a composite's history pseudostate (the resume /
+    // wake transition) is a back-edge in rank terms, but it must NOT be
+    // drawn as a wide outer bow — that swings around the composite's exit
+    // edge and the terminal. dot reverses such an edge and routes a direct
+    // spline; the history node already sits at the composite's exit side, so
+    // a straight line from the source enters cleanly. Drop the back flag so
+    // the painter draws it directly instead of bowing it.
+    for (ti, tr) in diag.transitions.iter().enumerate() {
+        if !back[ti] {
+            continue;
+        }
+        if let Some(d) = id_to_idx(&tr.to) {
+            if matches!(diag.nodes[d].kind, StateKind::History | StateKind::DeepHistory) {
+                back[ti] = false;
+            }
+        }
+    }
 
     // Normalize so the content starts at (MARGIN, MARGIN).
     let min_x = top_lefts.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
@@ -2327,7 +1969,7 @@ pub fn emit(
         let (Some(s), Some(d)) = (id_to_idx(&tr.from), id_to_idx(&tr.to)) else {
             continue;
         };
-        let Some((w, h)) = edge_label_size(tr) else {
+        let Some((w, h)) = label_sizes.get(ti).copied().flatten() else {
             continue;
         };
         // A label laid out as a dot-style label node has a reserved
@@ -2392,11 +2034,11 @@ pub fn emit(
         lb.1 += shift_y;
     }
 
-    // Per-transition routed path. The global cluster layout supplies
-    // connector waypoints (dot's "edge follows its virtual-node chain");
-    // we clip the real endpoints to the node faces and stitch the chain
-    // into cubic segments. Diagrams on the recursive (concurrent) path
-    // have no waypoints and fall back to the obstacle detour router.
+    // Per-transition routed path. When a layout supplies connector
+    // waypoints (dot's "edge follows its virtual-node chain") we clip the
+    // real endpoints to the node faces and stitch the chain into cubic
+    // segments. The recursive layout supplies none today, so edges fall
+    // back to the obstacle detour router (`route_transitions`).
     let id_pos = |id: &str| id_to_idx(id);
     let node_center = |i: usize| -> Point {
         Point::new(
@@ -2506,8 +2148,7 @@ pub fn emit(
                 pts.push(start);
                 pts.extend_from_slice(mids);
                 pts.push(end);
-                let segments: Vec<(Point, Point, Point)> =
-                    pts.windows(2).map(|w| straight_cubic(w[0], w[1])).collect();
+                let segments = smooth_polyline(&pts);
                 routed[ti] = Some(RoutedEdge { start, segments });
             }
         }
@@ -2526,18 +2167,43 @@ pub fn emit(
         struct Ep {
             ti: usize,
             node: usize,
+            far: usize,
             is_src: bool,
             other: Point,
         }
-        let face_of = |node: usize, other: Point| -> u8 {
-            let c = node_center(node);
-            let (dx, dy) = (other.x - c.x, other.y - c.y);
-            if dy.abs() >= dx.abs() {
-                if dy >= 0.0 { 1 } else { 0 } // bottom / top
-            } else if dx >= 0.0 {
-                3 // right
+        // Which face an edge leaves/enters, dot-style: a *rank* edge (the two
+        // boxes don't overlap on the rank axis — they sit in different ranks)
+        // leaves the rank-end face and enters the rank-start face, so it flows
+        // with the layout; only a *flat* edge (boxes overlapping on the rank
+        // axis, i.e. same rank) uses a perpendicular side face. A raw angle
+        // test instead sent a forward edge out the side whenever the target
+        // sat diagonally past a wide box's corner — which is how State3's two
+        // exits to the terminal ended up on the right face, crossing the
+        // self-loop, rather than fanning along the bottom.
+        // Faces: 0 top, 1 bottom, 2 left, 3 right.
+        let face_of = |node: usize, far: usize| -> u8 {
+            let (np, ng) = (top_lefts[node], eff_geom[node]);
+            let (fp, fg) = (top_lefts[far], eff_geom[far]);
+            if is_lr {
+                // Rank axis = x. Overlap on x ⇒ flat edge ⇒ top/bottom face.
+                let flat = np.x < fp.x + fg.x && fp.x < np.x + ng.x;
+                if flat {
+                    if fp.y + fg.y / 2.0 >= np.y + ng.y / 2.0 { 1 } else { 0 }
+                } else if fp.x >= np.x + ng.x {
+                    3
+                } else {
+                    2
+                }
             } else {
-                2 // left
+                // Rank axis = y. Overlap on y ⇒ flat edge ⇒ left/right face.
+                let flat = np.y < fp.y + fg.y && fp.y < np.y + ng.y;
+                if flat {
+                    if fp.x + fg.x / 2.0 >= np.x + ng.x / 2.0 { 3 } else { 2 }
+                } else if fp.y >= np.y + ng.y {
+                    1
+                } else {
+                    0
+                }
             }
         };
         let mut eps: Vec<Ep> = Vec::new();
@@ -2546,12 +2212,12 @@ pub fn emit(
             if s == d || back[ti] || routed[ti].is_some() {
                 continue;
             }
-            eps.push(Ep { ti, node: s, is_src: true, other: node_center(d) });
-            eps.push(Ep { ti, node: d, is_src: false, other: node_center(s) });
+            eps.push(Ep { ti, node: s, far: d, is_src: true, other: node_center(d) });
+            eps.push(Ep { ti, node: d, far: s, is_src: false, other: node_center(s) });
         }
         let mut groups: HashMap<(usize, u8), Vec<usize>> = HashMap::new();
         for (i, ep) in eps.iter().enumerate() {
-            groups.entry((ep.node, face_of(ep.node, ep.other))).or_default().push(i);
+            groups.entry((ep.node, face_of(ep.node, ep.far))).or_default().push(i);
         }
         let mut port: HashMap<(usize, bool), Point> = HashMap::new();
         for ((node, face), mut idxs) in groups {
@@ -2580,7 +2246,20 @@ pub fn emit(
             } else {
                 (c.y - hh + 4.0, c.y + hh - 4.0)
             };
-            let spacing = ((hi - lo) / count as f64).clamp(6.0, 16.0);
+            // Evenly distribute ports across the usable face (dot spreads
+            // multi-edge ports by the available width, not a fixed gap), so
+            // parallel edges off a wide box (e.g. a composite's two exits to
+            // the terminal) leave from the middle and the corner rather than
+            // bunched at one spot. Floored so narrow faces stay legible.
+            let spacing = ((hi - lo) / count as f64).max(6.0);
+            // Re-centre the fan so its whole width fits inside the face. The
+            // natural exit (`centroid`) points at the shared target, which —
+            // when the target sits off to one side of a wide box — lands at
+            // the face edge; without this, every port `clamp`s onto that
+            // edge and the parallel edges collapse into one line. Pull the
+            // centre in by the half-span so the ports stay distinct.
+            let half_span = ((count as f64 - 1.0) / 2.0 * spacing).min((hi - lo) / 2.0);
+            let centroid = centroid.clamp(lo + half_span, (hi - half_span).max(lo + half_span));
             for (k, &i) in idxs.iter().enumerate() {
                 let pos = (centroid + (k as f64 - (count as f64 - 1.0) / 2.0) * spacing).clamp(lo, hi);
                 let pt = match face {

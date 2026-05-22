@@ -4,21 +4,21 @@
 
 #state-layout(
   nodes: (
-    (id: "__initial__", kind: "initial", x: 180.42pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Listening", kind: "simple", x: 159.38pt, y: 76.00pt, w: 60.07pt, h: 32.00pt, display: "Listening", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "Handling", kind: "simple", x: 126.00pt, y: 159.00pt, w: 60.12pt, h: 32.00pt, display: "Handling", body: (), fill: none, border-style: "solid", border-color: none),
-    (id: "__final__", kind: "final", x: 206.12pt, y: 159.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__initial__", kind: "initial", x: 183.09pt, y: 30.00pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Listening", kind: "simple", x: 162.06pt, y: 76.00pt, w: 60.07pt, h: 32.00pt, display: "Listening", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Handling", kind: "simple", x: 126.00pt, y: 153.13pt, w: 60.12pt, h: 32.00pt, display: "Handling", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "__final__", kind: "final", x: 219.12pt, y: 153.13pt, w: 18.00pt, h: 18.00pt, display: "", body: (), fill: none, border-style: "solid", border-color: none),
   ),
   transitions: (
     (from: "__initial__", to: "Listening", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max"),
     (from: "Listening", to: "Listening", event: "poll", guard: "no message", action: none, style: "solid", color: none, self-loop: true, back: false, bow-side: "max"),
-    (from: "Listening", to: "Handling", event: "message arrived", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (173.03pt, 108.00pt), path: ((c1: (164.33pt, 116.50pt), c2: (155.62pt, 125.00pt), end: (146.92pt, 133.50pt)), (c1: (148.79pt, 142.00pt), c2: (150.66pt, 150.50pt), end: (152.54pt, 159.00pt)), ), label-pos: (146.92pt, 133.50pt)),
-    (from: "Handling", to: "Listening", event: "done", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "min", start: (166.84pt, 159.00pt), path: ((c1: (174.37pt, 147.83pt), c2: (181.89pt, 136.67pt), end: (189.42pt, 125.50pt)), (c1: (189.42pt, 119.67pt), c2: (189.42pt, 113.83pt), end: (189.42pt, 108.00pt)), )),
-    (from: "Listening", to: "__final__", event: "shutdown", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (199.33pt, 108.00pt), path: ((c1: (204.59pt, 116.50pt), c2: (209.86pt, 125.00pt), end: (215.12pt, 133.50pt)), (c1: (215.12pt, 142.00pt), c2: (215.12pt, 150.50pt), end: (215.12pt, 159.00pt)), ), label-pos: (215.12pt, 133.50pt)),
+    (from: "Listening", to: "Handling", event: "message arrived", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (179.53pt, 108.00pt), path: ((c1: (176.57pt, 111.76pt), c2: (165.32pt, 123.04pt), end: (161.80pt, 130.57pt)), (c1: (158.29pt, 138.09pt), c2: (159.00pt, 149.37pt), end: (158.44pt, 153.13pt)), ), label-pos: (161.80pt, 130.57pt)),
+    (from: "Handling", to: "Listening", event: "done", guard: none, action: none, style: "solid", color: none, self-loop: false, back: true, bow-side: "min"),
+    (from: "Listening", to: "__final__", event: "shutdown", guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (205.85pt, 108.00pt), path: ((c1: (209.08pt, 111.76pt), c2: (221.67pt, 123.04pt), end: (225.25pt, 130.57pt)), (c1: (228.82pt, 138.09pt), c2: (226.96pt, 149.40pt), end: (227.30pt, 153.17pt)), ), label-pos: (225.25pt, 130.57pt)),
   ),
   notes: (
   ),
-  page: (347.52pt, 221.00pt),
+  page: (350.97pt, 215.13pt),
   title: "Self-transition on a single state",
   hide-empty-description: false,
   direction: "tb",

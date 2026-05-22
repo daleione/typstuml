@@ -1,0 +1,62 @@
+@startuml
+' --- Styling ---
+skinparam ClassAttributeIconSize 0
+skinparam class {
+    BackgroundColor White
+    ArrowColor #268bd2
+    BorderColor #073642
+}
+
+' --- Abstract Classes and Interfaces ---
+abstract class User {
+    -String username
+    -String password
+    +abstract void login()
+}
+
+interface IRepository {
+    +save(entity)
+    +find(id)
+}
+
+' --- Class Definitions ---
+class Customer {
+    -String email
+    +placeOrder(Order)
+}
+
+class Order {
+    -Date orderDate
+    -String status
+    +calculateTotal(): double
+}
+
+class LineItem {
+    -int quantity
+    -double price
+}
+
+class Product {
+    -String name
+    -double price
+}
+
+class ProductCatalog {
+    -List<Product> products
+    +findProduct(String): Product
+}
+
+' --- Relationships ---
+User <|-- Customer : Inheritance
+Customer "1" *-- "0..*" Order : Composition (Customer owns Orders)
+Order "1" *-- "0..*" LineItem : Composition (Order owns LineItems)
+LineItem "0..*" o-- "1" Product : Aggregation (Item uses Product)
+ProductCatalog "1" o-- "0..*" Product : Aggregation
+Customer ..> IRepository : Uses
+
+' --- Generics & Advanced Annotation ---
+class OrderRepository<T> implements IRepository {
+    +List<T> findAll()
+}
+
+@enduml

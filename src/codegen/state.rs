@@ -1618,19 +1618,111 @@ pub fn emit(
     let mut label_pos = layout.label_pos;
     let is_lr = matches!(orientation, Orientation::LeftToRight);
 
-    // A re-entry edge into a composite's history pseudostate (the resume /
-    // wake transition) is a back-edge in rank terms, but it must NOT be
-    // drawn as a wide outer bow — that swings around the composite's exit
-    // edge and the terminal. dot reverses such an edge and routes a direct
-    // spline; the history node already sits at the composite's exit side, so
-    // a straight line from the source enters cleanly. Drop the back flag so
-    // the painter draws it directly instead of bowing it.
-    for (ti, tr) in diag.transitions.iter().enumerate() {
-        if !back[ti] {
-            continue;
-        }
-        if let Some(d) = id_to_idx(&tr.to) {
-            if matches!(diag.nodes[d].kind, StateKind::History | StateKind::DeepHistory) {
+    // A back-edge is a rank artifact: it points from a lower rank back to a
+    // higher one (e.g. a top-level cycle `A→B` / `B→A` between two
+    // composites). The wide outer bow is only warranted when a direct line
+    // would otherwise run *through* the interior; dot reverses a back-edge
+    // and routes it as an ordinary spline whenever it can. Drop the back
+    // flag — so the painter draws straight and `route_transitions` treats it
+    // as a normal edge — when either:
+    //
+    //   * the target is a composite's history pseudostate (the resume / wake
+    //     transition; the history node already sits at the composite's exit
+    //     side, so a straight line enters cleanly and a bow would swing
+    //     around the exit edge and terminal), or
+    //   * the straight perimeter line already has clear line-of-sight (no
+    //     unrelated box in the way, same obstacle rule as `route_transitions`)
+    //     AND no reverse edge `d→s` exists that a straight draw would coincide
+    //     with. This is the `X→Z` / `Z→Y` nested-composite case: PlantUML
+    //     draws both as straight diagonals, not one bowed around the outside.
+    {
+        let nidx: HashMap<&str, usize> = diag
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, nd)| (nd.id.as_str(), i))
+            .collect();
+        let parent_of: Vec<Option<usize>> = diag
+            .nodes
+            .iter()
+            .map(|nd| nd.parent.as_deref().and_then(|p| nidx.get(p).copied()))
+            .collect();
+        let anc_or_self = |a: usize, mut x: usize| -> bool {
+            loop {
+                if x == a {
+                    return true;
+                }
+                match parent_of[x] {
+                    Some(p) => x = p,
+                    None => return false,
+                }
+            }
+        };
+        let center = |i: usize| {
+            Point::new(
+                top_lefts[i].x + eff_geom[i].x / 2.0,
+                top_lefts[i].y + eff_geom[i].y / 2.0,
+            )
+        };
+        // True when the straight perimeter line `s→d` crosses no box that is
+        // unrelated to either endpoint. Mirrors `route_transitions`: a node is
+        // "involved" (never an obstacle) when it contains or is contained by
+        // either endpoint; inner boxes whose parent also blocks are skipped
+        // since the frame already covers them.
+        let los_clear = |s: usize, d: usize| -> bool {
+            let involved = |x: usize| {
+                anc_or_self(x, s) || anc_or_self(x, d) || anc_or_self(s, x) || anc_or_self(d, x)
+            };
+            let start = perimeter_point(
+                center(s),
+                eff_geom[s].x / 2.0,
+                eff_geom[s].y / 2.0,
+                node_shape(diag.nodes[s].kind),
+                center(d),
+            );
+            let end = perimeter_point(
+                center(d),
+                eff_geom[d].x / 2.0,
+                eff_geom[d].y / 2.0,
+                node_shape(diag.nodes[d].kind),
+                center(s),
+            );
+            for x in 0..diag.nodes.len() {
+                if involved(x) {
+                    continue;
+                }
+                if let Some(p) = parent_of[x] {
+                    if !involved(p) {
+                        continue; // outer frame already covers this child
+                    }
+                }
+                let lo = top_lefts[x];
+                let hi = Point::new(lo.x + eff_geom[x].x, lo.y + eff_geom[x].y);
+                if seg_crosses_box(start, end, lo, hi) {
+                    return false;
+                }
+            }
+            true
+        };
+        for ti in 0..diag.transitions.len() {
+            if !back[ti] {
+                continue;
+            }
+            let tr = &diag.transitions[ti];
+            let (Some(s), Some(d)) =
+                (nidx.get(tr.from.as_str()).copied(), nidx.get(tr.to.as_str()).copied())
+            else {
+                continue;
+            };
+            let history = matches!(
+                diag.nodes[d].kind,
+                StateKind::History | StateKind::DeepHistory
+            );
+            let has_reverse = diag
+                .transitions
+                .iter()
+                .any(|t2| t2.from == tr.to && t2.to == tr.from);
+            if history || (!has_reverse && los_clear(s, d)) {
                 back[ti] = false;
             }
         }

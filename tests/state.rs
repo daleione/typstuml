@@ -72,6 +72,9 @@ fn golden_emit_typst_state_composite() { golden_state("composite"); }
 fn golden_emit_typst_state_composite_nested() { golden_state("composite-nested"); }
 
 #[test]
+fn golden_emit_typst_state_cross_composite_cycle() { golden_state("cross-composite-cycle"); }
+
+#[test]
 fn golden_emit_typst_state_notes() { golden_state("notes"); }
 
 #[test]
@@ -151,6 +154,9 @@ fn renders_svg_for_state_composite() { render_state_svg("composite"); }
 
 #[test]
 fn renders_svg_for_state_composite_nested() { render_state_svg("composite-nested"); }
+
+#[test]
+fn renders_svg_for_state_cross_composite_cycle() { render_state_svg("cross-composite-cycle"); }
 
 #[test]
 fn renders_svg_for_state_notes() { render_state_svg("notes"); }

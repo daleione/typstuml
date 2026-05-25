@@ -1,0 +1,23 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#state-layout(
+  nodes: (
+    (id: "A", kind: "composite", x: 30.00pt, y: 30.00pt, w: 185.35pt, h: 108.00pt, display: "A", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "X", kind: "composite", x: 46.00pt, y: 68.00pt, w: 60.60pt, h: 54.00pt, display: "X", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Y", kind: "composite", x: 139.60pt, y: 68.00pt, w: 59.75pt, h: 54.00pt, display: "Y", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "B", kind: "composite", x: 76.66pt, y: 166.00pt, w: 92.04pt, h: 108.00pt, display: "B", body: (), fill: none, border-style: "solid", border-color: none),
+    (id: "Z", kind: "composite", x: 92.66pt, y: 204.00pt, w: 60.04pt, h: 54.00pt, display: "Z", body: (), fill: none, border-style: "solid", border-color: none),
+  ),
+  transitions: (
+    (from: "X", to: "Z", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (85.51pt, 122.00pt), path: ((c1: (93.57pt, 149.33pt), c2: (101.64pt, 176.67pt), end: (109.71pt, 204.00pt)), )),
+    (from: "Z", to: "Y", event: none, guard: none, action: none, style: "solid", color: none, self-loop: false, back: false, bow-side: "max", start: (135.73pt, 204.00pt), path: ((c1: (143.88pt, 176.67pt), c2: (152.03pt, 149.33pt), end: (160.18pt, 122.00pt)), )),
+  ),
+  notes: (
+  ),
+  page: (245.35pt, 304.00pt),
+  title: none,
+  hide-empty-description: false,
+  direction: "tb",
+)

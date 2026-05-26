@@ -91,21 +91,6 @@ fn escape_one(c: char) -> String {
     }
 }
 
-pub(super) fn typst_str_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            _ => out.push(c),
-        }
-    }
-    out
-}
+pub(super) use crate::codegen::common::escape_string as typst_str_escape;
 
-pub(super) fn typst_escape(s: &str) -> String {
-    s.replace('\\', "\\\\")
-        .replace('*', "\\*")
-        .replace('_', "\\_")
-        .replace('#', "\\#")
-}
+pub(super) use crate::codegen::common::escape_markup_min as typst_escape;

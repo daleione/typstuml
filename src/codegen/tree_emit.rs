@@ -95,11 +95,7 @@ pub fn emit_title(out: &mut String, title: &str) {
     out.push_str("*]\n\n");
 }
 
-pub fn indent_spaces(out: &mut String, level: usize) {
-    for _ in 0..level {
-        out.push_str("  ");
-    }
-}
+pub(crate) use crate::codegen::common::indent as indent_spaces;
 
 /// Translate a PlantUML `#color` spec to a Typst color expression. Returns
 /// `None` for forms we can't safely lower; the caller falls back to the
@@ -123,17 +119,4 @@ pub fn typst_color(spec: &str) -> Option<String> {
     }
 }
 
-pub fn typst_markup_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' => {
-                out.push('\\');
-                out.push(c);
-            }
-            _ => out.push(c),
-        }
-    }
-    out
-}
+pub(crate) use crate::codegen::common::escape_markup as typst_markup_escape;

@@ -21,6 +21,7 @@ use super::route::{
 };
 use super::view::{NodeBoxes, NodeTopology};
 use super::{emit_opt_str, typst_str_escape};
+use crate::codegen::common::puml_color_to_typst;
 
 /// A placed note sticky: its box `(x, y, w, h)`, body text, the side it sits
 /// on relative to its anchor, and the anchor rectangle the dashed connector
@@ -1212,42 +1213,4 @@ fn direction_kw(d: Option<Direction>) -> &'static str {
         Some(Direction::Right) => "right",
         None => "none",
     }
-}
-
-/// Translate a PlantUML color spec (`#LightBlue`, `#ABC`, `red`) to a Typst
-/// `rgb(...)` literal. Returns `None` for an unparseable spec.
-fn puml_color_to_typst(raw: &str) -> Option<String> {
-    let s = raw.trim();
-    if s.is_empty() {
-        return None;
-    }
-    let hex = s.strip_prefix('#').unwrap_or(s);
-    let lower = hex.to_ascii_lowercase();
-    let named = match lower.as_str() {
-        "red" => Some("FF0000"),
-        "blue" => Some("0000FF"),
-        "green" => Some("008000"),
-        "yellow" => Some("FFFF00"),
-        "orange" => Some("FFA500"),
-        "black" => Some("000000"),
-        "white" => Some("FFFFFF"),
-        "gray" | "grey" => Some("808080"),
-        "lightblue" => Some("ADD8E6"),
-        "lightgreen" => Some("90EE90"),
-        "lightyellow" => Some("FFFFE0"),
-        "lightgray" | "lightgrey" => Some("D3D3D3"),
-        "pink" => Some("FFC0CB"),
-        _ => None,
-    };
-    let final_hex = match named {
-        Some(h) => h.to_string(),
-        None => {
-            if hex.chars().all(|c| c.is_ascii_hexdigit()) && (hex.len() == 3 || hex.len() == 6) {
-                hex.to_string()
-            } else {
-                return None;
-            }
-        }
-    };
-    Some(format!("rgb(\"#{final_hex}\")"))
 }

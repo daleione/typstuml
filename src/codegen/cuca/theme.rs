@@ -136,48 +136,4 @@ fn builtin_theme(name: &str) -> &'static [(&'static str, &'static str)] {
     }
 }
 
-/// Best-effort PUML color → Typst color expression. Mirrors
-/// `sequence.rs::puml_color_to_typst`; once class is in, we should
-/// extract this helper to a shared module.
-pub(super) fn puml_color_to_typst(raw: &str) -> Option<String> {
-    let s = raw.trim();
-    if s.is_empty() {
-        return None;
-    }
-    let hex = s.strip_prefix('#').unwrap_or(s);
-    let lower = hex.to_ascii_lowercase();
-    let named = match lower.as_str() {
-        "red" => Some("#FF0000"),
-        "blue" => Some("#0000FF"),
-        "green" => Some("#008000"),
-        "yellow" => Some("#FFFF00"),
-        "orange" => Some("#FFA500"),
-        "purple" => Some("#800080"),
-        "pink" => Some("#FFC0CB"),
-        "black" => Some("#000000"),
-        "white" => Some("#FFFFFF"),
-        "gray" | "grey" => Some("#808080"),
-        "lightblue" => Some("#ADD8E6"),
-        "lightgreen" => Some("#90EE90"),
-        "lightyellow" => Some("#FFFFE0"),
-        "lightgray" | "lightgrey" => Some("#D3D3D3"),
-        "darkblue" => Some("#00008B"),
-        "darkgreen" => Some("#006400"),
-        "darkred" => Some("#8B0000"),
-        "gold" => Some("#FFD700"),
-        "cyan" | "aqua" => Some("#00FFFF"),
-        "magenta" => Some("#FF00FF"),
-        _ => None,
-    };
-    let final_hex = match named {
-        Some(h) => h.trim_start_matches('#').to_string(),
-        None => {
-            if hex.chars().all(|c| c.is_ascii_hexdigit()) && (hex.len() == 3 || hex.len() == 6) {
-                hex.to_string()
-            } else {
-                return None;
-            }
-        }
-    };
-    Some(format!("rgb(\"#{}\")", final_hex))
-}
+pub(super) use crate::codegen::common::puml_color_to_typst;

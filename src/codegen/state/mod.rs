@@ -43,10 +43,7 @@ mod view;
 pub use emit::emit;
 pub use geom::{collect_probes, has_probes};
 
-/// Escape a string for embedding in a Typst double-quoted literal.
-fn typst_str_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
-}
+use crate::codegen::common::escape_string as typst_str_escape;
 
 /// Emit `key: "value", ` (escaped) or `key: none, ` into the painter call.
 fn emit_opt_str(out: &mut String, key: &str, val: Option<&str>) {

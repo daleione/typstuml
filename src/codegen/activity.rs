@@ -12,9 +12,12 @@
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+use crate::codegen::common::{
+    emit_skinparam_preamble, indent as push_indent, puml_color_to_typst,
+};
 use crate::ir::{
     ActionKind, ActivityDiagram, ActivityStmt, ElseIfBranch, NoteAttach, NotePosition,
-    PartitionKind, Skinparam, SwitchCase,
+    PartitionKind, SwitchCase,
 };
 use crate::layout::swimlane as sw_layout;
 use crate::runtime::MeasurementSet;
@@ -742,76 +745,7 @@ fn emit_title(out: &mut String, title: &str) {
     out.push_str("*]\n\n");
 }
 
-fn emit_skinparam_preamble(out: &mut String, params: &[Skinparam]) {
-    let mut text_args: Vec<String> = Vec::new();
-    let mut page_fill: Option<String> = None;
-    for p in params {
-        match p.key.as_str() {
-            "backgroundColor" | "BackgroundColor" => {
-                if let Some(c) = puml_color_to_typst(&p.value) {
-                    page_fill = Some(c);
-                }
-            }
-            "defaultFontName" | "DefaultFontName" | "defaultFontFamily" => {
-                let trimmed = p.value.trim_matches('"');
-                if !trimmed.is_empty() {
-                    text_args.push(format!("font: \"{}\"", typst_str_escape(trimmed)));
-                }
-            }
-            "defaultFontSize" | "DefaultFontSize" => {
-                if let Ok(pt) = p.value.trim().parse::<u32>() {
-                    text_args.push(format!("size: {pt}pt"));
-                }
-            }
-            _ => {}
-        }
-    }
-    let had_page_fill = page_fill.is_some();
-    if let Some(c) = page_fill {
-        let _ = writeln!(out, "#set page(fill: {c})");
-    }
-    if !text_args.is_empty() {
-        let _ = writeln!(out, "#set text({})", text_args.join(", "));
-    }
-    if had_page_fill || !text_args.is_empty() {
-        out.push('\n');
-    }
-}
 
-fn puml_color_to_typst(raw: &str) -> Option<String> {
-    let s = raw.trim();
-    if s.is_empty() {
-        return None;
-    }
-    let hex = s.strip_prefix('#').unwrap_or(s);
-    let lower = hex.to_ascii_lowercase();
-    let named = match lower.as_str() {
-        "red" => Some("FF0000"),
-        "blue" => Some("0000FF"),
-        "green" => Some("008000"),
-        "yellow" => Some("FFFF00"),
-        "orange" => Some("FFA500"),
-        "black" => Some("000000"),
-        "white" => Some("FFFFFF"),
-        "gray" | "grey" => Some("808080"),
-        "lightblue" => Some("ADD8E6"),
-        "lightgreen" => Some("90EE90"),
-        "lightyellow" => Some("FFFFE0"),
-        "lightgray" | "lightgrey" => Some("D3D3D3"),
-        _ => None,
-    };
-    let final_hex = match named {
-        Some(h) => h.to_string(),
-        None => {
-            if hex.chars().all(|c| c.is_ascii_hexdigit()) && (hex.len() == 3 || hex.len() == 6) {
-                hex.to_string()
-            } else {
-                return None;
-            }
-        }
-    };
-    Some(format!("rgb(\"#{}\")", final_hex))
-}
 
 /// Join a multi-line label using Typst's hard-line-break marker. Lines
 /// are individually escaped so user content can't smuggle markup.
@@ -836,15 +770,7 @@ fn typst_escape(s: &str) -> String {
         .replace('`', "\\`")
 }
 
-fn typst_str_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
-}
 
-fn push_indent(out: &mut String, indent: usize) {
-    for _ in 0..indent {
-        out.push_str("  ");
-    }
-}
 
 #[cfg(test)]
 mod tests {

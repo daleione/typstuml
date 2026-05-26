@@ -485,20 +485,7 @@ fn emit_edge(
     out.push_str(")),\n");
 }
 
-fn typst_markup_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' => {
-                out.push('\\');
-                out.push(c);
-            }
-            _ => out.push(c),
-        }
-    }
-    out
-}
+use crate::codegen::common::escape_markup as typst_markup_escape;
 
 #[cfg(test)]
 mod tests {

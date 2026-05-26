@@ -15,6 +15,7 @@
 //!   parbreaks between diagrams instead of `#pagebreak()`.
 
 mod activity;
+pub(crate) mod common;
 mod cuca;
 mod json;
 mod mindmap;

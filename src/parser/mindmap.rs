@@ -20,6 +20,8 @@
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::{Diagram, MindMapDiagram, NodeShape, NodeSide, TreeNode};
+use crate::parser::common::strip_keyword_trimmed as strip_keyword;
+use crate::parser::tree::walk_mut;
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
@@ -167,17 +169,6 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
         }),
         diagnostics,
     ))
-}
-
-fn strip_keyword<'a>(line: &'a str, kw: &str) -> Option<&'a str> {
-    let rest = line.strip_prefix(kw)?;
-    if rest.is_empty() {
-        return Some(rest);
-    }
-    if rest.starts_with(char::is_whitespace) {
-        return Some(rest.trim());
-    }
-    None
 }
 
 struct ParsedMarker {
@@ -347,14 +338,6 @@ fn parse_marker_line(
         },
         1,
     ))
-}
-
-fn walk_mut<'a>(root: &'a mut TreeNode, path: &[usize]) -> &'a mut TreeNode {
-    let mut cur = root;
-    for &i in path {
-        cur = &mut cur.children[i];
-    }
-    cur
 }
 
 #[cfg(test)]

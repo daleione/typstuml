@@ -25,6 +25,8 @@
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::ir::{Diagram, NodeShape, NodeSide, TreeNode, WbsDiagram};
+use crate::parser::common::strip_keyword_trimmed as strip_keyword;
+use crate::parser::tree::walk_mut;
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
@@ -187,20 +189,6 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
         }),
         diagnostics,
     ))
-}
-
-/// Strip a leading PlantUML keyword (`title`, `caption`, …) and return the
-/// remaining trimmed text. Returns `None` if the line doesn't start with the
-/// keyword followed by whitespace or end-of-line.
-fn strip_keyword<'a>(line: &'a str, kw: &str) -> Option<&'a str> {
-    let rest = line.strip_prefix(kw)?;
-    if rest.is_empty() {
-        return Some(rest);
-    }
-    if rest.starts_with(char::is_whitespace) {
-        return Some(rest.trim());
-    }
-    None
 }
 
 /// Owned intermediate produced by `parse_marker_line` — pre-`children` so
@@ -427,17 +415,6 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
         },
         1,
     ))
-}
-
-/// Walk `path` (children indices from root) and return a mutable reference
-/// to the node at the path's end. Panics on a malformed path; the caller is
-/// responsible for keeping `path` in sync with the tree being built.
-fn walk_mut<'a>(root: &'a mut TreeNode, path: &[usize]) -> &'a mut TreeNode {
-    let mut cur = root;
-    for &i in path {
-        cur = &mut cur.children[i];
-    }
-    cur
 }
 
 #[cfg(test)]

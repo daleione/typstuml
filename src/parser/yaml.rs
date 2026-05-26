@@ -11,11 +11,12 @@
 //!
 //! YAML errors carry an optional `Location` with a 1-based line number
 //! relative to the slice we passed; we map that back to the original
-//! source line via the lexer's [`BodyLine`] metadata.
+//! source line via the lexer's [`BodyLine`](crate::parser::lexer::BodyLine) metadata.
 
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Result};
 use crate::ir::{Diagram, YamlDiagram};
-use crate::parser::lexer::{BodyLine, UmlBlock};
+use crate::parser::common::split_off_title;
+use crate::parser::lexer::UmlBlock;
 
 pub fn parse(block: &UmlBlock, _compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
     let (title, yaml_lines) = split_off_title(&block.body);
@@ -57,36 +58,10 @@ pub fn parse(block: &UmlBlock, _compat: CompatMode) -> Result<(Diagram, Vec<Diag
     ))
 }
 
-/// Pull a leading `title <text>` line off the body. Comments / blanks
-/// before the title are skipped along with it.
-fn split_off_title(body: &[BodyLine]) -> (Option<String>, Vec<BodyLine>) {
-    let mut title = None;
-    let mut idx = 0;
-    while idx < body.len() {
-        let trimmed = body[idx].text.trim();
-        if trimmed.is_empty() || trimmed.starts_with('\'') || trimmed.starts_with("/'") {
-            idx += 1;
-            continue;
-        }
-        if let Some(rest) = trimmed
-            .strip_prefix("title")
-            .filter(|r| r.is_empty() || r.starts_with(char::is_whitespace))
-        {
-            let t = rest.trim();
-            if !t.is_empty() {
-                title = Some(t.to_string());
-            }
-            idx += 1;
-            continue;
-        }
-        break;
-    }
-    (title, body[idx..].to_vec())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::lexer::BodyLine;
 
     fn block(body: &[&str]) -> UmlBlock {
         UmlBlock {

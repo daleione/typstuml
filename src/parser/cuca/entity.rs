@@ -360,25 +360,7 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     })
 }
 
-/// Strip a trailing ` #color` token; returns it (with the `#`) if present.
-pub(super) fn pop_trailing_color(rest: &mut String) -> Option<String> {
-    let trimmed = rest.trim_end();
-    let bytes = trimmed.as_bytes();
-    let mut i = bytes.len();
-    while i > 0 && !bytes[i - 1].is_ascii_whitespace() {
-        i -= 1;
-    }
-    if i == 0 {
-        return None;
-    }
-    let token = trimmed[i..].to_string();
-    if !token.starts_with('#') {
-        return None;
-    }
-    let kept = trimmed[..i].trim_end().to_string();
-    *rest = kept;
-    Some(token)
-}
+pub(super) use crate::parser::common::pop_trailing_color;
 
 /// Strip a trailing `<<stereotype>>` block. Also returns a custom
 /// marker `(letter, color)` parsed from the `(L, color) text` prefix

@@ -1,5 +1,12 @@
-//! Shared low-level parsing utilities: directive detection, keyword
-//! prefix stripping, quoted-string handling, alias parsing.
+//! Cuca-family parsing utilities: flavor sniffing, annotation parsing,
+//! directive detection. Generic line helpers (comment / keyword / quote /
+//! ident scanning) are re-exported from [`crate::parser::common`] so cuca
+//! call sites can keep importing them via `super::util::…`.
+
+pub(super) use crate::parser::common::{
+    is_comment, is_ident_continue, is_ident_start, strip_leading_quoted, strip_prefix_keyword,
+    unquote,
+};
 
 /// Cuca-family flavor. Determines how ambiguous shorthand resolves:
 /// `(Foo)` in a relation is a lollipop interface under `Class`, a
@@ -10,10 +17,6 @@
 pub(super) enum Flavor {
     Class,
     UseCase,
-}
-
-pub(super) fn is_comment(line: &str) -> bool {
-    line.starts_with('\'') || line.starts_with("/'")
 }
 
 /// Match a Java-style `@Name` or `@Name(args)` annotation line.
@@ -87,14 +90,6 @@ pub(super) fn parse_annotation(line: &str) -> Option<String> {
     None
 }
 
-fn is_ident_start(b: u8) -> bool {
-    b.is_ascii_alphabetic() || b == b'_'
-}
-
-fn is_ident_continue(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_'
-}
-
 pub(super) fn is_skip_directive(line: &str) -> bool {
     // `hide …` / `show …` are intentionally NOT in this list — they're
     // dispatched via `try_parse_hide_show` and may flip flags on the
@@ -117,15 +112,6 @@ pub(super) fn is_skip_directive(line: &str) -> bool {
     HEADS
         .iter()
         .any(|h| line == h.trim() || line.starts_with(h))
-}
-
-pub(super) fn strip_prefix_keyword<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
-    let rest = line.strip_prefix(keyword)?;
-    match rest.chars().next() {
-        None => Some(rest),
-        Some(c) if c.is_whitespace() => Some(rest),
-        _ => None,
-    }
 }
 
 /// Parse `Name as alias`, `"Display Name" as alias`, or a bare name.
@@ -155,25 +141,6 @@ pub(super) fn parse_alias(rest: &str) -> Option<(String, String)> {
         return Some((alias, first.to_string()));
     }
     Some((first.to_string(), first.to_string()))
-}
-
-pub(super) fn strip_leading_quoted(s: &str) -> Option<(String, &str)> {
-    let s = s.trim_start();
-    if !s.starts_with('"') {
-        return None;
-    }
-    let after = &s[1..];
-    let close = after.find('"')?;
-    let inner = after[..close].to_string();
-    Some((inner, &after[close + 1..]))
-}
-
-pub(super) fn unquote(s: &str) -> String {
-    if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-        s[1..s.len() - 1].to_string()
-    } else {
-        s.to_string()
-    }
 }
 
 #[cfg(test)]
@@ -228,18 +195,6 @@ mod tests {
     }
 
     #[test]
-    fn strip_prefix_keyword_requires_whitespace_after() {
-        // `class` is a keyword; `class Foo` matches, but `classifier`
-        // must not (it would be treated as the keyword `class` followed
-        // by the body `ifier`).
-        assert_eq!(strip_prefix_keyword("class Foo", "class"), Some(" Foo"));
-        assert!(strip_prefix_keyword("classifier", "class").is_none());
-        // Empty-tail (`"class"` alone with nothing after) is allowed —
-        // keyword consumes its own border.
-        assert_eq!(strip_prefix_keyword("class", "class"), Some(""));
-    }
-
-    #[test]
     fn is_skip_directive_catches_uml_envelope() {
         assert!(is_skip_directive("@startuml"));
         assert!(is_skip_directive("@enduml"));
@@ -248,22 +203,6 @@ mod tests {
         assert!(!is_skip_directive("!theme vibrant"));
         assert!(!is_skip_directive("hide circle"));
         assert!(!is_skip_directive("left to right direction"));
-    }
-
-    #[test]
-    fn strip_leading_quoted_basics() {
-        let (body, after) = strip_leading_quoted("\"hello\" world").unwrap();
-        assert_eq!(body, "hello");
-        assert_eq!(after, " world");
-        // Unterminated quote returns None.
-        assert!(strip_leading_quoted("\"unclosed").is_none());
-    }
-
-    #[test]
-    fn unquote_passes_through_unquoted() {
-        assert_eq!(unquote("\"hello\""), "hello");
-        assert_eq!(unquote("hello"), "hello");
-        assert_eq!(unquote("\""), "\""); // single quote — keep as-is
     }
 
     #[test]

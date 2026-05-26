@@ -4,9 +4,7 @@
 
 use crate::ir::{BorderStyle, Direction, LineStyle, StateKind};
 
-pub(super) fn is_comment(s: &str) -> bool {
-    s.starts_with('\'') || s.starts_with("/'")
-}
+pub(super) use crate::parser::common::is_comment;
 
 /// Strip a leading multi-word phrase (e.g. `"left of"`) when it is followed
 /// by whitespace or end-of-string. Returns the trimmed remainder.
@@ -326,14 +324,11 @@ pub(super) fn split_as(s: &str) -> Option<(&str, &str)> {
     None
 }
 
-/// Strip surrounding double quotes if present.
+/// Strip surrounding double quotes if present. Unlike
+/// [`crate::parser::common::unquote`], the state parser trims surrounding
+/// whitespace first.
 pub(super) fn unquote(s: &str) -> String {
-    let s = s.trim();
-    if s.len() >= 2 && s.starts_with('"') && s.ends_with('"') {
-        s[1..s.len() - 1].to_string()
-    } else {
-        s.to_string()
-    }
+    crate::parser::common::unquote(s.trim())
 }
 
 /// Detect a trailing `#color` / `##[style]color` on a declaration line.

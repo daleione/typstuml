@@ -13,6 +13,8 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use crate::parser::common::{is_ident_continue, is_ident_start};
+
 use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 
 #[derive(Clone, Debug, Default)]
@@ -232,14 +234,6 @@ fn substitute_defines(line: &str, defines: &HashMap<String, String>) -> String {
         }
     }
     out
-}
-
-fn is_ident_start(b: u8) -> bool {
-    b.is_ascii_alphabetic() || b == b'_'
-}
-
-fn is_ident_continue(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_'
 }
 
 #[cfg(test)]

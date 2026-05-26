@@ -6,9 +6,7 @@ use crate::ir::{ActivityStmt, NoteAttach, NotePosition, PartitionKind};
 
 use super::Terminator;
 
-pub(super) fn is_comment(s: &str) -> bool {
-    s.starts_with('\'') || s.starts_with("/'")
-}
+pub(super) use crate::parser::common::is_comment;
 
 pub(super) fn strip_kw<'s>(s: &'s str, kw: &str) -> Option<&'s str> {
     let bytes = s.as_bytes();

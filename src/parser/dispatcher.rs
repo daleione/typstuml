@@ -4,7 +4,13 @@
 //! Only fall back to body-content sniffing when the file is in fragment
 //! mode (no tags at all) or the kind is the catch-all `uml`.
 
+use crate::diagnostics::{CompatMode, Diagnostic, Result};
+use crate::ir::Diagram;
 use crate::parser::lexer::{BodyLine, UmlBlock};
+
+/// A per-diagram parser entry point. Every native parser shares this shape,
+/// which lets [`DiagramKind::parser`] dispatch through a single table.
+pub type ParseFn = fn(&UmlBlock, CompatMode) -> Result<(Diagram, Vec<Diagnostic>)>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DiagramKind {
@@ -26,6 +32,32 @@ pub enum DiagramKind {
     Network,
     Ditaa,
     Unknown,
+}
+
+impl DiagramKind {
+    /// The native parser for this kind, or `None` for kinds the dispatcher
+    /// recognizes but that have no parser yet (`--compat strict` rejects
+    /// those; otherwise they're warned and skipped).
+    pub fn parser(self) -> Option<ParseFn> {
+        use crate::parser::{activity, cuca, json, mindmap, sequence, state, wbs, yaml};
+        match self {
+            DiagramKind::Sequence => Some(sequence::parse),
+            DiagramKind::Json => Some(json::parse),
+            DiagramKind::Yaml => Some(yaml::parse),
+            DiagramKind::Wbs => Some(wbs::parse),
+            DiagramKind::MindMap => Some(mindmap::parse),
+            DiagramKind::Cuca => Some(cuca::parse),
+            DiagramKind::Activity => Some(activity::parse),
+            DiagramKind::State => Some(state::parse),
+            DiagramKind::Er
+            | DiagramKind::Gantt
+            | DiagramKind::Salt
+            | DiagramKind::Timing
+            | DiagramKind::Network
+            | DiagramKind::Ditaa
+            | DiagramKind::Unknown => None,
+        }
+    }
 }
 
 pub fn detect(block: &UmlBlock) -> DiagramKind {

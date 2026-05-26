@@ -19,6 +19,7 @@
 //! [`StructuredSequence`]: crate::ir::StructuredSequence
 
 pub mod activity;
+pub(crate) mod common;
 pub mod cuca;
 pub mod dispatcher;
 pub mod json;
@@ -27,6 +28,7 @@ pub mod mindmap;
 pub mod preprocessor;
 pub mod sequence;
 pub mod state;
+pub(crate) mod tree;
 pub mod wbs;
 pub mod yaml;
 
@@ -57,50 +59,15 @@ pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseO
 
     for block in &blocks {
         let kind = dispatcher::detect(block);
-        match kind {
-            dispatcher::DiagramKind::Sequence => {
-                let (diagram, mut diags) = sequence::parse(block, compat)?;
+        match kind.parser() {
+            Some(parse_fn) => {
+                let (diagram, mut diags) = parse_fn(block, compat)?;
                 diagrams.push(diagram);
                 diagnostics.append(&mut diags);
             }
-            dispatcher::DiagramKind::Json => {
-                let (diagram, mut diags) = json::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            dispatcher::DiagramKind::Yaml => {
-                let (diagram, mut diags) = yaml::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            dispatcher::DiagramKind::Wbs => {
-                let (diagram, mut diags) = wbs::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            dispatcher::DiagramKind::MindMap => {
-                let (diagram, mut diags) = mindmap::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            dispatcher::DiagramKind::Cuca => {
-                let (diagram, mut diags) = cuca::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            dispatcher::DiagramKind::Activity => {
-                let (diagram, mut diags) = activity::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            dispatcher::DiagramKind::State => {
-                let (diagram, mut diags) = state::parse(block, compat)?;
-                diagrams.push(diagram);
-                diagnostics.append(&mut diags);
-            }
-            other => {
+            None => {
                 let detail = format!(
-                    "diagram type {other:?} is not yet supported; \
+                    "diagram type {kind:?} is not yet supported; \
                      Sequence, JSON, YAML, WBS, mind-map, cuca, activity, and state diagrams render today"
                 );
                 if compat == CompatMode::Strict {

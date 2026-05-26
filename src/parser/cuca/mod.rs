@@ -41,7 +41,7 @@ mod util;
 #[cfg(test)]
 mod tests;
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Level, Result};
 use crate::ir::{CucaDiagram, Diagram, LayoutDirection, Skinparam};
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
@@ -340,20 +340,6 @@ impl<'a> Parser<'a> {
     }
 
     fn warn_or_err(&mut self, level: Level, line: Option<usize>, message: String) -> Result<()> {
-        if self.compat == CompatMode::Strict && level == Level::Warning {
-            return Err(Error::Parse {
-                line: line.unwrap_or(0),
-                message,
-            });
-        }
-        if self.compat == CompatMode::Loose {
-            return Ok(());
-        }
-        self.diagnostics.push(Diagnostic {
-            level,
-            line,
-            message,
-        });
-        Ok(())
+        crate::parser::common::warn_or_err(&mut self.diagnostics, self.compat, level, line, message)
     }
 }

@@ -115,6 +115,11 @@ pub(super) fn is_skip_directive(line: &str) -> bool {
 }
 
 /// Parse `Name as alias`, `"Display Name" as alias`, or a bare name.
+///
+/// NOTE: intentionally distinct from `sequence::participant::parse_alias` and
+/// `state::scan::parse_name_part` — cuca takes the first word as the stable id
+/// and does not unescape the display. See the note on the sequence version for
+/// why these three must stay separate.
 pub(super) fn parse_alias(rest: &str) -> Option<(String, String)> {
     if rest.is_empty() {
         return None;

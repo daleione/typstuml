@@ -73,6 +73,13 @@ fn pop_trailing_order(rest: &mut String) {
 
 /// Parse `"Long Name" as alias`, `alias as "Long Name"`, or a bare name.
 /// Returns `(canonical_id, display_label)`.
+///
+/// NOTE: intentionally **not** shared with `cuca::util::parse_alias` or
+/// `state::scan::parse_name_part`. The naming semantics differ per diagram:
+/// sequence unescapes the display (`\n` → newline, meaningful in message
+/// labels) and keeps the full remaining text as display; cuca takes only the
+/// first word as the stable id and drops the rest; state always succeeds and
+/// uses one value for both id and display. Don't "unify" these.
 fn parse_alias(rest: &str) -> Option<(String, String)> {
     if rest.is_empty() {
         return None;

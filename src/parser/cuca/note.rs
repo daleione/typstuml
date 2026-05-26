@@ -2,6 +2,11 @@
 //! anchored (`note left of …`), spanning (`note over …`),
 //! on-link (`note on link`), quoted standalone (`note "body" as N`),
 //! and freestanding multi-line (`note as N … end note`).
+//!
+//! NOTE: these are stateless free functions returning decl structs —
+//! intentionally not shared with `sequence::note` (returns a `NoteParse`
+//! enum) or `state::note` (mutates parser state). The action models differ by
+//! design; see `sequence::note` for the rationale.
 
 use crate::ir::Direction;
 

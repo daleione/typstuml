@@ -18,149 +18,13 @@
 //! support node aliases. Errors degrade to warnings under `--compat warn`
 //! (default) and become `Error::Parse` under `--compat strict`.
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Result};
 use crate::ir::{Diagram, MindMapDiagram, NodeShape, NodeSide, TreeNode};
-use crate::parser::common::strip_keyword_trimmed as strip_keyword;
-use crate::parser::tree::walk_mut;
 use crate::parser::lexer::{BodyLine, UmlBlock};
+use crate::parser::tree::{self, ParsedMarker};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
-    let mut diagnostics = Vec::new();
-    let mut title: Option<String> = None;
-    let mut root: Option<TreeNode> = None;
-    // Depth -> ancestor index path through the tree being built. Each path
-    // step is the child index in that node's children array.
-    let mut path: Vec<usize> = Vec::new();
-
-    let mut i = 0;
-    while i < block.body.len() {
-        let line = &block.body[i];
-        let trimmed = line.text.trim();
-
-        if trimmed.is_empty() || trimmed.starts_with('\'') || trimmed.starts_with("/'") {
-            i += 1;
-            continue;
-        }
-        if let Some(rest) = strip_keyword(trimmed, "title") {
-            if !rest.is_empty() {
-                title = Some(rest.to_string());
-            }
-            i += 1;
-            continue;
-        }
-        if strip_keyword(trimmed, "caption").is_some()
-            || strip_keyword(trimmed, "header").is_some()
-            || strip_keyword(trimmed, "footer").is_some()
-        {
-            i += 1;
-            continue;
-        }
-        if strip_keyword(trimmed, "skinparam").is_some() {
-            diagnostics.push(Diagnostic {
-                level: Level::Warning,
-                line: Some(line.line),
-                message: "skinparam is not yet honoured for mindmap diagrams".into(),
-            });
-            i += 1;
-            continue;
-        }
-
-        let consumed = match parse_marker_line(&block.body, i) {
-            Ok((parsed, advance)) => {
-                let depth = parsed.depth;
-                let new_node = parsed.node;
-                if depth == 1 {
-                    if root.is_some() {
-                        let msg = format!(
-                            "second mindmap root at line {} (only one root is allowed)",
-                            line.line
-                        );
-                        if compat == CompatMode::Strict {
-                            return Err(Error::Parse {
-                                line: line.line,
-                                message: msg,
-                            });
-                        }
-                        diagnostics.push(Diagnostic {
-                            level: Level::Warning,
-                            line: Some(line.line),
-                            message: msg,
-                        });
-                        advance
-                    } else {
-                        root = Some(new_node);
-                        path = Vec::new();
-                        advance
-                    }
-                } else if root.is_none() {
-                    let msg = format!(
-                        "mindmap node at depth {depth} appears before any root at line {}",
-                        line.line
-                    );
-                    if compat == CompatMode::Strict {
-                        return Err(Error::Parse {
-                            line: line.line,
-                            message: msg,
-                        });
-                    }
-                    diagnostics.push(Diagnostic {
-                        level: Level::Warning,
-                        line: Some(line.line),
-                        message: msg,
-                    });
-                    advance
-                } else if depth > path.len() + 2 {
-                    let msg = format!(
-                        "mindmap depth jumped to {depth} without an intermediate parent at line {}",
-                        line.line
-                    );
-                    if compat == CompatMode::Strict {
-                        return Err(Error::Parse {
-                            line: line.line,
-                            message: msg,
-                        });
-                    }
-                    diagnostics.push(Diagnostic {
-                        level: Level::Warning,
-                        line: Some(line.line),
-                        message: msg,
-                    });
-                    advance
-                } else {
-                    let parent_depth = depth - 1;
-                    while path.len() > parent_depth - 1 {
-                        path.pop();
-                    }
-                    let parent = walk_mut(root.as_mut().unwrap(), &path);
-                    let new_index = parent.children.len();
-                    parent.children.push(new_node);
-                    path.push(new_index);
-                    advance
-                }
-            }
-            Err(msg) => {
-                if compat == CompatMode::Strict {
-                    return Err(Error::Parse {
-                        line: line.line,
-                        message: msg,
-                    });
-                }
-                diagnostics.push(Diagnostic {
-                    level: Level::Warning,
-                    line: Some(line.line),
-                    message: msg,
-                });
-                1
-            }
-        };
-        i += consumed;
-    }
-
-    let root = root.ok_or_else(|| Error::Parse {
-        line: block.start_line,
-        message: "@startmindmap block has no root node (expected a leading marker line)".into(),
-    })?;
-
+    let (root, title, diagnostics) = tree::build_tree(block, compat, "mindmap", parse_marker_line)?;
     Ok((
         Diagram::MindMap(MindMapDiagram {
             name: block.name.clone(),
@@ -169,11 +33,6 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
         }),
         diagnostics,
     ))
-}
-
-struct ParsedMarker {
-    depth: usize,
-    node: TreeNode,
 }
 
 fn parse_marker_line(
@@ -265,63 +124,7 @@ fn parse_marker_line(
 
     // 4. Optional `:label\n…;` multi-line form, otherwise a plain label.
     let label_part = rest.trim_start();
-
-    if let Some(first_text) = label_part.strip_prefix(':') {
-        let mut label_lines = Vec::new();
-        let mut consumed = 1;
-        if let Some(end) = first_text.find(';') {
-            label_lines.push(first_text[..end].to_string());
-            return Ok((
-                ParsedMarker {
-                    depth,
-                    node: TreeNode {
-                        label: label_lines,
-                        side,
-                        shape,
-                        fill,
-                        id: None,
-                        line: line.line,
-                        children: Vec::new(),
-                    },
-                },
-                consumed,
-            ));
-        }
-        label_lines.push(first_text.to_string());
-        while start + consumed < body.len() {
-            let cont = &body[start + consumed];
-            consumed += 1;
-            if let Some(end) = cont.text.find(';') {
-                label_lines.push(cont.text[..end].to_string());
-                return Ok((
-                    ParsedMarker {
-                        depth,
-                        node: TreeNode {
-                            label: label_lines,
-                            side,
-                            shape,
-                            fill,
-                            id: None,
-                            line: line.line,
-                            children: Vec::new(),
-                        },
-                    },
-                    consumed,
-                ));
-            }
-            label_lines.push(cont.text.clone());
-        }
-        return Err(format!(
-            "unterminated multi-line mindmap label opened at line {} (missing `;`)",
-            line.line
-        ));
-    }
-
-    let label = if label_part.is_empty() {
-        Vec::new()
-    } else {
-        vec![label_part.to_string()]
-    };
+    let (label, consumed) = tree::parse_label(body, start, label_part, "mindmap")?;
 
     Ok((
         ParsedMarker {
@@ -336,13 +139,14 @@ fn parse_marker_line(
                 children: Vec::new(),
             },
         },
-        1,
+        consumed,
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::diagnostics::Error;
 
     fn block(body: &[&str]) -> UmlBlock {
         UmlBlock {

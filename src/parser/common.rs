@@ -6,7 +6,40 @@
 //! display strings, `state`'s `strip_kw` trims its remainder) to avoid
 //! changing parse behavior.
 
+use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
 use crate::parser::lexer::BodyLine;
+
+/// Emit a diagnostic, honoring `compat`: under `Strict` a `Warning` becomes a
+/// hard `Error::Parse`; under `Loose` warnings are dropped silently;
+/// otherwise (and for `Error`-level) the diagnostic is pushed.
+///
+/// This is the policy shared verbatim by the sequence and cuca parsers. The
+/// state and activity parsers deliberately use a different policy (they always
+/// record a warning even under `Loose`), so they do **not** route through
+/// here.
+pub(crate) fn warn_or_err(
+    diagnostics: &mut Vec<Diagnostic>,
+    compat: CompatMode,
+    level: Level,
+    line: Option<usize>,
+    message: String,
+) -> Result<()> {
+    if compat == CompatMode::Strict && level == Level::Warning {
+        return Err(Error::Parse {
+            line: line.unwrap_or(0),
+            message,
+        });
+    }
+    if compat == CompatMode::Loose {
+        return Ok(());
+    }
+    diagnostics.push(Diagnostic {
+        level,
+        line,
+        message,
+    });
+    Ok(())
+}
 
 /// A line comment: PlantUML uses `'…` (single) and `/'…` (block open).
 pub(crate) fn is_comment(line: &str) -> bool {

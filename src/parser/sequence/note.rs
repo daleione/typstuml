@@ -1,5 +1,13 @@
 //! Note lines: `note over A, B : text`, `note left of A`, `rnote`, `hnote`,
 //! plus the multi-line `note … end note` opening form.
+//!
+//! NOTE: the state and cuca parsers have their own note parsers
+//! (`state::note`, `cuca::note`) that are intentionally not shared with this
+//! one. The grammars overlap but the *action models* differ fundamentally:
+//! this one returns a neutral `NoteParse` enum; `state::note` mutates parser
+//! state in place (consumes lines, anchors notes to nodes); `cuca::note`
+//! returns decl structs for post-processing. Sequence also uniquely accepts
+//! `note left:` with the colon directly after the side keyword. Don't unify.
 
 use crate::ir::{NotePosition, Step};
 

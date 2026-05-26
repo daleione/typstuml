@@ -23,164 +23,14 @@
 //! `Error::Parse` only under `--compat strict`. A skipped line drops its
 //! whole subtree (no synthetic placeholder is invented).
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Result};
 use crate::ir::{Diagram, NodeShape, NodeSide, TreeNode, WbsDiagram};
 use crate::parser::common::strip_keyword_trimmed as strip_keyword;
-use crate::parser::tree::walk_mut;
 use crate::parser::lexer::{BodyLine, UmlBlock};
+use crate::parser::tree::{self, ParsedMarker};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
-    let mut diagnostics = Vec::new();
-    let mut title: Option<String> = None;
-    let mut root: Option<TreeNode> = None;
-    // Depth -> ancestor index path through the tree being built. Each path
-    // step is "child index in that node's children array". Walking the
-    // path from `root` reaches the node currently sitting at that depth.
-    let mut path: Vec<usize> = Vec::new();
-
-    let mut i = 0;
-    while i < block.body.len() {
-        let line = &block.body[i];
-        let trimmed = line.text.trim();
-
-        if trimmed.is_empty() || trimmed.starts_with('\'') || trimmed.starts_with("/'") {
-            i += 1;
-            continue;
-        }
-
-        if let Some(rest) = strip_keyword(trimmed, "title") {
-            if !rest.is_empty() {
-                title = Some(rest.to_string());
-            }
-            i += 1;
-            continue;
-        }
-        // caption/header/footer accepted as decoration but not yet rendered;
-        // silently swallow so they don't trip the marker parser.
-        if strip_keyword(trimmed, "caption").is_some()
-            || strip_keyword(trimmed, "header").is_some()
-            || strip_keyword(trimmed, "footer").is_some()
-        {
-            i += 1;
-            continue;
-        }
-        // Skinparam lines aren't honoured yet; treat them as warn-level
-        // unsupported instead of as failed marker lines.
-        if strip_keyword(trimmed, "skinparam").is_some() {
-            diagnostics.push(Diagnostic {
-                level: Level::Warning,
-                line: Some(line.line),
-                message: "skinparam is not yet honoured for WBS diagrams".into(),
-            });
-            i += 1;
-            continue;
-        }
-
-        // Marker line. Consume any continuation lines for multi-line labels.
-        let consumed = match parse_marker_line(&block.body, i) {
-            Ok((node, advance)) => {
-                let depth = node.label_depth;
-                let new_node = node.into_tree_node();
-                if depth == 1 {
-                    if root.is_some() {
-                        let msg = format!(
-                            "second WBS root at line {} (only one `*` root is allowed)",
-                            line.line
-                        );
-                        if compat == CompatMode::Strict {
-                            return Err(Error::Parse {
-                                line: line.line,
-                                message: msg,
-                            });
-                        }
-                        diagnostics.push(Diagnostic {
-                            level: Level::Warning,
-                            line: Some(line.line),
-                            message: msg,
-                        });
-                        advance
-                    } else {
-                        root = Some(new_node);
-                        path = Vec::new();
-                        advance
-                    }
-                } else if root.is_none() {
-                    let msg = format!(
-                        "WBS node at depth {depth} appears before any `*` root at line {}",
-                        line.line
-                    );
-                    if compat == CompatMode::Strict {
-                        return Err(Error::Parse {
-                            line: line.line,
-                            message: msg,
-                        });
-                    }
-                    diagnostics.push(Diagnostic {
-                        level: Level::Warning,
-                        line: Some(line.line),
-                        message: msg,
-                    });
-                    advance
-                } else if depth > path.len() + 2 {
-                    // path.len() == current_depth - 1 of the last node, so the
-                    // legal next depth is path.len() + 1 (sibling of last) or
-                    // path.len() + 2 (child of last). Anything further is a
-                    // depth jump.
-                    let msg = format!(
-                        "WBS depth jumped to {depth} without an intermediate parent at line {}",
-                        line.line
-                    );
-                    if compat == CompatMode::Strict {
-                        return Err(Error::Parse {
-                            line: line.line,
-                            message: msg,
-                        });
-                    }
-                    diagnostics.push(Diagnostic {
-                        level: Level::Warning,
-                        line: Some(line.line),
-                        message: msg,
-                    });
-                    advance
-                } else {
-                    // Trim path so its length matches depth-2 (i.e. the path
-                    // from root to the new node's intended parent has
-                    // depth-1 entries; we pop until we're pointing at that
-                    // parent).
-                    let parent_depth = depth - 1;
-                    while path.len() > parent_depth - 1 {
-                        path.pop();
-                    }
-                    let parent = walk_mut(root.as_mut().unwrap(), &path);
-                    let new_index = parent.children.len();
-                    parent.children.push(new_node);
-                    path.push(new_index);
-                    advance
-                }
-            }
-            Err(msg) => {
-                if compat == CompatMode::Strict {
-                    return Err(Error::Parse {
-                        line: line.line,
-                        message: msg,
-                    });
-                }
-                diagnostics.push(Diagnostic {
-                    level: Level::Warning,
-                    line: Some(line.line),
-                    message: msg,
-                });
-                1
-            }
-        };
-        i += consumed;
-    }
-
-    let root = root.ok_or_else(|| Error::Parse {
-        line: block.start_line,
-        message: "@startwbs block has no root node (expected a leading `*` line)".into(),
-    })?;
-
+    let (root, title, diagnostics) = tree::build_tree(block, compat, "WBS", parse_marker_line)?;
     Ok((
         Diagram::Wbs(WbsDiagram {
             name: block.name.clone(),
@@ -189,19 +39,6 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
         }),
         diagnostics,
     ))
-}
-
-/// Owned intermediate produced by `parse_marker_line` — pre-`children` so
-/// the depth-stack code can attach it under its parent before recursing.
-struct ParsedMarker {
-    label_depth: usize,
-    node: TreeNode,
-}
-
-impl ParsedMarker {
-    fn into_tree_node(self) -> TreeNode {
-        self.node
-    }
 }
 
 /// Parse the marker line at `body[start]` plus any continuation lines if it
@@ -316,16 +153,16 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
         if after_as.is_empty() {
             return Err(format!("`as` requires a code at line {}", line.line));
         }
-        id = Some(after_as.to_string());
+        let code = after_as.to_string();
         return Ok((
             ParsedMarker {
-                label_depth: depth,
+                depth,
                 node: TreeNode {
-                    label: vec![id.clone().unwrap_or_default()],
+                    label: vec![code.clone()],
                     side,
                     shape,
                     fill,
-                    id,
+                    id: Some(code),
                     line: line.line,
                     children: Vec::new(),
                 },
@@ -334,75 +171,11 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
         ));
     }
 
-    // 6. Multi-line `:line1\nline2;` form.
-    if let Some(first) = label_part.strip_prefix(':') {
-        let mut label_lines = Vec::new();
-        let mut consumed = 1;
-
-        // First line: everything after `:`. May include the closing `;`.
-        if let Some(end) = first.find(';') {
-            label_lines.push(first[..end].to_string());
-            return Ok((
-                ParsedMarker {
-                    label_depth: depth,
-                    node: TreeNode {
-                        label: label_lines,
-                        side,
-                        shape,
-                        fill,
-                        id,
-                        line: line.line,
-                        children: Vec::new(),
-                    },
-                },
-                consumed,
-            ));
-        }
-        label_lines.push(first.to_string());
-
-        // Continuation lines until one ends with `;`. Verbatim text — we
-        // intentionally don't trim, so authors can preserve indentation
-        // inside multi-line labels.
-        while start + consumed < body.len() {
-            let cont = &body[start + consumed];
-            consumed += 1;
-            if let Some(end) = cont.text.find(';') {
-                label_lines.push(cont.text[..end].to_string());
-                return Ok((
-                    ParsedMarker {
-                        label_depth: depth,
-                        node: TreeNode {
-                            label: label_lines,
-                            side,
-                            shape,
-                            fill,
-                            id,
-                            line: line.line,
-                            children: Vec::new(),
-                        },
-                    },
-                    consumed,
-                ));
-            }
-            label_lines.push(cont.text.clone());
-        }
-
-        return Err(format!(
-            "unterminated multi-line WBS label opened at line {} (missing `;`)",
-            line.line
-        ));
-    }
-
-    // 7. Single-line label.
-    let label = if label_part.is_empty() {
-        Vec::new()
-    } else {
-        vec![label_part.to_string()]
-    };
-
+    // 6. Single-line label, or the multi-line `:line1 … ;` form.
+    let (label, consumed) = tree::parse_label(body, start, label_part, "WBS")?;
     Ok((
         ParsedMarker {
-            label_depth: depth,
+            depth,
             node: TreeNode {
                 label,
                 side,
@@ -413,13 +186,14 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
                 children: Vec::new(),
             },
         },
-        1,
+        consumed,
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::diagnostics::{Error, Level};
 
     fn block(body: &[&str]) -> UmlBlock {
         UmlBlock {

@@ -1,5 +1,10 @@
 //! Note-declaration parsing (`note … of`, `note on link`, floating
 //! `note "…" as Nx` + `..` connectors) for the state-diagram parser.
+//!
+//! NOTE: these are impl methods that mutate parser state (consume lines,
+//! anchor notes to nodes) — intentionally not shared with `sequence::note`
+//! (returns a `NoteParse` enum) or `cuca::note` (returns decl structs). The
+//! action models differ by design; see `sequence::note` for the rationale.
 
 use crate::diagnostics::Result;
 use crate::ir::{NoteAnchor, NotePosition, StateNote};

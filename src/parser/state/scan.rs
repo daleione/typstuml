@@ -280,6 +280,12 @@ pub(super) fn split_dotted(s: &str) -> Option<(&str, &str)> {
 /// Parse the name portion of a state declaration:
 /// `Foo`, `"Display"`, `Foo as "Display"`, `"Display" as Foo`.
 /// Returns `(id, display)`.
+///
+/// NOTE: intentionally distinct from the `parse_alias` functions in the
+/// sequence and cuca parsers — state always succeeds (empty input → empty
+/// strings, never `None`) and uses a single value for both id and display
+/// when there's no `as`. See `sequence::participant::parse_alias` for the
+/// per-diagram rationale; don't merge these.
 pub(super) fn parse_name_part(s: &str) -> (String, String) {
     let s = s.trim();
     if s.is_empty() {
@@ -333,6 +339,11 @@ pub(super) fn unquote(s: &str) -> String {
 
 /// Detect a trailing `#color` / `##[style]color` on a declaration line.
 /// Returns `(remainder, fill, border_style, border_color)`.
+///
+/// NOTE: richer than `crate::parser::common::pop_trailing_color` on purpose —
+/// state diagrams support the `##[dashed|dotted|bold]#color` border syntax,
+/// which the simple shared scanner doesn't model. Kept separate deliberately;
+/// don't collapse into `pop_trailing_color`.
 pub(super) fn strip_trailing_color(
     s: &str,
 ) -> (&str, Option<String>, Option<BorderStyle>, Option<String>) {

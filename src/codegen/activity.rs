@@ -761,13 +761,30 @@ fn join_typst_label(lines: &[String]) -> String {
 }
 
 fn typst_escape(s: &str) -> String {
-    s.replace('\\', "\\\\")
-        .replace('*', "\\*")
-        .replace('_', "\\_")
-        .replace('#', "\\#")
-        .replace('[', "\\[")
-        .replace(']', "\\]")
-        .replace('`', "\\`")
+    let bytes = s.as_bytes();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        // PlantUML's literal `\n` is a manual line break — emit Typst's
+        // hard line break rather than escaping the backslash (which would
+        // leave a literal `\n` in the rendered label).
+        if bytes[i..].starts_with(b"\\n") {
+            out.push_str(" \\ ");
+            i += 2;
+            continue;
+        }
+        let ch = s[i..].chars().next().unwrap();
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '*' | '_' | '#' | '[' | ']' | '`' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            _ => out.push(ch),
+        }
+        i += ch.len_utf8();
+    }
+    out
 }
 
 
@@ -865,6 +882,24 @@ mod tests {
         assert!(out.contains("case([yes]"));
         assert!(out.contains("case([b ?]"));
         assert!(out.contains("case([no]"));
+    }
+
+    #[test]
+    fn literal_backslash_n_becomes_line_break() {
+        let mut out = String::new();
+        emit(
+            &mut out,
+            &ActivityDiagram {
+                body: vec![action("Layout Engine\\nPPTX")],
+                ..Default::default()
+            },
+            None,
+            0,
+        );
+        // The literal `\n` must render as Typst's hard line break, not as
+        // an escaped backslash-n that shows up verbatim in the diagram.
+        assert!(out.contains("process[Layout Engine \\ PPTX]"), "got: {out}");
+        assert!(!out.contains("\\\\n"), "got: {out}");
     }
 
     #[test]

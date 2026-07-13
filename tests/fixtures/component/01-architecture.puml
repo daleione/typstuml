@@ -1,0 +1,59 @@
+@startuml
+title 整体架构（Scene IR 管线 · Artemis 分层）
+
+package "前端 / 客户端 (Vue 3 · 移动端)" {
+  component "App / Pinia (AST Store)" as FE
+  component "SceneView\nScene IR → 画布（预览=编辑）" as SV
+  component "OverlayTextEditor (Tiptap)\nensureIds / findPathById 回映" as ED
+}
+
+interface "REST + SSE (Artemis)\n信封 {h:{c,e}, c}" as REST
+
+package "api/ (Endpoint)" {
+  component "presentation / theme / generate\n路由组 · 校验 · JSONResponse" as API
+}
+
+package "service/ (编排)" {
+  component "Generate Svc【算法】\nprompt → AST（DeepSeek · SSE）" as GEN
+  component "Resolve 管线\nplan → paginate → template.Resolve" as RES
+  component "Edit Svc\nOps → AST · 版本乐观锁" as EDIT
+  component "Theme / Template / Layout Registry" as REG
+}
+
+package "library/ (核心)" {
+  component "ast（编解码+校验）" as AST
+  component "layout · plan · paginate" as LAY
+  component "template (resolve.go)\n样式定稿 + 装饰 → Scene" as TPL
+  component "scene（Scene IR）" as SCN
+  component "render/scenehtml" as RHTML
+  component "render/pptx (RenderScene)" as RPPTX
+  component "storage（Local / OSS）" as STO
+}
+
+package "dao/" {
+  component "MongoDBDao" as DAO
+}
+database "MongoDB\nAST + 版本" as M
+database "Render Cache\nkey = sha256" as RC
+
+FE --> SV
+SV --> ED
+FE --> REST
+REST --> API
+API --> GEN
+API --> RES
+API --> EDIT
+GEN ..> AST
+RES --> LAY
+RES --> TPL
+TPL --> SCN
+REG ..> RES
+SCN --> RHTML
+SCN --> RPPTX
+SCN ..> SV
+RPPTX --> STO
+EDIT --> DAO
+RES --> DAO
+DAO --> M
+RPPTX ..> RC
+@enduml

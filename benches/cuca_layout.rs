@@ -3,6 +3,12 @@
 //! Synthesizes PUML sources of varying size to measure:
 //!   • `parse` — text → IR
 //!   • `parse + emit` — text → IR → Typst source (covers compound layout)
+//!   • `parse + emit` (ortho) — same, but with `component` entities so
+//!     every edge routes through the §3.4 grid + A* router instead of
+//!     the spline chain. This is the M3 budget: the grid is
+//!     O(obstacles²) per edge, so this group is what actually catches
+//!     a router perf regression — the plain `cuca_parse_emit` group
+//!     never leaves the spline path.
 //!
 //! Sizes: 10 / 50 / 100 / 200 entities distributed across 5 packages.
 //! The 50-node bucket is the M3 design-doc reference (target < 100 ms
@@ -90,5 +96,54 @@ fn bench_emit(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_parse, bench_emit);
+/// Same shape as `synthesize_puml`, but every entity is a `component`
+/// — `is_desc_flavor` picks this up and every edge routes through the
+/// orthogonal grid + A* router instead of the spline chain.
+fn synthesize_puml_ortho(n: usize) -> String {
+    let per_cluster = (n + CLUSTERS - 1) / CLUSTERS;
+    let mut out = String::from("@startuml\n");
+    let mut entity_idx = 0usize;
+    for c in 0..CLUSTERS {
+        out.push_str(&format!("package \"P{c}\" {{\n"));
+        for _ in 0..per_cluster {
+            if entity_idx >= n {
+                break;
+            }
+            out.push_str(&format!("  component E{entity_idx}\n"));
+            entity_idx += 1;
+        }
+        out.push_str("}\n");
+    }
+    for i in 0..n.saturating_sub(1) {
+        out.push_str(&format!("E{i} --> E{}\n", i + 1));
+    }
+    out.push_str("@enduml\n");
+    out
+}
+
+fn bench_emit_ortho(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cuca_parse_emit_ortho");
+    let theme = Theme::default();
+    let cfg = Config::default();
+    for &n in ENTITY_COUNTS {
+        let src = synthesize_puml_ortho(n);
+        group.throughput(Throughput::Elements(n as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(n), &src, |b, src| {
+            b.iter(|| {
+                let out = parser::parse(black_box(src), CompatMode::Warn, &cfg).unwrap();
+                let typst_src = codegen::emit(
+                    &out.document,
+                    &theme,
+                    None,
+                    codegen::ImportStrategy::VirtualFs,
+                )
+                .unwrap();
+                black_box(typst_src);
+            });
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, bench_parse, bench_emit, bench_emit_ortho);
 criterion_main!(benches);

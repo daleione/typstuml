@@ -8,6 +8,19 @@ use crate::ir::Skinparam;
 
 use super::text::typst_str_escape;
 
+/// `skinparam linetype` — selects the edge-routing engine for this
+/// diagram. See `docs/cuca-architecture-layout-redesign.md` §3.4.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LineMode {
+    /// PlantUML/dot-style direct cubic beziers (the existing line-of-
+    /// sight → Manhattan → pathplan → straight chain).
+    Spline,
+    /// Rounded orthogonal routing (§3.4's grid + A* router).
+    Ortho,
+    /// Like `Ortho` but with sharp (unrounded) corners.
+    Polyline,
+}
+
 /// Per-cuca-layout overrides resolved from `skinparam` and `!theme`
 /// directives. Values left as `None` fall through to the painter's
 /// built-in defaults.
@@ -18,6 +31,9 @@ pub(super) struct PaintOverrides {
     pub(super) edge_color: Option<String>,
     pub(super) package_fill: Option<String>,
     pub(super) package_stroke_color: Option<String>,
+    /// `None` = no explicit `skinparam linetype` — the caller decides
+    /// the default from the diagram's shape mix (desc-flavor → Ortho).
+    pub(super) line_mode: Option<LineMode>,
 }
 
 pub(super) fn emit_skinparam_preamble(
@@ -66,6 +82,14 @@ pub(super) fn emit_skinparam_preamble(
             }
             "packagebordercolor" => {
                 overrides.package_stroke_color = puml_color_to_typst(&p.value);
+            }
+            "linetype" => {
+                overrides.line_mode = match p.value.trim().to_ascii_lowercase().as_str() {
+                    "ortho" => Some(LineMode::Ortho),
+                    "polyline" => Some(LineMode::Polyline),
+                    "spline" | "curved" => Some(LineMode::Spline),
+                    _ => overrides.line_mode,
+                };
             }
             _ => {}
         }

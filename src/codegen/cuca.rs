@@ -27,6 +27,7 @@
 mod emit;
 mod geom;
 mod layout;
+mod scope;
 pub(super) mod probe;
 mod route;
 mod text;
@@ -34,10 +35,11 @@ mod theme;
 
 use crate::ir::{
     ArrowHead, CucaDiagram, Direction as IrDirection, Entity, HideOptions, LayoutDirection,
-    LineStyle, Relation,
+    LineStyle, Relation, USymbol,
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::Orientation;
+use crate::layout::ortho;
 use crate::layout::pathplan;
 use crate::runtime::MeasurementSet;
 
@@ -46,14 +48,15 @@ use self::geom::{
     Side, anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor,
     right_anchor, top_anchor, ClassGeom,
 };
-use self::layout::{compound_layout, LabelBand};
+use self::layout::{compound_layout, spacing as cuca_spacing, LabelBand};
 use self::route::{
     cubic_from_straight, line_of_sight_clear, pick_edge_sides,
     side_tangent, smart_align_coord, straight_fallback, try_manhattan_route,
     SMART_ALIGN_HEADROOM_PT,
 };
+use self::scope::foreign_frame_obstacles;
 use self::text::typst_escape;
-use self::theme::emit_skinparam_preamble;
+use self::theme::{emit_skinparam_preamble, LineMode};
 
 /// Bezier control-handle pull for the straight-fallback path (same
 /// scheme as `record_graph.rs`).
@@ -113,6 +116,36 @@ fn resolve_label_bands(
         .collect()
 }
 
+/// Default edge-routing engine for this diagram, absent an explicit
+/// `skinparam linetype`: `Ortho` for genuine architecture diagrams
+/// (component / deployment shapes, optionally grouped into packages),
+/// `Spline` for everything else — plain class diagrams that merely use
+/// a `package` for namespacing keep the direct-cubic look, and so does
+/// use-case (actor/ellipse edges read poorly as orthogonal jogs; see
+/// docs/cuca-architecture-layout-redesign.md §3.4 and open question 7).
+fn is_desc_flavor(diag: &CucaDiagram) -> bool {
+    diag.entities.iter().any(|e| {
+        matches!(
+            e.usymbol,
+            USymbol::Component
+                | USymbol::ComponentUml1
+                | USymbol::ComponentRectangle
+                | USymbol::Node
+                | USymbol::Database
+                | USymbol::Cloud
+                | USymbol::Queue
+                | USymbol::Stack
+                | USymbol::Storage
+                | USymbol::Artifact
+        )
+    }) || diag.containers.iter().any(|c| {
+        matches!(
+            c.usymbol,
+            USymbol::Node | USymbol::Cloud | USymbol::Folder | USymbol::Frame
+        )
+    })
+}
+
 pub fn emit(
     out: &mut String,
     diag: &CucaDiagram,
@@ -120,6 +153,13 @@ pub fn emit(
     diagram_idx: usize,
 ) {
     let overrides = emit_skinparam_preamble(out, &diag.skinparams);
+    let line_mode = overrides.line_mode.unwrap_or_else(|| {
+        if is_desc_flavor(diag) {
+            LineMode::Ortho
+        } else {
+            LineMode::Spline
+        }
+    });
 
     if let Some(title) = &diag.title {
         out.push_str("#align(center)[*");
@@ -690,7 +730,80 @@ pub fn emit(
             src_tangent: side_tangent(from_side),
             dst_tangent: side_tangent(to_side).neg(),
         };
-        // Routing priority (cuca-edge-routing-redesign.md §2.1):
+
+        // Lollipop / socket connectors (`--`, `-(`) are short curved
+        // stubs to a small disc approached from any angle, not
+        // rectangular-face-to-face architecture edges — forcing them
+        // through the axis-aligned router produces ugly hooked
+        // detours. Actor/use-case edges have the same problem (open
+        // question 7 in docs/cuca-architecture-layout-redesign.md):
+        // an ellipse or stick figure read poorly with orthogonal
+        // jogs. Keep both on the spline chain even in ortho mode.
+        let keeps_spline_shape = |i: usize| {
+            matches!(
+                diag.entities[i].usymbol,
+                USymbol::Interface
+                    | USymbol::Port
+                    | USymbol::PortIn
+                    | USymbol::PortOut
+                    | USymbol::Actor
+                    | USymbol::ActorBusiness
+                    | USymbol::ActorAwesome
+                    | USymbol::ActorHollow
+                    | USymbol::UseCase
+                    | USymbol::UseCaseBusiness
+            )
+        };
+        let edge_prefers_spline = keeps_spline_shape(from) || keeps_spline_shape(to);
+
+        // Orthogonal routing (§3.4): desc-flavor diagrams (or an
+        // explicit `skinparam linetype`) route through the grid + A*
+        // router instead of the spline chain below. Obstacles add
+        // every *foreign* package frame (§3.3) on top of the entity
+        // boxes, since the whole point of ortho mode is detouring
+        // around packages, not just entities. Falls through to the
+        // spline chain if the grid search fails (should only happen on
+        // a genuinely unroutable layout).
+        let ortho_segments: Option<Vec<(Point, Point, Point)>> = if line_mode != LineMode::Spline
+            && !edge_prefers_spline
+        {
+            let sp = cuca_spacing();
+            let mut ortho_obstacles = obstacles.clone();
+            ortho_obstacles.extend(foreign_frame_obstacles(
+                diag,
+                &container_bboxes,
+                entity_container,
+                from,
+                to,
+            ));
+            let opts = ortho::RouteOpts {
+                clearance: sp.edge_node,
+                bend_penalty: 4.0 * sp.edge_node,
+                stub_len: sp.edge_node,
+            };
+            ortho::route(
+                start,
+                ortho::Dir::from_tangent(side_tangent(from_side)),
+                end,
+                ortho::Dir::from_tangent(side_tangent(to_side).neg()),
+                &ortho_obstacles,
+                &opts,
+            )
+            .map(|pts| {
+                let simplified = ortho::simplify(&pts, 1.0);
+                let arc = if line_mode == LineMode::Polyline {
+                    0.0
+                } else {
+                    sp.ortho_arc
+                };
+                ortho::to_rounded_cubics(&simplified, arc)
+            })
+        } else {
+            None
+        };
+
+        // Routing priority (cuca-edge-routing-redesign.md §2.1),
+        // superseded by `ortho_segments` when ortho mode is active:
         //   1. Straight line of sight — single direct cubic bezier
         //      from source anchor to dest anchor (PlantUML / dot
         //      `splines=true` style). The control handles sit at 1/3
@@ -701,8 +814,11 @@ pub fn emit(
         //   3. Pathplan bezier — for routes that need to detour around
         //      multiple obstacles.
         //   4. Forced straight cubic — last resort.
-        let line_of_sight = line_of_sight_clear(start, end, &obstacles);
-        let segments = if line_of_sight {
+        let line_of_sight =
+            ortho_segments.is_none() && line_of_sight_clear(start, end, &obstacles);
+        let segments = if let Some(segs) = ortho_segments {
+            segs
+        } else if line_of_sight {
             vec![cubic_from_straight(start, end)]
         } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
             segs
@@ -720,9 +836,9 @@ pub fn emit(
         // should rotate with it. Setting explicit anchor overrides
         // signals the painter to skip the axis-snap that would
         // otherwise force the head perpendicular to the destination
-        // face. Manhattan / pathplan routes keep midpoint anchors
-        // unless smart-align or distribution already set them, since
-        // their final segment is axis-aligned by construction.
+        // face. Manhattan / pathplan / ortho routes keep midpoint
+        // anchors unless smart-align or distribution already set them,
+        // since their final segment is axis-aligned by construction.
         if line_of_sight {
             if from_emit_override.is_none() {
                 from_emit_override = Some(match from_side {

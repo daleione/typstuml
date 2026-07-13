@@ -115,10 +115,37 @@ pub(super) fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassG
     }
 }
 
+/// Split a display label on PlantUML's literal `\n` line-break marker
+/// (a two-character backslash-n sequence in the source, not an actual
+/// newline byte — `creole_to_typst` converts it to Typst's ` \ ` break
+/// at emit time). `text_width_pt` has no notion of line breaks at all
+/// — it just sums every character's glyph width — so a multi-line
+/// label fed through it directly would sum widths *across* lines
+/// instead of taking the widest one, and a naive fixed line count
+/// would under-reserve height for the extra lines entirely.
+fn display_lines(s: &str) -> Vec<&str> {
+    if s.is_empty() {
+        return vec![""];
+    }
+    s.split("\\n").collect()
+}
+
 pub(super) fn lollipop_geom(entity: &Entity) -> ClassGeom {
-    let label_w = text_width_pt(&entity.display, BODY_EM);
+    let lines = display_lines(&entity.display);
+    let label_w = lines
+        .iter()
+        .map(|l| text_width_pt(l, BODY_EM))
+        .fold(0.0_f64, f64::max);
     let total_w = label_w.max(LOLLIPOP_DIAMETER_PT);
-    let total_h = LOLLIPOP_DIAMETER_PT + LOLLIPOP_LABEL_GAP_PT + LINE_HEIGHT_PT;
+    // `PAD_Y_PT` bottom margin matches the compartment convention
+    // (`row_h = LINE_HEIGHT_PT + 2*PAD_Y_PT`) and gives real Typst
+    // text shaping (which can run a touch taller than the `1.2em`
+    // `LINE_HEIGHT_PT` estimate, especially for CJK glyphs) a little
+    // headroom before it reaches whatever sits below.
+    let total_h = LOLLIPOP_DIAMETER_PT
+        + LOLLIPOP_LABEL_GAP_PT
+        + (lines.len() as f64) * LINE_HEIGHT_PT
+        + PAD_Y_PT;
     ClassGeom {
         size: Point::new(total_w, total_h),
         mid_x: total_w / 2.0,

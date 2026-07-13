@@ -42,7 +42,9 @@ mod util;
 mod tests;
 
 use crate::diagnostics::{CompatMode, Diagnostic, Level, Result};
-use crate::ir::{CucaDiagram, Diagram, LayoutDirection, Skinparam};
+use crate::ir::{
+    ClassFamilyKind, CucaDiagram, Diagram, EntityKindData, LayoutDirection, Skinparam, USymbol,
+};
 use crate::parser::lexer::{BodyLine, UmlBlock};
 
 use self::container::parse_container_open;
@@ -57,7 +59,41 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
     parser.run()?;
     let mut diag = parser.diag;
     diag.name = block.name.clone();
+    desugar_bare_interfaces_to_lollipops(&mut diag);
     Ok((Diagram::Cuca(diag), parser.diagnostics))
+}
+
+/// A bare `interface Foo` (no fields, no methods, no generic) reads as
+/// a lollipop in an architecture diagram — PlantUML's own desc-family
+/// rendering treats it that way, and `interface`'s only other parse
+/// path (`() Foo`) already produces one. `entity.rs` always emits the
+/// class-family compartment shape at parse time (before we know the
+/// diagram's shape mix), so fix it up here once every entity is known:
+/// desugar every such bare interface into the lollipop it would have
+/// been had it been written `() Foo`, but only when the diagram
+/// actually contains a desc/architecture shape — a plain class diagram
+/// with an empty marker interface keeps the compartment box (matches
+/// `codegen::cuca::is_desc_flavor`'s criteria; see
+/// docs/cuca-architecture-layout-redesign.md §3.6).
+fn desugar_bare_interfaces_to_lollipops(diag: &mut CucaDiagram) {
+    if !diag.has_desc_shape() {
+        return;
+    }
+    for e in &mut diag.entities {
+        let is_bare_interface = matches!(
+            &e.kind_data,
+            EntityKindData::Compartment {
+                kind: ClassFamilyKind::Interface,
+                generic: None,
+                fields,
+                methods,
+            } if fields.is_empty() && methods.is_empty()
+        );
+        if is_bare_interface {
+            e.usymbol = USymbol::Interface;
+            e.kind_data = EntityKindData::Plain { members: Vec::new() };
+        }
+    }
 }
 
 struct Parser<'a> {

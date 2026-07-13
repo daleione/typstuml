@@ -124,26 +124,7 @@ fn resolve_label_bands(
 /// use-case (actor/ellipse edges read poorly as orthogonal jogs; see
 /// docs/cuca-architecture-layout-redesign.md §3.4 and open question 7).
 fn is_desc_flavor(diag: &CucaDiagram) -> bool {
-    diag.entities.iter().any(|e| {
-        matches!(
-            e.usymbol,
-            USymbol::Component
-                | USymbol::ComponentUml1
-                | USymbol::ComponentRectangle
-                | USymbol::Node
-                | USymbol::Database
-                | USymbol::Cloud
-                | USymbol::Queue
-                | USymbol::Stack
-                | USymbol::Storage
-                | USymbol::Artifact
-        )
-    }) || diag.containers.iter().any(|c| {
-        matches!(
-            c.usymbol,
-            USymbol::Node | USymbol::Cloud | USymbol::Folder | USymbol::Frame
-        )
-    })
+    diag.has_desc_shape()
 }
 
 pub fn emit(
@@ -287,6 +268,105 @@ pub fn emit(
             }
         })
     };
+
+    // Snap root-level interface/port entities onto the boundary of the
+    // single cluster their edges predominantly connect to (§3.5.3).
+    // PlantUML-style architecture diagrams routinely declare an
+    // `interface` outside every package and wire it to one package's
+    // components — visually it reads as "this package's public API",
+    // and snapping the disc onto that package's frame makes the
+    // relationship explicit instead of leaving the lollipop floating
+    // in open space. Only fires when every connected neighbor agrees
+    // on the same top-level cluster (no snap for a genuinely shared
+    // interface); skipped entirely if it would newly overlap another
+    // entity or a *different* frame.
+    {
+        let parents = scope::container_parents(diag);
+        let top_of = |mut c: usize| -> usize {
+            while let Some(p) = parents[c] {
+                c = p;
+            }
+            c
+        };
+        for ei in 0..diag.entities.len() {
+            if entity_container[ei].is_some() {
+                continue;
+            }
+            if !matches!(
+                diag.entities[ei].usymbol,
+                USymbol::Interface | USymbol::Port | USymbol::PortIn | USymbol::PortOut
+            ) {
+                continue;
+            }
+            let neighbor_tops: Vec<usize> = oriented
+                .iter()
+                .filter_map(|oe| {
+                    if oe.src_idx == ei {
+                        entity_container[oe.dst_idx]
+                    } else if oe.dst_idx == ei {
+                        entity_container[oe.src_idx]
+                    } else {
+                        None
+                    }
+                })
+                .map(top_of)
+                .collect();
+            let Some(&target) = neighbor_tops.first() else {
+                continue;
+            };
+            if !neighbor_tops.iter().all(|&c| c == target) {
+                continue; // shared across clusters — ambiguous, leave it be
+            }
+            let Some((bx0, bx1)) = container_bboxes[target] else {
+                continue;
+            };
+
+            let size = geoms[ei].size;
+            let cur_center = top_lefts[ei].add(size.scale(0.5));
+            let cx = cur_center.x.clamp(bx0.x, bx1.x);
+            let cy = cur_center.y.clamp(bx0.y, bx1.y);
+            let (d_left, d_right, d_top, d_bottom) =
+                (cx - bx0.x, bx1.x - cx, cy - bx0.y, bx1.y - cy);
+            let min_d = d_left.min(d_right).min(d_top).min(d_bottom);
+            let (new_cx, new_cy) = if min_d == d_left {
+                (bx0.x, cy)
+            } else if min_d == d_right {
+                (bx1.x, cy)
+            } else if min_d == d_top {
+                (cx, bx0.y)
+            } else {
+                (cx, bx1.y)
+            };
+            let new_tl = Point::new(new_cx - size.x / 2.0, new_cy - size.y / 2.0);
+            let new_box = (new_tl, new_tl.add(size));
+
+            let hits_entity = (0..diag.entities.len()).any(|j| {
+                if j == ei {
+                    return false;
+                }
+                let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
+                new_box.0.x < other.1.x
+                    && other.0.x < new_box.1.x
+                    && new_box.0.y < other.1.y
+                    && other.0.y < new_box.1.y
+            });
+            let hits_foreign_frame = container_bboxes.iter().enumerate().any(|(ci, bb)| {
+                if ci == target {
+                    return false; // touching the snap target is the point
+                }
+                let Some((fx0, fx1)) = bb else {
+                    return false;
+                };
+                new_box.0.x < fx1.x
+                    && fx0.x < new_box.1.x
+                    && new_box.0.y < fx1.y
+                    && fx0.y < new_box.1.y
+            });
+            if !hits_entity && !hits_foreign_frame {
+                top_lefts[ei] = new_tl;
+            }
+        }
+    }
 
     // Post-layout centering: when an entity's predecessors all sit
     // on the same rank, center it under their midpoint. The Sugiyama

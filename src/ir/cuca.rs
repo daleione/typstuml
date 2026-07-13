@@ -21,6 +21,39 @@ pub struct CucaDiagram {
     pub direction: LayoutDirection,
 }
 
+impl CucaDiagram {
+    /// True when this diagram contains a genuine architecture /
+    /// deployment shape (component / database / node / cloud / …) —
+    /// as opposed to a plain class diagram that merely uses `package`
+    /// for namespacing. Both the parser (bare-`interface` → lollipop
+    /// desugar, `desugar_bare_interfaces_to_lollipops`) and codegen
+    /// (`is_desc_flavor`, default edge-routing engine) key off the
+    /// same criteria — kept as one method so they can't drift. See
+    /// `docs/cuca-architecture-layout-redesign.md` §3.4/§3.6.
+    pub fn has_desc_shape(&self) -> bool {
+        self.entities.iter().any(|e| {
+            matches!(
+                e.usymbol,
+                USymbol::Component
+                    | USymbol::ComponentUml1
+                    | USymbol::ComponentRectangle
+                    | USymbol::Node
+                    | USymbol::Database
+                    | USymbol::Cloud
+                    | USymbol::Queue
+                    | USymbol::Stack
+                    | USymbol::Storage
+                    | USymbol::Artifact
+            )
+        }) || self.containers.iter().any(|c| {
+            matches!(
+                c.usymbol,
+                USymbol::Node | USymbol::Cloud | USymbol::Folder | USymbol::Frame
+            )
+        })
+    }
+}
+
 /// `hide …` / `show …` global filters from PlantUML. Renderers consult
 /// these before laying out members or drawing the marker / stereotype
 /// chip. Per-class / per-stereotype scoping is not implemented.

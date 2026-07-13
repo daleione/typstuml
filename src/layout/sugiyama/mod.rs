@@ -140,11 +140,22 @@ pub struct EdgeCrossOptimizer<'a> {
     /// When set, refuse swaps that would cross a cluster boundary so
     /// each cluster's members stay contiguous in row order.
     hierarchy: Option<&'a HierarchyMap>,
+    /// When set, prefer orderings closer to the diagram's declared
+    /// (source) order among ties in crossing count, and skip the
+    /// wholesale row rotation/perturbation that would otherwise
+    /// scramble that order for no crossing-count benefit (ELK's
+    /// `considerModelOrder`, §3.7). Diagram-agnostic — cuca opts in
+    /// via `VisualGraph::model_order`.
+    model_order: bool,
 }
 
 impl<'a> EdgeCrossOptimizer<'a> {
     pub fn new(dag: &'a mut DAG) -> Self {
-        Self { dag, hierarchy: None }
+        Self {
+            dag,
+            hierarchy: None,
+            model_order: false,
+        }
     }
 
     pub fn with_hierarchy(mut self, h: &'a HierarchyMap) -> Self {
@@ -152,6 +163,35 @@ impl<'a> EdgeCrossOptimizer<'a> {
             self.hierarchy = Some(h);
         }
         self
+    }
+
+    pub fn with_model_order(mut self, enabled: bool) -> Self {
+        self.model_order = enabled;
+        self
+    }
+
+    /// Count of adjacent-pair inversions, across every row, relative to
+    /// `initial` (the row order the diagram declared its nodes in,
+    /// snapshotted before any swaps ran). Lower = closer to
+    /// declaration order. Nodes absent from `initial`'s position map
+    /// (shouldn't happen — same rows, same nodes, just reordered) are
+    /// simply skipped rather than panicking.
+    fn order_distance(&self, initial: &[Vec<NodeHandle>]) -> usize {
+        let mut dist = 0;
+        for r in 0..self.dag.num_levels() {
+            let mut pos = std::collections::HashMap::with_capacity(initial[r].len());
+            for (i, &n) in initial[r].iter().enumerate() {
+                pos.insert(n, i);
+            }
+            for w in self.dag.row(r).windows(2) {
+                if let (Some(&pa), Some(&pb)) = (pos.get(&w[0]), pos.get(&w[1])) {
+                    if pa > pb {
+                        dist += 1;
+                    }
+                }
+            }
+        }
+        dist
     }
 
     fn num_crossing(&self, a: NodeHandle, b: NodeHandle, row: &[NodeHandle]) -> usize {
@@ -279,8 +319,12 @@ impl<'a> EdgeCrossOptimizer<'a> {
 
     pub fn optimize(&mut self) {
         self.dag.verify();
+        let initial_rows: Vec<Vec<NodeHandle>> = (0..self.dag.num_levels())
+            .map(|r| self.dag.row(r).clone())
+            .collect();
         let mut best_rank = self.dag.ranks().clone();
         let mut best_cnt = self.count_crossed_edges();
+        let mut best_dist = self.order_distance(&initial_rows);
         for i in 0..50 {
             // Cycle through scan directions: both, up, down, down — same
             // pattern as the upstream impl; no special meaning beyond mixing
@@ -293,16 +337,27 @@ impl<'a> EdgeCrossOptimizer<'a> {
             };
             self.swap_crossed_edges(up, down);
             let new_cnt = self.count_crossed_edges();
-            if new_cnt < best_cnt {
+            let is_better = if self.model_order {
+                let new_dist = self.order_distance(&initial_rows);
+                (new_cnt, new_dist) < (best_cnt, best_dist)
+            } else {
+                new_cnt < best_cnt
+            };
+            if is_better {
                 best_rank = self.dag.ranks().clone();
                 best_cnt = new_cnt;
+                if self.model_order {
+                    best_dist = self.order_distance(&initial_rows);
+                }
             }
             // Rotation / perturbation shuffles each row wholesale, which
             // would break the cluster contiguity the same-family gate is
-            // protecting. In hierarchy mode we rely on `group_rows`
+            // protecting (hierarchy mode), or scramble the declaration
+            // order this pass is otherwise preferring among ties (model
+            // order mode). In hierarchy mode we rely on `group_rows`
             // having set a sane initial order and just let the gated
             // swap pass refine within each cluster.
-            if self.hierarchy.is_none() {
+            if self.hierarchy.is_none() && !self.model_order {
                 self.rotate_rank();
                 if i % 10 == 0 {
                     self.perturb_rank();

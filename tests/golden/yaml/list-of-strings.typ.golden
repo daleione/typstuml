@@ -10,7 +10,7 @@
     (x: 76.51pt, y: 43.74pt, rows: ((key: [0], value: ["control-plane"]), (key: [1], value: ["worker"]), (key: [2], value: ["observer"]))),
   ),
   edges: (
-    (from: 0, from-row: 0, to: 1, path: ((c1: (67.53pt, 35.02pt), c2: (65.49pt, 20.37pt), end: (76.51pt, 20.37pt)),)),
-    (from: 0, from-row: 1, to: 2, path: ((c1: (67.53pt, 46.47pt), c2: (65.49pt, 61.11pt), end: (76.51pt, 61.11pt)),)),
+    (from: 0, from-row: 0, to: 1, path: ((c1: (67.53pt, 35.01pt), c2: (65.49pt, 20.37pt), end: (76.51pt, 20.37pt)),)),
+    (from: 0, from-row: 1, to: 2, path: ((c1: (67.53pt, 46.46pt), c2: (65.49pt, 61.11pt), end: (76.51pt, 61.11pt)),)),
   ),
 )

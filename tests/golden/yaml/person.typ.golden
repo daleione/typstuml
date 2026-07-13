@@ -8,13 +8,13 @@
     (x: 6.00pt, y: 3.00pt, rows: ((key: [firstName], value: ["John"]), (key: [lastName], value: ["Smith"]), (key: [isAlive], value: [☑ true]), (key: [age], value: [28]), (key: [address], value: []), (key: [phoneNumbers], value: []), (key: [children], value: []), (key: [spouse], value: [␀]))),
     (x: 139.45pt, y: 16.53pt, rows: ((key: [streetAddress], value: ["21 2nd Street"]), (key: [city], value: ["New York"]), (key: [postalCode], value: ["10021-3100"]))),
     (x: 139.45pt, y: 57.27pt, rows: ((key: [0], value: []), (key: [1], value: []))),
-    (x: 293.81pt, y: 41.15pt, rows: ((key: [type], value: ["home"]), (key: [number], value: ["212 555-1234"]))),
-    (x: 293.81pt, y: 71.72pt, rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"]))),
+    (x: 293.81pt, y: 27.98pt, rows: ((key: [type], value: ["home"]), (key: [number], value: ["212 555-1234"]))),
+    (x: 293.81pt, y: 57.14pt, rows: ((key: [type], value: ["office"]), (key: [number], value: ["646 555-4567"]))),
   ),
   edges: (
     (from: 0, from-row: 4, to: 1, path: ((c1: (133.53pt, 58.46pt), c2: (125.37pt, 33.90pt), end: (139.45pt, 33.90pt)),)),
     (from: 0, from-row: 5, to: 2, path: ((c1: (128.35pt, 69.92pt), c2: (130.55pt, 68.72pt), end: (139.45pt, 68.72pt)),)),
-    (from: 2, from-row: 0, to: 3, path: ((c1: (224.43pt, 63.00pt), c2: (237.97pt, 52.73pt), end: (293.81pt, 52.73pt)),)),
-    (from: 2, from-row: 1, to: 4, path: ((c1: (224.38pt, 74.45pt), c2: (238.02pt, 83.30pt), end: (293.81pt, 83.30pt)),)),
+    (from: 2, from-row: 0, to: 3, path: ((c1: (193.86pt, 63.00pt), c2: (259.10pt, 63.37pt), end: (281.81pt, 52.27pt)), (c1: (288.79pt, 48.87pt), c2: (286.04pt, 39.56pt), end: (293.81pt, 39.56pt)))),
+    (from: 2, from-row: 1, to: 4, path: ((c1: (224.30pt, 74.45pt), c2: (238.10pt, 68.72pt), end: (293.81pt, 68.72pt)),)),
   ),
 )

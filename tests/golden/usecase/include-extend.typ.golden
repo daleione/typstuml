@@ -7,14 +7,14 @@
   classes: (
     (x: 16.67pt, y: 8.33pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
     (x: 134.15pt, y: 72.58pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
-    (x: 239.38pt, y: 47.80pt, width: 79.33pt, height: 28.00pt, kind: "usecase", name: [Validate Card], fields: (), methods: ()),
+    (x: 239.38pt, y: 27.91pt, width: 79.33pt, height: 28.00pt, kind: "usecase", name: [Validate Card], fields: (), methods: ()),
     (x: 16.67pt, y: 72.58pt, width: 84.15pt, height: 28.00pt, kind: "usecase", name: [Apply Coupon], fields: (), methods: ()),
-    (x: 239.38pt, y: 94.91pt, width: 93.85pt, height: 28.00pt, kind: "usecase", name: [Generate Receipt], fields: (), methods: ()),
+    (x: 239.38pt, y: 72.58pt, width: 93.85pt, height: 28.00pt, kind: "usecase", name: [Generate Receipt], fields: (), methods: ()),
   ),
   edges: (
     (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 32.12pt, to-y: 76.78pt, path: ((c1: (71.83pt, 47.01pt), c2: (102.99pt, 61.89pt), end: (134.15pt, 76.78pt)),)),
-    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 61.80pt, label: [\<\<include\>\>], path: ((c1: (217.16pt, 78.32pt), c2: (228.27pt, 70.06pt), end: (239.38pt, 61.80pt)),)),
-    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 108.91pt, label: [\<\<include\>\>], path: ((c1: (217.16pt, 94.02pt), c2: (228.27pt, 101.47pt), end: (239.38pt, 108.91pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 41.91pt, label: [\<\<include\>\>], path: ((c1: (217.16pt, 71.69pt), c2: (228.27pt, 56.80pt), end: (239.38pt, 41.91pt)),)),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 86.58pt, label: [\<\<include\>\>], path: ((c1: (217.16pt, 86.58pt), c2: (228.27pt, 86.58pt), end: (239.38pt, 86.58pt)),)),
     (from: 3, to: 1, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 86.58pt, label: [\<\<extends\>\>], path: ((c1: (111.93pt, 86.58pt), c2: (123.04pt, 86.58pt), end: (134.15pt, 86.58pt)),)),
   ),
 )

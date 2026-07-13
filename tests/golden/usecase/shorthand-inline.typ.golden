@@ -4,14 +4,14 @@
 
 #cuca-layout(
   classes: (
-    (x: 8.33pt, y: 16.67pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [Bob], fields: (), methods: ()),
-    (x: 25.27pt, y: 97.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
-    (x: 64.25pt, y: 16.67pt, width: 27.92pt, height: 47.58pt, kind: "actor", name: [Admin], fields: (), methods: ()),
-    (x: 82.31pt, y: 97.58pt, width: 64.94pt, height: 28.00pt, kind: "usecase", name: [Configure], fields: (), methods: ()),
+    (x: 20.33pt, y: 16.67pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [Bob], fields: (), methods: ()),
+    (x: 8.33pt, y: 97.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
+    (x: 76.25pt, y: 16.67pt, width: 27.92pt, height: 47.58pt, kind: "actor", name: [Admin], fields: (), methods: ()),
+    (x: 73.00pt, y: 97.58pt, width: 64.94pt, height: 28.00pt, kind: "usecase", name: [Configure], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 20.33pt, to-x: 32.47pt, path: ((c1: (24.38pt, 75.36pt), c2: (28.43pt, 86.47pt), end: (32.47pt, 97.58pt)),)),
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 78.21pt, to-x: 114.78pt, path: ((c1: (90.40pt, 75.36pt), c2: (102.59pt, 86.47pt), end: (114.78pt, 97.58pt)),)),
-    (from: 2, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 78.21pt, to-x: 66.07pt, path: ((c1: (74.17pt, 75.36pt), c2: (70.12pt, 86.47pt), end: (66.07pt, 97.58pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 32.33pt, to-x: 32.33pt, path: ((c1: (32.33pt, 75.36pt), c2: (32.33pt, 86.47pt), end: (32.33pt, 97.58pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 90.21pt, to-x: 105.47pt, path: ((c1: (95.30pt, 75.36pt), c2: (100.38pt, 86.47pt), end: (105.47pt, 97.58pt)),)),
+    (from: 2, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 90.21pt, to-x: 49.13pt, path: ((c1: (76.52pt, 75.36pt), c2: (62.83pt, 86.47pt), end: (49.13pt, 97.58pt)),)),
   ),
 )

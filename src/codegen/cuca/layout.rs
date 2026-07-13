@@ -97,6 +97,7 @@ fn flat_layout(
     let mut vg = VisualGraph::new(orientation);
     let sp = spacing();
     vg.set_spacing(sp);
+    vg.set_model_order(true);
     let halo = node_halo(&sp, orientation, false);
     let handles: Vec<_> = geoms
         .iter()
@@ -148,6 +149,7 @@ fn hierarchical_layout(
     let mut vg = VisualGraph::new(orientation);
     let sp = spacing();
     vg.set_spacing(sp);
+    vg.set_model_order(true);
 
     // Innermost direct container for each entity (or `None` for a
     // root-level / unclustered entity), computed up front so node

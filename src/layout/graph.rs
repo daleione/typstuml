@@ -187,6 +187,12 @@ pub struct VisualGraph {
     /// ([`Spacing::legacy`]) so every non-cuca diagram family is
     /// unaffected; cuca opts in via `set_spacing`.
     pub spacing: Spacing,
+    /// When set, `EdgeCrossOptimizer` prefers orderings closer to the
+    /// diagram's declared order among crossing-count ties, and skips
+    /// the row rotation/perturbation that would otherwise scramble it
+    /// for no benefit (§3.7). Off by default; cuca opts in via
+    /// `set_model_order`.
+    pub model_order: bool,
 }
 
 impl VisualGraph {
@@ -201,11 +207,16 @@ impl VisualGraph {
             ns_xcoord: false,
             ns_rank: false,
             spacing: Spacing::legacy(),
+            model_order: false,
         }
     }
 
     pub fn set_spacing(&mut self, spacing: Spacing) {
         self.spacing = spacing;
+    }
+
+    pub fn set_model_order(&mut self, enabled: bool) {
+        self.model_order = enabled;
     }
 
     /// Use dot's network-simplex x-coordinate assignment for this graph.
@@ -406,6 +417,7 @@ impl VisualGraph {
         }
         crate::layout::sugiyama::EdgeCrossOptimizer::new(&mut self.dag)
             .with_hierarchy(&self.hierarchy)
+            .with_model_order(self.model_order)
             .optimize();
         self.expand_self_edges();
     }

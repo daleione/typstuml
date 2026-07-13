@@ -319,15 +319,63 @@ impl<'a> BK<'a> {
 
     pub fn do_it(&mut self) {
         // Four corner sweeps: each pairs an alignment direction with a
-        // scheduling direction. Averaging the four x's balances the bias
-        // each sweep introduces toward its corner.
+        // scheduling direction.
         let xs0 = self.run_pass(OrderLR::RightToLeft, OrderLR::RightToLeft);
         let xs1 = self.run_pass(OrderLR::RightToLeft, OrderLR::LeftToRight);
         let xs2 = self.run_pass(OrderLR::LeftToRight, OrderLR::RightToLeft);
         let xs3 = self.run_pass(OrderLR::LeftToRight, OrderLR::LeftToRight);
+        // `schedule` (the second arg to run_pass) is each assignment's
+        // horizontal bias: a LeftToRight schedule places verticals
+        // starting from the left, so its *minimum* reflects the real
+        // layout; a RightToLeft schedule anchors on the *maximum*.
+        let assignments = [
+            (xs0, OrderLR::RightToLeft),
+            (xs1, OrderLR::LeftToRight),
+            (xs2, OrderLR::RightToLeft),
+            (xs3, OrderLR::LeftToRight),
+        ];
 
-        for i in 0..xs0.len() {
-            let val = (xs0[i] + xs1[i] + xs2[i] + xs3[i]) / 4.0;
+        // Brandes-Köpf §4.2 balancing: a plain mean of four
+        // *unaligned* sweeps inherits whichever sweep drifted
+        // furthest from its own origin. Instead, align every
+        // assignment to the one with the smallest extent (each
+        // shifted along its own bias direction so the alignment
+        // doesn't itself introduce a new corner bias), then take the
+        // median of the middle two values per node.
+        let extent = |xs: &[f64]| -> f64 {
+            let lo = xs.iter().cloned().fold(f64::INFINITY, f64::min);
+            let hi = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            hi - lo
+        };
+        let ref_idx = (0..4)
+            .min_by(|&a, &b| extent(&assignments[a].0).partial_cmp(&extent(&assignments[b].0)).unwrap())
+            .unwrap();
+        let ref_lo = assignments[ref_idx].0.iter().cloned().fold(f64::INFINITY, f64::min);
+        let ref_hi = assignments[ref_idx]
+            .0
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
+
+        let aligned: Vec<Vec<f64>> = assignments
+            .iter()
+            .map(|(xs, schedule)| {
+                let delta = match schedule {
+                    OrderLR::LeftToRight => {
+                        ref_lo - xs.iter().cloned().fold(f64::INFINITY, f64::min)
+                    }
+                    OrderLR::RightToLeft => {
+                        ref_hi - xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+                    }
+                };
+                xs.iter().map(|&x| x + delta).collect()
+            })
+            .collect();
+
+        for i in 0..aligned[0].len() {
+            let mut vals = [aligned[0][i], aligned[1][i], aligned[2][i], aligned[3][i]];
+            vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let val = (vals[1] + vals[2]) / 2.0;
             self.vg.pos_mut(NodeHandle::from(i)).set_x(val);
         }
         simple::align_to_left(self.vg);

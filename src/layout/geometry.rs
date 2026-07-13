@@ -56,6 +56,32 @@ impl std::fmt::Display for Point {
     }
 }
 
+/// Asymmetric extra space reserved on each side of a box, on top of its
+/// symmetric halo. Used to reserve room for an ancestor cluster frame
+/// (pad + label band) around a node that sits at the edge of that
+/// cluster's row-span or rank-span, so the placer never packs a
+/// stranger into space a frame will later occupy. Zero for every
+/// element outside the cuca hierarchical layout path — see
+/// `docs/cuca-architecture-layout-redesign.md` §3.2a.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Margin {
+    pub left: f64,
+    pub right: f64,
+    pub top: f64,
+    pub bottom: f64,
+}
+
+impl Margin {
+    pub fn transpose(&self) -> Margin {
+        Margin {
+            left: self.top,
+            right: self.bottom,
+            top: self.left,
+            bottom: self.right,
+        }
+    }
+}
+
 /// A node's box on the canvas: an absolute centerpoint, an inner size, and
 /// a symmetric halo (the gap around the box reserved for spacing). Originally
 /// upstream supported a `center` delta separate from `middle` to anchor edges
@@ -68,6 +94,7 @@ pub struct Position {
     size: Point,
     center: Point,
     halo: Point,
+    margin: Margin,
 }
 
 impl Position {
@@ -77,13 +104,34 @@ impl Position {
             size,
             center,
             halo,
+            margin: Margin::default(),
         }
     }
 
+    /// `bbox(true)` reserves `margin` on top of the symmetric halo. Unlike
+    /// the halo, margin is *not* split evenly around `middle` — a node
+    /// with `margin.left > margin.right` gets more reserved space on its
+    /// left than its right, so `bbox(true)` is no longer centered on
+    /// `middle` when margins are asymmetric. `bbox(false)` (the real
+    /// visual footprint) is unaffected.
     pub fn bbox(&self, with_halo: bool) -> (Point, Point) {
-        let size = self.size(with_halo);
-        let top_left = self.middle.sub(size.scale(0.5));
-        (top_left, top_left.add(size))
+        let half = self.size.scale(0.5);
+        let top_left = self.middle.sub(half);
+        let bottom_right = self.middle.add(half);
+        if with_halo {
+            (
+                Point::new(
+                    top_left.x - self.halo.x / 2. - self.margin.left,
+                    top_left.y - self.halo.y / 2. - self.margin.top,
+                ),
+                Point::new(
+                    bottom_right.x + self.halo.x / 2. + self.margin.right,
+                    bottom_right.y + self.halo.y / 2. + self.margin.bottom,
+                ),
+            )
+        } else {
+            (top_left, bottom_right)
+        }
     }
 
     pub fn center(&self) -> Point {
@@ -94,12 +142,26 @@ impl Position {
         self.middle
     }
 
+    /// Total footprint including halo and margin (when `with_halo`).
+    /// Always equal to `bbox(with_halo).1 - bbox(with_halo).0`.
     pub fn size(&self, with_halo: bool) -> Point {
         if with_halo {
-            self.size.add(self.halo)
+            Point::new(
+                self.size.x + self.halo.x + self.margin.left + self.margin.right,
+                self.size.y + self.halo.y + self.margin.top + self.margin.bottom,
+            )
         } else {
             self.size
         }
+    }
+
+    /// Accumulate extra reserved space; additive so multiple ancestor
+    /// clusters can each contribute their own pad/label-band.
+    pub fn add_margin(&mut self, m: Margin) {
+        self.margin.left += m.left;
+        self.margin.right += m.right;
+        self.margin.top += m.top;
+        self.margin.bottom += m.bottom;
     }
 
     pub fn left(&self, with_halo: bool) -> f64 {
@@ -132,16 +194,20 @@ impl Position {
         self.middle = self.middle.add(d);
     }
 
+    /// Set `middle.y` so that `bbox(true).0.y == y` (the reserved top
+    /// edge, including margin, lands exactly at `y`).
     pub fn align_to_top(&mut self, y: f64) {
-        self.middle.y = y + self.size.y / 2. + self.halo.y / 2.;
+        self.middle.y = y + self.size.y / 2. + self.halo.y / 2. + self.margin.top;
     }
 
+    /// Set `middle.x` so that `bbox(true).0.x == x`.
     pub fn align_to_left(&mut self, x: f64) {
-        self.middle.x = x + self.size.x / 2. + self.halo.x / 2.;
+        self.middle.x = x + self.size.x / 2. + self.halo.x / 2. + self.margin.left;
     }
 
+    /// Set `middle.x` so that `bbox(true).1.x == x`.
     pub fn align_to_right(&mut self, x: f64) {
-        self.middle.x = x - self.size.x / 2. - self.halo.x / 2.;
+        self.middle.x = x - self.size.x / 2. - self.halo.x / 2. - self.margin.right;
     }
 
     pub fn set_x(&mut self, x: f64) {
@@ -153,6 +219,7 @@ impl Position {
         self.size = self.size.transpose();
         self.center = self.center.transpose();
         self.halo = self.halo.transpose();
+        self.margin = self.margin.transpose();
     }
 }
 

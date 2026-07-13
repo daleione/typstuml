@@ -84,9 +84,14 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
             }
             let mut gaps = Vec::with_capacity(row.len().saturating_sub(1));
             for i in 0..row.len().saturating_sub(1) {
-                let ha = vg.pos(row[i]).size(true).x / 2.0;
-                let hb = vg.pos(row[i + 1]).size(true).x / 2.0;
-                gaps.push(ha + hb);
+                // Asymmetric margins (cluster-frame reservation) mean a
+                // node's left/right reservation can differ, so the
+                // required gap is the *sum of the two facing edges*, not
+                // `size(true)/2` twice — those coincide only when margin
+                // is symmetric (the non-cuca-hierarchy case).
+                let ra = vg.pos(row[i]).distance_to_right(true);
+                let lb = vg.pos(row[i + 1]).distance_to_left(true);
+                gaps.push(ra + lb);
             }
             let new_t = pav(&targets, &precisions, &gaps);
             for (i, &n) in row.iter().enumerate() {
@@ -292,8 +297,8 @@ fn has_overlap(vg: &VisualGraph, centers: &[f64]) -> bool {
         for win in row.windows(2) {
             let a = win[0];
             let b = win[1];
-            let a_right = centers[a.get_index()] + vg.pos(a).size(true).x / 2.0;
-            let b_left = centers[b.get_index()] - vg.pos(b).size(true).x / 2.0;
+            let a_right = centers[a.get_index()] + vg.pos(a).distance_to_right(true);
+            let b_left = centers[b.get_index()] - vg.pos(b).distance_to_left(true);
             if a_right > b_left + 1e-6 {
                 return true;
             }
@@ -306,10 +311,9 @@ fn perp_extent(vg: &VisualGraph, centers: &[f64]) -> f64 {
     let mut lo = f64::INFINITY;
     let mut hi = f64::NEG_INFINITY;
     for n in vg.iter_nodes() {
-        let half = vg.pos(n).size(true).x / 2.0;
         let c = centers[n.get_index()];
-        lo = lo.min(c - half);
-        hi = hi.max(c + half);
+        lo = lo.min(c - vg.pos(n).distance_to_left(true));
+        hi = hi.max(c + vg.pos(n).distance_to_right(true));
     }
     if lo.is_infinite() {
         0.0
@@ -328,10 +332,9 @@ fn max_rank_extent(vg: &VisualGraph, centers: &[f64]) -> f64 {
         let mut lo = f64::INFINITY;
         let mut hi = f64::NEG_INFINITY;
         for &n in row {
-            let half = vg.pos(n).size(true).x / 2.0;
             let c = centers[n.get_index()];
-            lo = lo.min(c - half);
-            hi = hi.max(c + half);
+            lo = lo.min(c - vg.pos(n).distance_to_left(true));
+            hi = hi.max(c + vg.pos(n).distance_to_right(true));
         }
         best = best.max(hi - lo);
     }

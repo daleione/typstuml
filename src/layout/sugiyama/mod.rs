@@ -47,6 +47,7 @@ impl<'a> Placer<'a> {
             self.vg.transpose();
         }
 
+        HierarchyMap::apply_cluster_margins(self.vg);
         simple::do_it(self.vg);
         verify::do_it(self.vg);
 
@@ -69,6 +70,7 @@ impl<'a> Placer<'a> {
         // cluster bbox coords so codegen sees them in the user's
         // original orientation.
         tighten::do_it(self.vg);
+        verify::verify_final(self.vg);
 
         if need_transpose {
             self.vg.transpose();

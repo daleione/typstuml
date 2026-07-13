@@ -279,10 +279,15 @@ pub fn emit(
                 Point::new(new_x, my_y),
                 Point::new(new_x + my_w, my_y + geoms[ei].size.y),
             );
-            // Reject if the move would crash into another entity at
-            // ei's rank.
+            // Reject if the move would crash into another entity.
+            // Bbox overlap is the real test — a same-rank y-proximity
+            // gate used to stand in for it here, but in a multi-cluster
+            // layout two entities at the same DAG rank can have
+            // slightly different absolute y (different ancestor pad /
+            // label-band), so a small but genuine y-gap could slip
+            // past a coarse threshold while the bboxes still overlap.
             let conflict = (0..entity_count).any(|j| {
-                if j == ei || (top_lefts[j].y - my_y).abs() > 1.0 {
+                if j == ei {
                     return false;
                 }
                 let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
@@ -315,11 +320,12 @@ pub fn emit(
         // thickness (PlantUML uses ~30pt of dashed line).
         let chord_pad: f64 = 32.0;
         let entity_count = diag.entities.len();
+        // Bbox overlap, not a same-rank y-proximity gate — see the
+        // leaf-recenter conflict check above for why the gate is
+        // unsound in a multi-cluster layout.
         let conflict_at_y = |new_box: (Point, Point), self_idx: usize, top_lefts: &[Point]| -> bool {
             (0..entity_count).any(|j| {
-                if j == self_idx
-                    || (top_lefts[j].y - new_box.0.y).abs() > 1.0
-                {
+                if j == self_idx {
                     return false;
                 }
                 let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));

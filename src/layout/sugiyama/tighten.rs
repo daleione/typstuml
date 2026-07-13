@@ -68,6 +68,175 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
     // composite back-edge bug). Re-assert the rank monotonicity that
     // compaction guaranteed and the band shifts broke.
     restore_rank_monotonicity(vg);
+
+    // Safety net: every shift above (`sweep_siblings`,
+    // `resolve_against_sibling_nodes`, `shift_node_below`) only checks
+    // the specific pair it's separating, not the whole graph. A cluster
+    // subtree pushed to clear one obstacle can land on top of an
+    // unrelated node or foreign frame elsewhere. Sweep until no real
+    // node sits outside a cluster yet overlaps that cluster's frame.
+    resolve_strangers(vg);
+}
+
+/// Bottom-up recompute of every cluster's outer bbox from current
+/// member positions. Shared by `do_it`'s tail, `restore_rank_monotonicity`,
+/// and `resolve_strangers` — all three need a fresh set of frames after
+/// moving nodes around.
+fn recompute_all_bboxes(vg: &mut VisualGraph) {
+    let depths = compute_depths(&vg.hierarchy);
+    let max_depth = depths.iter().copied().max().unwrap_or(0);
+    for d in (0..=max_depth).rev() {
+        for c in 0..vg.hierarchy.clusters.len() {
+            if depths[c] == d {
+                compute_single_bbox(vg, c);
+            }
+        }
+    }
+}
+
+/// After frames and rank monotonicity have settled, sweep every real
+/// node against every foreign cluster frame it overlaps and separate
+/// them. Earlier passes only check a node against its own parent's
+/// direct members or the specific pair being resolved — a shift made
+/// to satisfy one constraint can silently overlap a third party
+/// anywhere else in the graph (e.g. a rank-monotonicity fix that
+/// pushes one package's member into a same-rank sibling package's
+/// frame). This is the global correctness backstop; `verify_final`
+/// (in `verify.rs`) asserts the invariant this pass establishes.
+///
+/// A node sandwiched between two frames (e.g. a root-level node
+/// between two sibling packages at the same rank) can't be resolved by
+/// only checking frames it *currently* overlaps: clearing frame A can
+/// walk it straight into frame B, an infinite 2-cycle, if B's conflict
+/// wasn't accounted for at decision time. Instead, for each of the
+/// four escape directions (left / right / above / below) we gather
+/// *every* foreign frame that could possibly block that direction —
+/// which for a pure X move is exactly "any frame whose Y-range
+/// overlaps the node's Y-range", not just frames it overlaps in X
+/// right now — and clear the extreme edge across that whole set in
+/// one move. Being left of the *minimum* left edge among every
+/// Y-overlapping frame is disjoint from all of them simultaneously, so
+/// a single committed move can't trade one conflict for a new one.
+///
+/// A stranger that itself belongs to some other cluster is moved along
+/// with that cluster's whole top-level subtree (not in isolation) so
+/// its own package stays visually intact; an unclustered node moves
+/// alone.
+fn resolve_strangers(vg: &mut VisualGraph) {
+    const MAX_ROUNDS: usize = 16;
+    for _ in 0..MAX_ROUNDS {
+        let real_nodes: Vec<NodeHandle> = vg
+            .iter_nodes()
+            .filter(|h| !vg.is_connector(*h))
+            .collect();
+        let num_clusters = vg.hierarchy.clusters.len();
+        let mut moved = false;
+        for &n in &real_nodes {
+            let (tl, br) = vg.pos(n).bbox(false);
+            // Members of n's own top-level package move together under
+            // `shift_cluster_subtree`, so they can never newly collide
+            // with `n` from this move — excluding them keeps the escape
+            // computation from fighting the package's own internal
+            // arrangement.
+            let n_top = vg.hierarchy.cluster_of(n).map(|c| vg.hierarchy.top_ancestor(c));
+
+            let mut in_conflict = false;
+            let mut left_edge = f64::INFINITY;
+            let mut right_edge = f64::NEG_INFINITY;
+            let mut top_edge = f64::INFINITY;
+            let mut bottom_edge = f64::NEG_INFINITY;
+            for c in 0..num_clusters {
+                if vg.hierarchy.is_inside(n, c) {
+                    continue;
+                }
+                let cl = &vg.hierarchy.clusters[c];
+                if !cl.x_min.is_finite() {
+                    continue;
+                }
+                let x_overlap = cl.x_max.min(br.x) - cl.x_min.max(tl.x);
+                let y_overlap = cl.y_max.min(br.y) - cl.y_min.max(tl.y);
+                if x_overlap > 0.0 && y_overlap > 0.0 {
+                    in_conflict = true;
+                }
+                if y_overlap > 0.0 {
+                    left_edge = left_edge.min(cl.x_min);
+                    right_edge = right_edge.max(cl.x_max);
+                }
+                if x_overlap > 0.0 {
+                    top_edge = top_edge.min(cl.y_min);
+                    bottom_edge = bottom_edge.max(cl.y_max);
+                }
+            }
+            // Same escape-direction treatment for individual entities:
+            // a whole-subtree shift made to clear a foreign *frame* can
+            // walk one member into a previously-unrelated entity that
+            // isn't inside any conflicting cluster at all (both top-
+            // level, say). Treat every other real node outside n's own
+            // package as a point obstacle exactly like a cluster frame.
+            for &m in &real_nodes {
+                if m == n {
+                    continue;
+                }
+                let m_top = vg.hierarchy.cluster_of(m).map(|c| vg.hierarchy.top_ancestor(c));
+                if n_top.is_some() && m_top == n_top {
+                    continue;
+                }
+                let (mtl, mbr) = vg.pos(m).bbox(false);
+                let x_overlap = mbr.x.min(br.x) - mtl.x.max(tl.x);
+                let y_overlap = mbr.y.min(br.y) - mtl.y.max(tl.y);
+                if x_overlap > 0.0 && y_overlap > 0.0 {
+                    in_conflict = true;
+                }
+                if y_overlap > 0.0 {
+                    left_edge = left_edge.min(mtl.x);
+                    right_edge = right_edge.max(mbr.x);
+                }
+                if x_overlap > 0.0 {
+                    top_edge = top_edge.min(mtl.y);
+                    bottom_edge = bottom_edge.max(mbr.y);
+                }
+            }
+            if !in_conflict {
+                continue;
+            }
+
+            let mut candidates: Vec<Point> = Vec::new();
+            if left_edge.is_finite() {
+                candidates.push(Point::new(-(br.x - left_edge + CLUSTER_GAP_PT), 0.0));
+            }
+            if right_edge.is_finite() {
+                candidates.push(Point::new(right_edge - tl.x + CLUSTER_GAP_PT, 0.0));
+            }
+            if top_edge.is_finite() {
+                candidates.push(Point::new(0.0, -(br.y - top_edge + CLUSTER_GAP_PT)));
+            }
+            if bottom_edge.is_finite() {
+                candidates.push(Point::new(0.0, bottom_edge - tl.y + CLUSTER_GAP_PT));
+            }
+            let Some(delta) = candidates.into_iter().min_by(|a, b| {
+                let ma = a.x.abs() + a.y.abs();
+                let mb = b.x.abs() + b.y.abs();
+                ma.partial_cmp(&mb).unwrap()
+            }) else {
+                continue;
+            };
+
+            match vg.hierarchy.cluster_of(n) {
+                Some(direct) => {
+                    let top = vg.hierarchy.top_ancestor(direct);
+                    shift_cluster_subtree(vg, top, delta.x, delta.y);
+                }
+                None => {
+                    vg.pos_mut(n).translate(delta);
+                }
+            }
+            moved = true;
+            recompute_all_bboxes(vg);
+        }
+        if !moved {
+            break;
+        }
+    }
 }
 
 /// After cluster frames are derived, walk nodes in rank order and, for
@@ -138,15 +307,7 @@ fn restore_rank_monotonicity(vg: &mut VisualGraph) {
 
     // Member positions moved; rebuild every cluster bbox bottom-up so the
     // frames wrap the now-monotonic subtree.
-    let depths = compute_depths(&vg.hierarchy);
-    let max_depth = depths.iter().copied().max().unwrap_or(0);
-    for d in (0..=max_depth).rev() {
-        for c in 0..vg.hierarchy.clusters.len() {
-            if depths[c] == d {
-                compute_single_bbox(vg, c);
-            }
-        }
-    }
+    recompute_all_bboxes(vg);
 }
 
 /// Shift `v` down by `dy`, moving the outermost cluster subtree that

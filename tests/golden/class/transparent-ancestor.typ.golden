@@ -4,16 +4,16 @@
 
 #cuca-layout(
   classes: (
-    (x: 45.65pt, y: 18.00pt, width: 33.18pt, height: 17.00pt, kind: "class", name: [X], fields: (), methods: ()),
-    (x: 15.00pt, y: 71.00pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Y], fields: (), methods: ()),
-    (x: 142.83pt, y: 71.00pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Z], fields: (), methods: ()),
+    (x: 73.65pt, y: 43.48pt, width: 33.18pt, height: 17.00pt, kind: "class", name: [X], fields: (), methods: ()),
+    (x: 29.00pt, y: 96.48pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Y], fields: (), methods: ()),
+    (x: 170.83pt, y: 121.97pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Z], fields: (), methods: ()),
   ),
   packages: (
-    (x: -11.00pt, y: -19.48pt, w: 115.83pt, h: 133.48pt, kind: "package", label: [PkgA]),
-    (x: 116.83pt, y: 33.52pt, w: 84.24pt, h: 80.48pt, kind: "package", label: [PkgB]),
+    (x: 3.00pt, y: 6.00pt, w: 129.83pt, h: 133.48pt, kind: "package", label: [PkgA]),
+    (x: 144.83pt, y: 84.48pt, w: 84.24pt, h: 80.48pt, kind: "package", label: [PkgB]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.24pt, to-x: 31.12pt, path: ((c1: (51.87pt, 47.00pt), c2: (41.49pt, 59.00pt), end: (31.12pt, 71.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.24pt, to-x: 158.95pt, path: ((c1: (94.48pt, 47.00pt), c2: (126.71pt, 59.00pt), end: (158.95pt, 71.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 90.24pt, to-x: 45.12pt, path: ((c1: (75.20pt, 72.48pt), c2: (60.16pt, 84.48pt), end: (45.12pt, 96.48pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 90.24pt, to-x: 186.95pt, path: ((c1: (122.48pt, 80.98pt), c2: (154.71pt, 101.47pt), end: (186.95pt, 121.97pt)),)),
   ),
 )

@@ -5,17 +5,17 @@
 #cuca-layout(
   direction: "lr",
   classes: (
-    (x: 18.00pt, y: 15.00pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
-    (x: 18.00pt, y: 96.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M1], fields: (), methods: ()),
-    (x: 18.00pt, y: 143.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M2], fields: (), methods: ()),
-    (x: 126.88pt, y: 15.00pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),
+    (x: 43.48pt, y: 29.00pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
+    (x: 43.48pt, y: 104.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M1], fields: (), methods: ()),
+    (x: 43.48pt, y: 151.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M2], fields: (), methods: ()),
+    (x: 152.37pt, y: 29.00pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),
   ),
   packages: (
-    (x: -19.48pt, y: -11.00pt, w: 96.88pt, h: 69.00pt, kind: "package", label: [Left]),
-    (x: -19.48pt, y: 70.00pt, w: 103.61pt, h: 116.00pt, kind: "package", label: [Middle]),
-    (x: 89.40pt, y: -11.00pt, w: 96.02pt, h: 69.00pt, kind: "package", label: [Right]),
+    (x: 6.00pt, y: 3.00pt, w: 96.88pt, h: 69.00pt, kind: "package", label: [Left]),
+    (x: 6.00pt, y: 78.00pt, w: 103.61pt, h: 116.00pt, kind: "package", label: [Middle]),
+    (x: 114.88pt, y: 3.00pt, w: 96.02pt, h: 69.00pt, kind: "package", label: [Right]),
   ),
   edges: (
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 23.50pt, to-y: 23.50pt, path: ((c1: (76.56pt, 23.50pt), c2: (101.72pt, 23.50pt), end: (126.88pt, 23.50pt)),)),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 37.50pt, to-y: 37.50pt, path: ((c1: (102.04pt, 37.50pt), c2: (127.20pt, 37.50pt), end: (152.37pt, 37.50pt)),)),
   ),
 )

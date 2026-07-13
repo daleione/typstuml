@@ -397,6 +397,89 @@ impl HierarchyMap {
         changed
     }
 
+    /// Reserve room for every ancestor cluster frame before any geometry
+    /// pass runs. Without this, `tighten::compute_single_bbox` derives
+    /// each cluster's outer rectangle *after* `simple`/`bk`/`compact`
+    /// have already packed nodes as if no frame existed — so a same-row
+    /// stranger (a node with no cluster, or a member of a different
+    /// cluster) can end up sitting exactly where the frame's pad or
+    /// label band will later be drawn.
+    ///
+    /// For every real node, walk its ancestor cluster chain and add to
+    /// its `Position` margin:
+    ///   - `pad` on the left/right when the node is the first/last
+    ///     member of that cluster in its row (rows are already grouped
+    ///     contiguously by `group_rows`, so "first/last" is well
+    ///     defined);
+    ///   - `pad + label_band` on top / `pad` on the bottom when the
+    ///     node sits at that cluster's minimum / maximum DAG rank.
+    ///
+    /// Call once, after `group_rows` + mincross have settled row order
+    /// and rank assignment, and before `simple::do_it`. See
+    /// `docs/cuca-architecture-layout-redesign.md` §3.2a.
+    pub fn apply_cluster_margins(vg: &mut crate::layout::graph::VisualGraph) {
+        if vg.hierarchy.is_empty() {
+            return;
+        }
+
+        // Per-cluster min/max rank among real descendants. `rank_min` /
+        // `rank_max` on `HCluster` aren't populated yet (nothing calls
+        // `recompute_rank_span` today), so compute fresh from live DAG
+        // levels.
+        let n = vg.hierarchy.clusters.len();
+        let mut rank_min = vec![usize::MAX; n];
+        let mut rank_max = vec![0usize; n];
+        for h in vg.dag.iter() {
+            if vg.is_connector(h) {
+                continue;
+            }
+            if let Some(direct) = vg.hierarchy.cluster_of(h) {
+                let level = vg.dag.level(h);
+                for c in vg.hierarchy.ancestors(direct) {
+                    rank_min[c] = rank_min[c].min(level);
+                    rank_max[c] = rank_max[c].max(level);
+                }
+            }
+        }
+
+        for r in 0..vg.dag.num_levels() {
+            let row = vg.dag.row(r).clone();
+            for (i, &h) in row.iter().enumerate() {
+                if vg.is_connector(h) {
+                    continue;
+                }
+                let Some(direct) = vg.hierarchy.cluster_of(h) else {
+                    continue;
+                };
+                let chain: Vec<ClusterId> = vg.hierarchy.ancestors(direct).collect();
+                let mut margin = crate::layout::geometry::Margin::default();
+                for c in chain {
+                    let pad = vg.hierarchy.clusters[c].pad;
+                    let band = vg.hierarchy.clusters[c].label_band;
+                    if pad <= 0.0 && band <= 0.0 {
+                        continue;
+                    }
+                    let opens_left = i == 0 || !vg.hierarchy.is_inside(row[i - 1], c);
+                    let opens_right =
+                        i + 1 == row.len() || !vg.hierarchy.is_inside(row[i + 1], c);
+                    if opens_left {
+                        margin.left += pad;
+                    }
+                    if opens_right {
+                        margin.right += pad;
+                    }
+                    if r == rank_min[c] {
+                        margin.top += pad + band;
+                    }
+                    if r == rank_max[c] {
+                        margin.bottom += pad;
+                    }
+                }
+                vg.pos_mut(h).add_margin(margin);
+            }
+        }
+    }
+
     /// Recompute `rank_min` / `rank_max` for every cluster from the
     /// current DAG ranks. Called after any pass that reorders / re-ranks
     /// nodes.

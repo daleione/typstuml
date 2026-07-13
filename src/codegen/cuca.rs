@@ -655,6 +655,27 @@ pub fn emit(
     // No source-side redistribution.
     let from_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
 
+    // Two passes: the first resolves every edge's route (ortho routes
+    // stay as raw polylines, not yet rounded), then
+    // `ortho::separate_overlapping` (§3.5.2) fans apart parallel trunk
+    // segments across *all* routes at once — it needs every polyline
+    // up front, so it can't run inside the per-edge loop. The second
+    // pass rounds the (possibly now-separated) ortho polylines and
+    // emits every edge in original order.
+    enum PendingRoute {
+        Final(Vec<(Point, Point, Point)>),
+        Ortho(Vec<Point>),
+    }
+    struct PendingEdge<'a> {
+        oe: &'a OrientedEdge,
+        from_side: Side,
+        to_side: Side,
+        from_emit_override: Option<f64>,
+        to_emit_override: Option<f64>,
+        route: PendingRoute,
+    }
+    let mut pending: Vec<PendingEdge> = Vec::with_capacity(oriented.len());
+
     for (edge_idx, oe) in oriented.iter().enumerate() {
         let from = oe.src_idx;
         let to = oe.dst_idx;
@@ -763,8 +784,11 @@ pub fn emit(
         // boxes, since the whole point of ortho mode is detouring
         // around packages, not just entities. Falls through to the
         // spline chain if the grid search fails (should only happen on
-        // a genuinely unroutable layout).
-        let ortho_segments: Option<Vec<(Point, Point, Point)>> = if line_mode != LineMode::Spline
+        // a genuinely unroutable layout). The raw (unrounded) polyline
+        // is stashed for now — `separate_overlapping` (§3.5.2) needs
+        // every edge's polyline at once, so rounding happens in the
+        // second pass below.
+        let ortho_polyline: Option<Vec<Point>> = if line_mode != LineMode::Spline
             && !edge_prefers_spline
         {
             let sp = cuca_spacing();
@@ -789,21 +813,13 @@ pub fn emit(
                 &ortho_obstacles,
                 &opts,
             )
-            .map(|pts| {
-                let simplified = ortho::simplify(&pts, 1.0);
-                let arc = if line_mode == LineMode::Polyline {
-                    0.0
-                } else {
-                    sp.ortho_arc
-                };
-                ortho::to_rounded_cubics(&simplified, arc)
-            })
+            .map(|pts| ortho::simplify(&pts, 1.0))
         } else {
             None
         };
 
         // Routing priority (cuca-edge-routing-redesign.md §2.1),
-        // superseded by `ortho_segments` when ortho mode is active:
+        // superseded by `ortho_polyline` when ortho mode is active:
         //   1. Straight line of sight — single direct cubic bezier
         //      from source anchor to dest anchor (PlantUML / dot
         //      `splines=true` style). The control handles sit at 1/3
@@ -815,21 +831,21 @@ pub fn emit(
         //      multiple obstacles.
         //   4. Forced straight cubic — last resort.
         let line_of_sight =
-            ortho_segments.is_none() && line_of_sight_clear(start, end, &obstacles);
-        let segments = if let Some(segs) = ortho_segments {
-            segs
+            ortho_polyline.is_none() && line_of_sight_clear(start, end, &obstacles);
+        let route = if let Some(pts) = ortho_polyline {
+            PendingRoute::Ortho(pts)
         } else if line_of_sight {
-            vec![cubic_from_straight(start, end)]
+            PendingRoute::Final(vec![cubic_from_straight(start, end)])
         } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
-            segs
+            PendingRoute::Final(segs)
         } else {
-            match pathplan::route_edge(start, end, &obstacles, route_opts) {
+            PendingRoute::Final(match pathplan::route_edge(start, end, &obstacles, route_opts) {
                 Ok(cubics) => cubics
                     .into_iter()
                     .map(|c| c.into_painter_segment())
                     .collect(),
                 Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
-            }
+            })
         };
 
         // For direct cubics, codegen owns the chord tangent — the head
@@ -854,13 +870,55 @@ pub fn emit(
             }
         }
 
-        emit_edge(
-            out,
+        pending.push(PendingEdge {
             oe,
-            &segments,
-            Some((from_side, to_side)),
+            from_side,
+            to_side,
             from_emit_override,
             to_emit_override,
+            route,
+        });
+    }
+
+    // Batch pass: fan apart parallel trunk segments across every
+    // ortho-routed edge, then round each polyline (post-separation)
+    // into the painter's cubic segment list, and emit every edge in
+    // its original order.
+    let mut ortho_indices: Vec<usize> = Vec::new();
+    let mut ortho_polylines: Vec<Vec<Point>> = Vec::new();
+    for (i, pe) in pending.iter().enumerate() {
+        if let PendingRoute::Ortho(pts) = &pe.route {
+            ortho_indices.push(i);
+            ortho_polylines.push(pts.clone());
+        }
+    }
+    if !ortho_polylines.is_empty() {
+        let sp = cuca_spacing();
+        ortho::separate_overlapping(&mut ortho_polylines, sp.ortho_min_gap);
+    }
+    let mut ortho_result_iter = ortho_indices.into_iter().zip(ortho_polylines);
+
+    let sp = cuca_spacing();
+    for pe in &pending {
+        let segments = match &pe.route {
+            PendingRoute::Final(segs) => segs.clone(),
+            PendingRoute::Ortho(_) => {
+                let (_, separated) = ortho_result_iter.next().expect("one entry per ortho edge");
+                let arc = if line_mode == LineMode::Polyline {
+                    0.0
+                } else {
+                    sp.ortho_arc
+                };
+                ortho::to_rounded_cubics(&separated, arc)
+            }
+        };
+        emit_edge(
+            out,
+            pe.oe,
+            &segments,
+            Some((pe.from_side, pe.to_side)),
+            pe.from_emit_override,
+            pe.to_emit_override,
         );
     }
     // Association-class edges. The layout pass placed C at the rank

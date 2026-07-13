@@ -15,11 +15,13 @@
 
 mod astar;
 mod grid;
+mod post;
 mod round;
 
 use crate::layout::geometry::Point;
 use crate::layout::pathplan::Box as Obstacle;
 
+pub use post::separate_overlapping;
 pub use round::{simplify, to_rounded_cubics};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

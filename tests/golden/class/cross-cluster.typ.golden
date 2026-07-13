@@ -5,17 +5,17 @@
 #cuca-layout(
   direction: "lr",
   classes: (
-    (x: 43.48pt, y: 29.00pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
-    (x: 43.48pt, y: 104.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M1], fields: (), methods: ()),
-    (x: 43.48pt, y: 151.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M2], fields: (), methods: ()),
-    (x: 152.37pt, y: 29.00pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),
+    (x: 53.15pt, y: 33.33pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
+    (x: 53.15pt, y: 117.00pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M1], fields: (), methods: ()),
+    (x: 53.15pt, y: 150.67pt, width: 40.13pt, height: 17.00pt, kind: "class", name: [M2], fields: (), methods: ()),
+    (x: 181.37pt, y: 33.33pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),
   ),
   packages: (
-    (x: 6.00pt, y: 3.00pt, w: 96.88pt, h: 69.00pt, kind: "package", label: [Left]),
-    (x: 6.00pt, y: 78.00pt, w: 103.61pt, h: 116.00pt, kind: "package", label: [Middle]),
-    (x: 114.88pt, y: 3.00pt, w: 96.02pt, h: 69.00pt, kind: "package", label: [Right]),
+    (x: 16.67pt, y: 8.33pt, w: 94.88pt, h: 67.00pt, kind: "package", label: [Left]),
+    (x: 16.67pt, y: 92.00pt, w: 101.61pt, h: 100.67pt, kind: "package", label: [Middle]),
+    (x: 144.88pt, y: 8.33pt, w: 94.02pt, h: 67.00pt, kind: "package", label: [Right]),
   ),
   edges: (
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 37.50pt, to-y: 37.50pt, path: ((c1: (102.04pt, 37.50pt), c2: (127.20pt, 37.50pt), end: (152.37pt, 37.50pt)),)),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 41.83pt, to-y: 41.83pt, path: ((c1: (118.15pt, 41.83pt), c2: (149.76pt, 41.83pt), end: (181.37pt, 41.83pt)),)),
   ),
 )

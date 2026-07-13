@@ -4,17 +4,17 @@
 
 #cuca-layout(
   classes: (
-    (x: 46.24pt, y: 43.48pt, width: 67.15pt, height: 17.00pt, kind: "class", name: [TopLevel], fields: (), methods: ()),
-    (x: 45.93pt, y: 121.97pt, width: 67.76pt, height: 17.00pt, kind: "class", name: [MidLevel], fields: (), methods: ()),
-    (x: 57.00pt, y: 200.45pt, width: 45.63pt, height: 17.00pt, kind: "class", name: [Leaf], fields: (), methods: ()),
+    (x: 72.57pt, y: 53.15pt, width: 67.15pt, height: 17.00pt, kind: "class", name: [TopLevel], fields: (), methods: ()),
+    (x: 72.27pt, y: 139.97pt, width: 67.76pt, height: 17.00pt, kind: "class", name: [MidLevel], fields: (), methods: ()),
+    (x: 83.33pt, y: 226.78pt, width: 45.63pt, height: 17.00pt, kind: "class", name: [Leaf], fields: (), methods: ()),
   ),
   packages: (
-    (x: 3.00pt, y: 6.00pt, w: 153.63pt, h: 265.45pt, kind: "package", label: [Grandparent]),
-    (x: 17.00pt, y: 84.48pt, w: 125.63pt, h: 172.96pt, kind: "package", label: [Parent]),
-    (x: 31.00pt, y: 162.97pt, w: 97.63pt, h: 80.48pt, kind: "package", label: [Child]),
+    (x: 8.33pt, y: 16.67pt, w: 195.63pt, h: 302.11pt, kind: "package", label: [Grandparent]),
+    (x: 33.33pt, y: 103.48pt, w: 145.63pt, h: 190.30pt, kind: "package", label: [Parent]),
+    (x: 58.33pt, y: 190.30pt, w: 95.63pt, h: 78.48pt, kind: "package", label: [Child]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 79.81pt, to-x: 79.81pt, path: ((c1: (79.81pt, 80.98pt), c2: (79.81pt, 101.47pt), end: (79.81pt, 121.97pt)),)),
-    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 79.81pt, to-x: 79.81pt, path: ((c1: (79.81pt, 159.46pt), c2: (79.81pt, 179.95pt), end: (79.81pt, 200.45pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 106.15pt, to-x: 106.15pt, path: ((c1: (106.15pt, 93.42pt), c2: (106.15pt, 116.69pt), end: (106.15pt, 139.97pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 106.15pt, to-x: 106.15pt, path: ((c1: (106.15pt, 180.24pt), c2: (106.15pt, 203.51pt), end: (106.15pt, 226.78pt)),)),
   ),
 )

@@ -13,19 +13,30 @@
 
 use crate::ir::CucaDiagram;
 use crate::layout::geometry::Point;
-use crate::layout::graph::{Edge, Element, Orientation, VisualGraph};
+use crate::layout::graph::{Edge, Orientation, VisualGraph};
+use crate::layout::spacing::Spacing;
 use crate::layout::sugiyama::hierarchy::HierarchyMap;
 
-use super::geom::ClassGeom;
+use super::geom::{ClassGeom, FONT_PT};
+
+/// This diagram family's spacing table (docs/cuca-architecture-layout-
+/// redesign.md §3.1) — the ELK recipe scaled to our font size.
+pub(super) fn spacing() -> Spacing {
+    Spacing::for_font(FONT_PT)
+}
 
 /// Padding between a container's outer rectangle and its inner content.
-pub(super) const CONTAINER_PAD_PT: f64 = 14.0;
+pub(super) fn container_pad_pt() -> f64 {
+    spacing().cluster_pad
+}
 /// Reserved band at the top of a container for the header label.
 /// `together` (anonymous) gets 0; everything else gets this band as a
 /// heuristic default. The measure protocol overrides this per-container
 /// with `label_h + LABEL_BAND_PADDING_PT` so long / multi-line labels
 /// get an appropriately tall band.
-pub(super) const CONTAINER_LABEL_PT: f64 = 14.0;
+pub(super) fn container_label_pt() -> f64 {
+    spacing().cluster_label_extra
+}
 /// Vertical padding around a measured package label inside its band:
 /// painter draws label at `dy: 2pt` from the band top, so 2pt above +
 /// label_h + 2pt below + 2pt buffer before content = label_h + 6pt.
@@ -48,11 +59,31 @@ pub(super) struct LabelBand {
     pub h_pt: f64,
 }
 
-/// Output of compound layout: per-entity absolute top-left position
-/// plus per-container absolute outer bbox (None for empty containers).
+/// Output of compound layout: per-entity absolute top-left position,
+/// per-container absolute outer bbox (None for empty containers), and
+/// each entity's innermost direct container (None for root-level).
+/// The last field lets codegen's post-layout heuristics (leaf
+/// recenter, couple-edge chord alignment) keep an entity inside its
+/// own frame and out of a foreign one without recomputing membership.
 pub(super) struct LayoutResult {
     pub top_lefts: Vec<Point>,
     pub container_bboxes: Vec<Option<(Point, Point)>>,
+    pub entity_container: Vec<Option<usize>>,
+}
+
+/// Per-node halo for cuca's Sugiyama placement: `node_node` on the
+/// perpendicular axis, `between_layers` on the rank axis, both from
+/// this diagram's `Spacing`. `is_root` requests the reduced
+/// `root_node_node` gap on the perpendicular axis — ELK's "root
+/// nodeNode", used only when the diagram actually has containers:
+/// packages already carry their own padding, so an unclustered node
+/// sitting next to one doesn't need the full inter-node gap.
+fn node_halo(sp: &Spacing, orientation: Orientation, is_root: bool) -> Point {
+    let perp = if is_root { sp.root_node_node } else { sp.node_node };
+    match orientation {
+        Orientation::TopToBottom => Point::new(perp, sp.between_layers),
+        Orientation::LeftToRight => Point::new(sp.between_layers, perp),
+    }
 }
 
 /// Single flat Sugiyama, used when there are no containers. Same shape
@@ -64,9 +95,12 @@ fn flat_layout(
     layout_edges: &[(usize, usize)],
 ) -> LayoutResult {
     let mut vg = VisualGraph::new(orientation);
+    let sp = spacing();
+    vg.set_spacing(sp);
+    let halo = node_halo(&sp, orientation, false);
     let handles: Vec<_> = geoms
         .iter()
-        .map(|g| vg.add_node(Element::new_box(g.size, orientation)))
+        .map(|g| vg.add_node_with_halo(g.size, halo, orientation))
         .collect();
     for &(src, dst) in layout_edges {
         vg.add_edge(Edge::default(), handles[src], handles[dst]);
@@ -76,6 +110,7 @@ fn flat_layout(
     LayoutResult {
         top_lefts,
         container_bboxes: vec![None; diag.containers.len()],
+        entity_container: vec![None; geoms.len()],
     }
 }
 
@@ -111,9 +146,35 @@ fn hierarchical_layout(
     bands: LabelBands,
 ) -> LayoutResult {
     let mut vg = VisualGraph::new(orientation);
+    let sp = spacing();
+    vg.set_spacing(sp);
+
+    // Innermost direct container for each entity (or `None` for a
+    // root-level / unclustered entity), computed up front so node
+    // construction can give root-level entities the reduced
+    // `root_node_node` halo (§3.1) — packages already carry their own
+    // padding, so an unclustered node next to one doesn't need the
+    // full inter-node gap.
+    let direct_container: Vec<Option<usize>> = diag
+        .entities
+        .iter()
+        .map(|e| {
+            diag.containers
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, c)| c.children_entities.iter().any(|id| id == &e.id))
+                .map(|(i, _)| i)
+        })
+        .collect();
+
     let entity_handles: Vec<_> = geoms
         .iter()
-        .map(|g| vg.add_node(Element::new_box(g.size, orientation)))
+        .enumerate()
+        .map(|(ei, g)| {
+            let halo = node_halo(&sp, orientation, direct_container[ei].is_none());
+            vg.add_node_with_halo(g.size, halo, orientation)
+        })
         .collect();
     for &(src, dst) in layout_edges {
         vg.add_edge(Edge::default(), entity_handles[src], entity_handles[dst]);
@@ -130,7 +191,7 @@ fn hierarchical_layout(
         let _ = hierarchy.add_cluster(None);
         // Per-cluster geometric knobs feed `tighten`.
         let last = hierarchy.clusters.len() - 1;
-        hierarchy.clusters[last].pad = CONTAINER_PAD_PT;
+        hierarchy.clusters[last].pad = container_pad_pt();
         hierarchy.clusters[last].label_band =
             if c.together { 0.0 } else { cluster_label_band_for_map(c, bands.get(last)) };
         hierarchy.clusters[last].label_min_w = bands
@@ -148,16 +209,10 @@ fn hierarchical_layout(
         }
     }
     // Attach each entity to its innermost direct cluster (the container
-    // whose `children_entities` lists it).
-    for (ei, e) in diag.entities.iter().enumerate() {
-        let direct = diag
-            .containers
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, c)| c.children_entities.iter().any(|id| id == &e.id))
-            .map(|(i, _)| i);
-        if let Some(c) = direct {
+    // whose `children_entities` lists it) — reusing the membership
+    // computed above for halo selection.
+    for (ei, direct) in direct_container.iter().enumerate() {
+        if let Some(c) = *direct {
             hierarchy.assign_node(entity_handles[ei], c);
         }
     }
@@ -188,6 +243,7 @@ fn hierarchical_layout(
     LayoutResult {
         top_lefts,
         container_bboxes,
+        entity_container: direct_container,
     }
 }
 
@@ -200,7 +256,7 @@ fn cluster_label_band_for_map(c: &crate::ir::Container, band: Option<&Option<Lab
     }
     band.and_then(|b| b.as_ref())
         .map(|b| b.h_pt + LABEL_BAND_PADDING_PT)
-        .unwrap_or(CONTAINER_LABEL_PT)
+        .unwrap_or_else(container_label_pt)
 }
 
 

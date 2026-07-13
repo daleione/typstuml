@@ -4,12 +4,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 38.72pt, y: 18.00pt, width: 70.62pt, height: 17.00pt, kind: "class", name: [Customer], fields: (), methods: ()),
-    (x: 47.89pt, y: 124.00pt, width: 52.28pt, height: 17.00pt, kind: "class", name: [Order], fields: (), methods: ()),
-    (x: -45.01pt, y: 71.00pt, width: 87.04pt, height: 17.00pt, kind: "class", name: [OrderHistory], fields: (), methods: ()),
+    (x: 30.38pt, y: 16.67pt, width: 70.62pt, height: 17.00pt, kind: "class", name: [Customer], fields: (), methods: ()),
+    (x: 39.55pt, y: 117.33pt, width: 52.28pt, height: 17.00pt, kind: "class", name: [Order], fields: (), methods: ()),
+    (x: -53.35pt, y: 67.00pt, width: 87.04pt, height: 17.00pt, kind: "class", name: [OrderHistory], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 74.03pt, to-x: 74.03pt, mult-from: [1], mult-to: [\*], path: ((c1: (74.03pt, 64.67pt), c2: (74.03pt, 94.33pt), end: (74.03pt, 124.00pt)),)),
-    (from-couple: (0, 1), to: 2, head-from: "none", head-to: "none", style: "dashed", from-side: "left", to-side: "right", start: (74.03pt, 79.50pt), path: ((c1: (63.36pt, 79.50pt), c2: (52.69pt, 79.50pt), end: (42.03pt, 79.50pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 65.69pt, to-x: 65.69pt, mult-from: [1], mult-to: [\*], path: ((c1: (65.69pt, 61.56pt), c2: (65.69pt, 89.44pt), end: (65.69pt, 117.33pt)),)),
+    (from-couple: (0, 1), to: 2, head-from: "none", head-to: "none", style: "dashed", from-side: "left", to-side: "right", start: (65.69pt, 75.50pt), path: ((c1: (55.02pt, 75.50pt), c2: (44.36pt, 75.50pt), end: (33.69pt, 75.50pt)),)),
   ),
 )

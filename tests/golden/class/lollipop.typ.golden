@@ -4,12 +4,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 21.08pt, y: 18.00pt, width: 79.80pt, height: 17.00pt, kind: "class", name: [Component], fields: (), methods: ()),
-    (x: 15.00pt, y: 71.00pt, kind: "lollipop", width: 30.91pt, name: [Provided]),
-    (x: 75.91pt, y: 71.00pt, kind: "lollipop", width: 31.20pt, name: [Required]),
+    (x: 8.33pt, y: 16.67pt, width: 79.80pt, height: 17.00pt, kind: "class", name: [Component], fields: (), methods: ()),
+    (x: 8.92pt, y: 67.00pt, kind: "lollipop", width: 30.91pt, name: [Provided]),
+    (x: 56.49pt, y: 67.00pt, kind: "lollipop", width: 31.20pt, name: [Required]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 60.98pt, to-x: 30.45pt, path: ((c1: (50.80pt, 47.00pt), c2: (40.63pt, 59.00pt), end: (30.45pt, 71.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 60.98pt, to-x: 91.50pt, path: ((c1: (71.15pt, 47.00pt), c2: (81.33pt, 59.00pt), end: (91.50pt, 71.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 48.23pt, to-x: 24.37pt, path: ((c1: (40.28pt, 44.78pt), c2: (32.33pt, 55.89pt), end: (24.37pt, 67.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 48.23pt, to-x: 72.09pt, path: ((c1: (56.19pt, 44.78pt), c2: (64.14pt, 55.89pt), end: (72.09pt, 67.00pt)),)),
   ),
 )

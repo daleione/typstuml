@@ -6,11 +6,11 @@
 
 #cuca-layout(
   classes: (
-    (x: 15.00pt, y: 18.00pt, width: 72.68pt, height: 50.19pt, kind: "object", name: [alice], fields: ([name = "Alice"], [age = 30], [active = true])),
-    (x: 17.34pt, y: 104.19pt, width: 68.01pt, height: 37.61pt, kind: "object", name: [bob], fields: ([name = "Bob"], [age = 28])),
-    (x: 117.68pt, y: 18.00pt, width: 40.91pt, height: 12.45pt, kind: "object", name: [empty], fields: ()),
+    (x: 8.33pt, y: 16.67pt, width: 72.68pt, height: 50.19pt, kind: "object", name: [alice], fields: ([name = "Alice"], [age = 30], [active = true])),
+    (x: 10.67pt, y: 100.19pt, width: 68.01pt, height: 37.61pt, kind: "object", name: [bob], fields: ([name = "Bob"], [age = 28])),
+    (x: 97.68pt, y: 16.67pt, width: 40.91pt, height: 12.45pt, kind: "object", name: [empty], fields: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 51.34pt, to-x: 51.34pt, label: [friend], path: ((c1: (51.34pt, 80.19pt), c2: (51.34pt, 92.19pt), end: (51.34pt, 104.19pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 44.67pt, to-x: 44.67pt, label: [friend], path: ((c1: (44.67pt, 77.97pt), c2: (44.67pt, 89.08pt), end: (44.67pt, 100.19pt)),)),
   ),
 )

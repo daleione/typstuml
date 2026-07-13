@@ -16,10 +16,6 @@ use crate::layout::geometry::Point;
 use crate::layout::graph::VisualGraph;
 use crate::layout::sugiyama::hierarchy::ClusterId;
 
-/// Minimum gap enforced between two sibling clusters' outer bboxes
-/// along the row axis. Matches the painter's visual rhythm.
-const CLUSTER_GAP_PT: f64 = 12.0;
-
 /// Run tighten on every cluster. No-op when the hierarchy is empty.
 ///
 /// Process clusters depth-first from leaves up. At each depth:
@@ -202,16 +198,16 @@ fn resolve_strangers(vg: &mut VisualGraph) {
 
             let mut candidates: Vec<Point> = Vec::new();
             if left_edge.is_finite() {
-                candidates.push(Point::new(-(br.x - left_edge + CLUSTER_GAP_PT), 0.0));
+                candidates.push(Point::new(-(br.x - left_edge + vg.spacing.cluster_gap), 0.0));
             }
             if right_edge.is_finite() {
-                candidates.push(Point::new(right_edge - tl.x + CLUSTER_GAP_PT, 0.0));
+                candidates.push(Point::new(right_edge - tl.x + vg.spacing.cluster_gap, 0.0));
             }
             if top_edge.is_finite() {
-                candidates.push(Point::new(0.0, -(br.y - top_edge + CLUSTER_GAP_PT)));
+                candidates.push(Point::new(0.0, -(br.y - top_edge + vg.spacing.cluster_gap)));
             }
             if bottom_edge.is_finite() {
-                candidates.push(Point::new(0.0, bottom_edge - tl.y + CLUSTER_GAP_PT));
+                candidates.push(Point::new(0.0, bottom_edge - tl.y + vg.spacing.cluster_gap));
             }
             let Some(delta) = candidates.into_iter().min_by(|a, b| {
                 let ma = a.x.abs() + a.y.abs();
@@ -482,14 +478,14 @@ fn sweep_siblings(vg: &mut VisualGraph, siblings: &[ClusterId]) {
                     (b, a)
                 };
                 if same_y_band {
-                    let dx = vg.hierarchy.clusters[left].x_max + CLUSTER_GAP_PT
+                    let dx = vg.hierarchy.clusters[left].x_max + vg.spacing.cluster_gap
                         - vg.hierarchy.clusters[right].x_min;
                     if dx > 0.0 {
                         shift_cluster_subtree(vg, right, dx, 0.0);
                         any_shift = true;
                     }
                 } else {
-                    let dy = vg.hierarchy.clusters[top].y_max + CLUSTER_GAP_PT
+                    let dy = vg.hierarchy.clusters[top].y_max + vg.spacing.cluster_gap
                         - vg.hierarchy.clusters[bot].y_min;
                     if dy > 0.0 {
                         shift_cluster_subtree(vg, bot, 0.0, dy);
@@ -511,7 +507,7 @@ fn sweep_siblings(vg: &mut VisualGraph, siblings: &[ClusterId]) {
 /// painter draws the package title), so a parent-direct node sitting
 /// at the adjacent outer rank can clip into that band. Push the
 /// cluster (and its subtree) along the dominant overlap axis to clear
-/// the node by `CLUSTER_GAP_PT`.
+/// the node by `vg.spacing.cluster_gap`.
 fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
     for &c in level {
         let parent = match vg.hierarchy.clusters[c].parent {
@@ -560,12 +556,12 @@ fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
                 if !above {
                     continue;
                 }
-                let needed = (br.y - cy_min) + CLUSTER_GAP_PT;
+                let needed = (br.y - cy_min) + vg.spacing.cluster_gap;
                 if needed > shift_y {
                     shift_y = needed;
                 }
             } else {
-                let needed = (br.x - cx_min) + CLUSTER_GAP_PT;
+                let needed = (br.x - cx_min) + vg.spacing.cluster_gap;
                 if needed > shift_x {
                     shift_x = needed;
                 }

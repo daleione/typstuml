@@ -4,10 +4,10 @@
 
 #cuca-layout(
   classes: (
-    (x: 15.00pt, y: 18.00pt, width: 73.05pt, height: 50.57pt, kind: "class", name: [Order], stereotype: [aggregate root], hide-marker: true, fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [total: Money])), methods: ()),
-    (x: 24.91pt, y: 104.57pt, width: 53.23pt, height: 30.22pt, kind: "class", name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),
+    (x: 8.33pt, y: 16.67pt, width: 73.05pt, height: 50.57pt, kind: "class", name: [Order], stereotype: [aggregate root], hide-marker: true, fields: ((vis: "+", body: [id: UUID]), (vis: "+", body: [total: Money])), methods: ()),
+    (x: 18.24pt, y: 100.57pt, width: 53.23pt, height: 30.22pt, kind: "class", name: [LineItem], hide-marker: true, fields: ((vis: "+", body: [qty: int]),), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 51.52pt, to-x: 51.52pt, path: ((c1: (51.52pt, 80.57pt), c2: (51.52pt, 92.57pt), end: (51.52pt, 104.57pt)),)),
+    (from: 0, to: 1, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 44.86pt, to-x: 44.86pt, path: ((c1: (44.86pt, 78.35pt), c2: (44.86pt, 89.46pt), end: (44.86pt, 100.57pt)),)),
   ),
 )

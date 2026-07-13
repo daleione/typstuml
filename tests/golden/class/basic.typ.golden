@@ -6,12 +6,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 66.85pt, y: 97.44pt, width: 73.30pt, height: 56.65pt, kind: "class", name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
-    (x: 15.00pt, y: 18.00pt, width: 73.65pt, height: 43.44pt, kind: "class", name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
-    (x: 118.65pt, y: 18.00pt, width: 73.06pt, height: 43.44pt, kind: "class", name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 53.52pt, y: 93.44pt, width: 73.30pt, height: 56.65pt, kind: "class", name: [Animal], fields: ((vis: "+", body: [name: String]), (vis: "+", body: [age: int])), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 8.33pt, y: 16.67pt, width: 73.65pt, height: 43.44pt, kind: "class", name: [Dog], fields: ((vis: "+", body: [breed: String]),), methods: ((vis: "+", body: [speak(): void]),)),
+    (x: 98.65pt, y: 16.67pt, width: 73.06pt, height: 43.44pt, kind: "class", name: [Cat], fields: ((vis: "+", body: [indoor: bool]),), methods: ((vis: "+", body: [speak(): void]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 51.82pt, to-x: 77.85pt, path: ((c1: (60.50pt, 73.44pt), c2: (69.17pt, 85.44pt), end: (77.85pt, 97.44pt)),)),
-    (from: 2, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 155.18pt, to-x: 129.16pt, path: ((c1: (146.51pt, 73.44pt), c2: (137.83pt, 85.44pt), end: (129.16pt, 97.44pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 45.16pt, to-x: 64.51pt, path: ((c1: (51.61pt, 71.21pt), c2: (58.06pt, 82.32pt), end: (64.51pt, 93.44pt)),)),
+    (from: 2, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 135.18pt, to-x: 115.82pt, path: ((c1: (128.73pt, 71.21pt), c2: (122.28pt, 82.32pt), end: (115.82pt, 93.44pt)),)),
   ),
 )

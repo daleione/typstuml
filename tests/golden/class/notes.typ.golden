@@ -4,14 +4,14 @@
 
 #cuca-layout(
   classes: (
-    (x: 81.10pt, y: 76.71pt, width: 76.52pt, height: 43.44pt, kind: "class", name: [Foo], fields: ((vis: "+", body: [name: String]),), methods: ((vis: "+", body: [render(): void]),)),
-    (x: 24.86pt, y: 156.15pt, kind: "note", body: [single-line hint]),
-    (x: 15.00pt, y: 18.00pt, kind: "note", body: [multi-line note \ with two paragraphs]),
-    (x: 137.35pt, y: 18.00pt, kind: "note", body: [free-floating note]),
+    (x: 67.76pt, y: 72.71pt, width: 76.52pt, height: 43.44pt, kind: "class", name: [Foo], fields: ((vis: "+", body: [name: String]),), methods: ((vis: "+", body: [render(): void]),)),
+    (x: 18.19pt, y: 149.48pt, kind: "note", body: [single-line hint]),
+    (x: 8.33pt, y: 16.67pt, kind: "note", body: [multi-line note \ with two paragraphs]),
+    (x: 117.35pt, y: 16.67pt, kind: "note", body: [free-floating note]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 119.36pt, to-x: 61.18pt, path: ((c1: (99.96pt, 132.15pt), c2: (80.57pt, 144.15pt), end: (61.18pt, 156.15pt)),)),
-    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 61.18pt, to-x: 92.57pt, path: ((c1: (71.64pt, 52.71pt), c2: (82.11pt, 64.71pt), end: (92.57pt, 76.71pt)),)),
-    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 177.54pt, to-x: 146.14pt, label: [refers to], path: ((c1: (167.07pt, 48.24pt), c2: (156.60pt, 62.47pt), end: (146.14pt, 76.71pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 106.02pt, to-x: 54.51pt, path: ((c1: (88.85pt, 127.26pt), c2: (71.68pt, 138.37pt), end: (54.51pt, 149.48pt)),)),
+    (from: 2, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 54.51pt, to-x: 79.24pt, path: ((c1: (62.75pt, 50.49pt), c2: (71.00pt, 61.60pt), end: (79.24pt, 72.71pt)),)),
+    (from: 3, to: 0, head-from: "none", head-to: "none", style: "dashed", from-side: "bot", to-side: "top", from-x: 157.54pt, to-x: 132.80pt, label: [refers to], path: ((c1: (149.29pt, 46.01pt), c2: (141.05pt, 59.36pt), end: (132.80pt, 72.71pt)),)),
   ),
 )

@@ -6,12 +6,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 53.52pt, y: 163.65pt, width: 76.03pt, height: 17.00pt, kind: "interface", name: [Repository], generic: [T], fields: (), methods: ()),
-    (x: 42.06pt, y: 84.22pt, width: 98.96pt, height: 43.44pt, kind: "class", name: [CrudRepository], generic: [T, ID], fields: (), methods: ((vis: "+", body: [findById(id: ID): T]), (vis: "+", body: [save(entity: T): T]))),
-    (x: 15.00pt, y: 18.00pt, width: 153.08pt, height: 30.22pt, kind: "class", name: [UserRepository], fields: (), methods: ((vis: "+", body: [findByEmail(email: String): User]),)),
+    (x: 46.86pt, y: 156.99pt, width: 76.03pt, height: 17.00pt, kind: "interface", name: [Repository], generic: [T], fields: (), methods: ()),
+    (x: 35.39pt, y: 80.22pt, width: 98.96pt, height: 43.44pt, kind: "class", name: [CrudRepository], generic: [T, ID], fields: (), methods: ((vis: "+", body: [findById(id: ID): T]), (vis: "+", body: [save(entity: T): T]))),
+    (x: 8.33pt, y: 16.67pt, width: 153.08pt, height: 30.22pt, kind: "class", name: [UserRepository], fields: (), methods: ((vis: "+", body: [findByEmail(email: String): User]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 91.54pt, to-x: 91.54pt, path: ((c1: (91.54pt, 139.65pt), c2: (91.54pt, 151.65pt), end: (91.54pt, 163.65pt)),)),
-    (from: 2, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 91.54pt, to-x: 91.54pt, path: ((c1: (91.54pt, 60.22pt), c2: (91.54pt, 72.22pt), end: (91.54pt, 84.22pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 84.87pt, to-x: 84.87pt, path: ((c1: (84.87pt, 134.76pt), c2: (84.87pt, 145.88pt), end: (84.87pt, 156.99pt)),)),
+    (from: 2, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 84.87pt, to-x: 84.87pt, path: ((c1: (84.87pt, 58.00pt), c2: (84.87pt, 69.11pt), end: (84.87pt, 80.22pt)),)),
   ),
 )

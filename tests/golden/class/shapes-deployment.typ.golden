@@ -6,17 +6,17 @@
 
 #cuca-layout(
   classes: (
-    (x: 15.00pt, y: 18.00pt, width: 78.37pt, height: 28.00pt, kind: "queue", name: [MessageBus], fields: (), methods: ()),
-    (x: 20.22pt, y: 82.00pt, width: 67.94pt, height: 28.00pt, kind: "storage", name: [BlobStore], fields: (), methods: ()),
-    (x: 123.37pt, y: 18.00pt, width: 103.86pt, height: 30.00pt, kind: "hexagon", name: [GatewayFilter], fields: (), methods: ()),
-    (x: 141.52pt, y: 84.00pt, width: 67.57pt, height: 28.00pt, kind: "card", name: [Quick Tile], fields: (), methods: ()),
-    (x: 134.57pt, y: 148.00pt, width: 81.47pt, height: 28.00pt, kind: "queue", name: [Event Queue], fields: (), methods: ()),
-    (x: 134.55pt, y: 212.00pt, width: 81.50pt, height: 28.00pt, kind: "storage", name: [Cold Storage], fields: (), methods: ()),
+    (x: 8.33pt, y: 16.67pt, width: 78.37pt, height: 28.00pt, kind: "queue", name: [MessageBus], fields: (), methods: ()),
+    (x: 13.55pt, y: 78.00pt, width: 67.94pt, height: 28.00pt, kind: "storage", name: [BlobStore], fields: (), methods: ()),
+    (x: 103.37pt, y: 16.67pt, width: 103.86pt, height: 30.00pt, kind: "hexagon", name: [GatewayFilter], fields: (), methods: ()),
+    (x: 121.52pt, y: 80.00pt, width: 67.57pt, height: 28.00pt, kind: "card", name: [Quick Tile], fields: (), methods: ()),
+    (x: 114.57pt, y: 141.33pt, width: 81.47pt, height: 28.00pt, kind: "queue", name: [Event Queue], fields: (), methods: ()),
+    (x: 114.55pt, y: 202.67pt, width: 81.50pt, height: 28.00pt, kind: "storage", name: [Cold Storage], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 54.19pt, to-x: 54.19pt, path: ((c1: (54.19pt, 58.00pt), c2: (54.19pt, 70.00pt), end: (54.19pt, 82.00pt)),)),
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 60.00pt), c2: (175.30pt, 72.00pt), end: (175.30pt, 84.00pt)),)),
-    (from: 4, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 188.00pt), c2: (175.30pt, 200.00pt), end: (175.30pt, 212.00pt)),)),
-    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.30pt, to-x: 175.30pt, path: ((c1: (175.30pt, 124.00pt), c2: (175.30pt, 136.00pt), end: (175.30pt, 148.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 47.52pt, to-x: 47.52pt, path: ((c1: (47.52pt, 55.78pt), c2: (47.52pt, 66.89pt), end: (47.52pt, 78.00pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 155.30pt, to-x: 155.30pt, path: ((c1: (155.30pt, 57.78pt), c2: (155.30pt, 68.89pt), end: (155.30pt, 80.00pt)),)),
+    (from: 4, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 155.30pt, to-x: 155.30pt, path: ((c1: (155.30pt, 180.44pt), c2: (155.30pt, 191.56pt), end: (155.30pt, 202.67pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 155.30pt, to-x: 155.30pt, path: ((c1: (155.30pt, 119.11pt), c2: (155.30pt, 130.22pt), end: (155.30pt, 141.33pt)),)),
   ),
 )

@@ -4,14 +4,14 @@
 
 #cuca-layout(
   classes: (
-    (x: 29.00pt, y: 135.97pt, width: 42.54pt, height: 17.00pt, kind: "class", name: [Foo], fields: (), methods: ()),
-    (x: 29.33pt, y: 43.48pt, width: 41.88pt, height: 17.00pt, kind: "class", name: [Bar], fields: (), methods: ()),
+    (x: 33.33pt, y: 164.97pt, width: 42.54pt, height: 17.00pt, kind: "class", name: [Foo], fields: (), methods: ()),
+    (x: 33.66pt, y: 53.15pt, width: 41.88pt, height: 17.00pt, kind: "class", name: [Bar], fields: (), methods: ()),
   ),
   packages: (
-    (x: 3.00pt, y: 98.48pt, w: 94.54pt, h: 80.48pt, kind: "package", label: [PkgA]),
-    (x: 3.33pt, y: 6.00pt, w: 93.88pt, h: 80.48pt, kind: "package", label: [PkgB]),
+    (x: 8.33pt, y: 128.48pt, w: 92.54pt, h: 78.48pt, kind: "package", label: [PkgA]),
+    (x: 8.66pt, y: 16.67pt, w: 91.88pt, h: 78.48pt, kind: "package", label: [PkgB]),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 50.27pt, to-x: 50.27pt, path: ((c1: (50.27pt, 85.64pt), c2: (50.27pt, 110.80pt), end: (50.27pt, 135.97pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 54.60pt, to-x: 54.60pt, path: ((c1: (54.60pt, 101.75pt), c2: (54.60pt, 133.36pt), end: (54.60pt, 164.97pt)),)),
   ),
 )

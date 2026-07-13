@@ -6,12 +6,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 15.00pt, y: 97.44pt, width: 75.34pt, height: 56.65pt, kind: "abstract", name: [Shape], fields: ((vis: "#", body: [color: String]),), methods: ((vis: "+", body: [area(): double], abstract: true), (vis: "+", body: [count(): int], static: true))),
-    (x: 64.74pt, y: 18.00pt, width: 78.80pt, height: 43.44pt, kind: "class", name: [Circle], fields: ((vis: "-", body: [radius: double]),), methods: ((vis: "+", body: [area(): double]),)),
-    (x: 120.34pt, y: 97.44pt, width: 70.56pt, height: 37.35pt, kind: "interface", name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
+    (x: 8.33pt, y: 93.44pt, width: 75.34pt, height: 56.65pt, kind: "abstract", name: [Shape], fields: ((vis: "#", body: [color: String]),), methods: ((vis: "+", body: [area(): double], abstract: true), (vis: "+", body: [count(): int], static: true))),
+    (x: 51.41pt, y: 16.67pt, width: 78.80pt, height: 43.44pt, kind: "class", name: [Circle], fields: ((vis: "-", body: [radius: double]),), methods: ((vis: "+", body: [area(): double]),)),
+    (x: 100.34pt, y: 93.44pt, width: 70.56pt, height: 37.35pt, kind: "interface", name: [Drawable], stereotype: [Behavior], fields: (), methods: ((vis: "+", body: [draw(): void]),)),
   ),
   edges: (
-    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 104.14pt, to-x: 52.67pt, path: ((c1: (86.99pt, 73.44pt), c2: (69.83pt, 85.44pt), end: (52.67pt, 97.44pt)),)),
-    (from: 1, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 104.14pt, to-x: 155.62pt, path: ((c1: (121.30pt, 73.44pt), c2: (138.46pt, 85.44pt), end: (155.62pt, 97.44pt)),)),
+    (from: 1, to: 0, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 90.81pt, to-x: 46.00pt, path: ((c1: (75.88pt, 71.21pt), c2: (60.94pt, 82.32pt), end: (46.00pt, 93.44pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 90.81pt, to-x: 135.62pt, path: ((c1: (105.75pt, 71.21pt), c2: (120.68pt, 82.32pt), end: (135.62pt, 93.44pt)),)),
   ),
 )

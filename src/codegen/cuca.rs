@@ -4,21 +4,21 @@
 //!
 //! 1. Estimate per-class bounding boxes (`geom`). Note / lollipop have
 //!    their own shapes.
-//! 2. Inflate every box by `SIBLING_PAD_PT / 2` on each side so Sugiyama
-//!    leaves visible gaps between siblings; deflate the resulting
-//!    top-lefts after layout.
-//! 3. Build oriented edges + association-class couple virtual edges,
-//!    then drive compound layout (`layout::compound_layout`).
-//! 4. Post-layout fixes: leaf-only recenter when all predecessors share
+//! 2. Build oriented edges + association-class couple virtual edges,
+//!    then drive compound layout (`layout::compound_layout`), which
+//!    sizes sibling/rank gaps from this diagram's `Spacing` table
+//!    (`layout::node_halo` — docs/cuca-architecture-layout-redesign.md
+//!    §3.1) directly on each node's halo, so the top-lefts it returns
+//!    are final.
+//! 3. Post-layout fixes: leaf-only recenter when all predecessors share
 //!    a rank; couple-edge A/B column alignment and C-clear-of-chord.
-//! 5. Pick anchor sides + smart-align coord per edge (`route`), route
+//! 4. Pick anchor sides + smart-align coord per edge (`route`), route
 //!    through line-of-sight → Manhattan → pathplan → straight cubic
 //!    fallback.
-//! 6. Emit one `#cuca-layout(...)` call (`emit`).
+//! 5. Emit one `#cuca-layout(...)` call (`emit`).
 //!
 //! Heuristics this file owns:
 //!
-//! - `SIBLING_PAD_PT` (halo around each class bbox before Sugiyama).
 //! - `ROUTE_PADDING_PT` (pathplan obstacle padding).
 //! - `EDGE_FORCE_MAX_PT` (straight-fallback control-handle pull).
 //! - `chord_pad` inside the couple-edge post-fix loop (visible dashed
@@ -113,15 +113,6 @@ fn resolve_label_bands(
         .collect()
 }
 
-/// Halo added around each class bbox before Sugiyama placement so
-/// siblings end up with a real gap (the underlying simple.rs / BK
-/// pack nodes shoulder-to-shoulder). Half on each side, both axes —
-/// gives ~SIBLING_PAD_PT inter-rank y-gap and ~SIBLING_PAD_PT
-/// inter-sibling x-gap. Tuned so PlantUML-style fan-outs (heads,
-/// basic) have visible breathing room without ballooning lollipop
-/// and package layouts.
-const SIBLING_PAD_PT: f64 = 24.0;
-
 pub fn emit(
     out: &mut String,
     diag: &CucaDiagram,
@@ -145,19 +136,6 @@ pub fn emit(
         .entities
         .iter()
         .map(|e| resolve_geom(e, &diag.hide, measurements, diagram_idx))
-        .collect();
-    // Sugiyama's `simple` and BK passes pack siblings shoulder-to-
-    // shoulder (gap ≈ EPSILON). For class diagrams we want visible
-    // breathing room — fan-outs need each child clear of the next so
-    // arrowheads don't overlap. Inflate every box by SIBLING_PAD_PT,
-    // run layout against the halos, then deflate the resulting
-    // top-lefts so the actual class draws centered inside its halo.
-    let inflated_geoms: Vec<ClassGeom> = geoms
-        .iter()
-        .map(|g| ClassGeom {
-            size: Point::new(g.size.x + SIBLING_PAD_PT, g.size.y + SIBLING_PAD_PT),
-            mid_x: g.mid_x + SIBLING_PAD_PT / 2.0,
-        })
         .collect();
 
     let orientation = match diag.direction {
@@ -229,18 +207,46 @@ pub fn emit(
     // whole thing falls back to a flat single-pass layout.
     let layout = compound_layout(
         diag,
-        &inflated_geoms,
+        &geoms,
         orientation,
         &layout_edges,
         &label_bands,
     );
-    // Shift each top-left by half the halo so the class itself sits
-    // centered inside its inflated bbox. Container bboxes returned by
-    // the layout already include the halos around their members; we
-    // tighten them below for clean container rendering.
-    let half_pad = Point::new(SIBLING_PAD_PT / 2.0, SIBLING_PAD_PT / 2.0);
-    let mut top_lefts: Vec<Point> = layout.top_lefts.iter().map(|p| p.add(half_pad)).collect();
+    // Sugiyama now sizes gaps directly from each node's halo (§3.1's
+    // `Spacing`, wired in `layout::node_halo`), so the top-lefts it
+    // returns are final — no inflate/deflate shift needed.
+    let mut top_lefts: Vec<Point> = layout.top_lefts.clone();
     let container_bboxes = layout.container_bboxes;
+    let entity_container = &layout.entity_container;
+
+    // Would `ei` sitting at `new_box` violate containment: leaving its
+    // own declared package frame, or entering a foreign one? Layout
+    // already settled every frame (`tighten` + `verify_final`) — the
+    // post-layout heuristics below only nudge entities cosmetically,
+    // so they must not undo that guarantee (see the M2 regression this
+    // guards: a leaf-recenter move landed MongoDBDao inside a foreign
+    // package's frame, docs/cuca-architecture-layout-redesign.md §3.2c).
+    let violates_containment = |ei: usize, new_box: (Point, Point)| -> bool {
+        let own = entity_container[ei];
+        container_bboxes.iter().enumerate().any(|(ci, bb)| {
+            let Some((bx0, bx1)) = bb else {
+                return false;
+            };
+            let overlaps = new_box.0.x < bx1.x
+                && bx0.x < new_box.1.x
+                && new_box.0.y < bx1.y
+                && bx0.y < new_box.1.y;
+            if Some(ci) == own {
+                // Must stay fully inside its own frame.
+                !(new_box.0.x >= bx0.x
+                    && new_box.0.y >= bx0.y
+                    && new_box.1.x <= bx1.x
+                    && new_box.1.y <= bx1.y)
+            } else {
+                overlaps
+            }
+        })
+    };
 
     // Post-layout centering: when an entity's predecessors all sit
     // on the same rank, center it under their midpoint. The Sugiyama
@@ -296,7 +302,7 @@ pub fn emit(
                     && new_box.0.y < other.1.y
                     && other.0.y < new_box.1.y
             });
-            if !conflict {
+            if !conflict && !violates_containment(ei, new_box) {
                 top_lefts[ei] = Point::new(new_x, my_y);
             }
         }
@@ -353,7 +359,7 @@ pub fn emit(
                     Point::new(new_x, cur_y),
                     Point::new(new_x + geoms[idx].size.x, cur_y + geoms[idx].size.y),
                 );
-                if !conflict_at_y(new_box, idx, &top_lefts) {
+                if !conflict_at_y(new_box, idx, &top_lefts) && !violates_containment(idx, new_box) {
                     top_lefts[idx] = Point::new(new_x, cur_y);
                 }
             }
@@ -393,7 +399,14 @@ pub fn emit(
                 let needed_right = chord_x_eff - chord_pad;
                 if c_br.x <= needed_right { c_tl.x } else { needed_right - c_w }
             };
-            if (new_x - c_tl.x).abs() > 0.1 {
+            let c_new_box = (
+                Point::new(new_x, c_tl.y),
+                Point::new(new_x + c_w, c_tl.y + geoms[ce.c_idx].size.y),
+            );
+            if (new_x - c_tl.x).abs() > 0.1
+                && !conflict_at_y(c_new_box, ce.c_idx, &top_lefts)
+                && !violates_containment(ce.c_idx, c_new_box)
+            {
                 top_lefts[ce.c_idx] = Point::new(new_x, c_tl.y);
             }
         }

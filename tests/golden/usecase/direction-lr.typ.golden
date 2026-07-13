@@ -5,15 +5,15 @@
 #cuca-layout(
   direction: "lr",
   classes: (
-    (x: 18.00pt, y: 34.21pt, width: 39.96pt, height: 47.58pt, kind: "actor", name: [Customer], fields: (), methods: ()),
-    (x: 18.00pt, y: 131.00pt, width: 27.92pt, height: 47.58pt, kind: "actor", name: [Admin], fields: (), methods: ()),
-    (x: 93.96pt, y: 15.00pt, width: 88.27pt, height: 28.00pt, kind: "usecase", name: [Browse Catalog], fields: (), methods: ()),
-    (x: 93.96pt, y: 73.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
-    (x: 81.92pt, y: 140.79pt, width: 99.31pt, height: 28.00pt, kind: "usecase", name: [Manage Inventory], fields: (), methods: ()),
+    (x: 16.67pt, y: 20.88pt, width: 39.96pt, height: 47.58pt, kind: "actor", name: [Customer], fields: (), methods: ()),
+    (x: 16.67pt, y: 97.67pt, width: 27.92pt, height: 47.58pt, kind: "actor", name: [Admin], fields: (), methods: ()),
+    (x: 89.96pt, y: 8.33pt, width: 88.27pt, height: 28.00pt, kind: "usecase", name: [Browse Catalog], fields: (), methods: ()),
+    (x: 89.96pt, y: 53.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
+    (x: 77.92pt, y: 107.46pt, width: 99.31pt, height: 28.00pt, kind: "usecase", name: [Manage Inventory], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 29.00pt, path: ((c1: (69.96pt, 48.33pt), c2: (81.96pt, 38.67pt), end: (93.96pt, 29.00pt)),)),
-    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 87.00pt, path: ((c1: (69.96pt, 67.67pt), c2: (81.96pt, 77.33pt), end: (93.96pt, 87.00pt)),)),
-    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 154.79pt, to-y: 154.79pt, path: ((c1: (57.92pt, 154.79pt), c2: (69.92pt, 154.79pt), end: (81.92pt, 154.79pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 44.67pt, to-y: 22.33pt, path: ((c1: (67.74pt, 37.22pt), c2: (78.85pt, 29.78pt), end: (89.96pt, 22.33pt)),)),
+    (from: 0, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 44.67pt, to-y: 67.00pt, path: ((c1: (67.74pt, 52.11pt), c2: (78.85pt, 59.56pt), end: (89.96pt, 67.00pt)),)),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 121.46pt, to-y: 121.46pt, path: ((c1: (55.70pt, 121.46pt), c2: (66.81pt, 121.46pt), end: (77.92pt, 121.46pt)),)),
   ),
 )

@@ -6,18 +6,18 @@
 
 #cuca-layout(
   classes: (
-    (x: 139.81pt, y: 18.00pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
-    (x: 15.00pt, y: 71.00pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),
-    (x: 77.54pt, y: 71.00pt, width: 33.06pt, height: 17.00pt, kind: "class", name: [C], fields: (), methods: ()),
-    (x: 140.60pt, y: 71.00pt, width: 33.34pt, height: 17.00pt, kind: "class", name: [D], fields: (), methods: ()),
-    (x: 203.94pt, y: 71.00pt, width: 32.09pt, height: 17.00pt, kind: "class", name: [E], fields: (), methods: ()),
-    (x: 266.03pt, y: 71.00pt, width: 31.45pt, height: 17.00pt, kind: "class", name: [F], fields: (), methods: ()),
+    (x: 106.48pt, y: 16.67pt, width: 33.40pt, height: 17.00pt, kind: "class", name: [A], fields: (), methods: ()),
+    (x: 8.33pt, y: 67.00pt, width: 32.54pt, height: 17.00pt, kind: "class", name: [B], fields: (), methods: ()),
+    (x: 57.54pt, y: 67.00pt, width: 33.06pt, height: 17.00pt, kind: "class", name: [C], fields: (), methods: ()),
+    (x: 107.27pt, y: 67.00pt, width: 33.34pt, height: 17.00pt, kind: "class", name: [D], fields: (), methods: ()),
+    (x: 157.27pt, y: 67.00pt, width: 32.09pt, height: 17.00pt, kind: "class", name: [E], fields: (), methods: ()),
+    (x: 206.03pt, y: 67.00pt, width: 31.45pt, height: 17.00pt, kind: "class", name: [F], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 31.27pt, path: ((c1: (114.76pt, 47.00pt), c2: (73.02pt, 59.00pt), end: (31.27pt, 71.00pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 94.07pt, path: ((c1: (135.70pt, 47.00pt), c2: (114.88pt, 59.00pt), end: (94.07pt, 71.00pt)),)),
-    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 156.89pt, to-x: 156.89pt, path: ((c1: (156.89pt, 47.00pt), c2: (156.89pt, 59.00pt), end: (156.89pt, 71.00pt)),)),
-    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 219.98pt, path: ((c1: (177.67pt, 47.00pt), c2: (198.83pt, 59.00pt), end: (219.98pt, 71.00pt)),)),
-    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 156.51pt, to-x: 281.75pt, path: ((c1: (198.26pt, 47.00pt), c2: (240.01pt, 59.00pt), end: (281.75pt, 71.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "triangle-open", style: "solid", from-side: "bot", to-side: "top", from-x: 123.18pt, to-x: 24.60pt, path: ((c1: (90.32pt, 44.78pt), c2: (57.46pt, 55.89pt), end: (24.60pt, 67.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "triangle-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 123.18pt, to-x: 74.07pt, path: ((c1: (106.81pt, 44.78pt), c2: (90.44pt, 55.89pt), end: (74.07pt, 67.00pt)),)),
+    (from: 0, to: 3, head-from: "diamond-open", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 123.56pt, to-x: 123.56pt, path: ((c1: (123.56pt, 44.78pt), c2: (123.56pt, 55.89pt), end: (123.56pt, 67.00pt)),)),
+    (from: 0, to: 4, head-from: "diamond-filled", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 123.18pt, to-x: 173.32pt, path: ((c1: (139.89pt, 44.78pt), c2: (156.61pt, 55.89pt), end: (173.32pt, 67.00pt)),)),
+    (from: 0, to: 5, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 123.18pt, to-x: 221.76pt, path: ((c1: (156.04pt, 44.78pt), c2: (188.90pt, 55.89pt), end: (221.76pt, 67.00pt)),)),
   ),
 )

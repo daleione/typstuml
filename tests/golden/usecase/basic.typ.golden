@@ -6,10 +6,10 @@
 
 #cuca-layout(
   classes: (
-    (x: 27.00pt, y: 18.00pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
-    (x: 15.00pt, y: 101.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
+    (x: 20.33pt, y: 16.67pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
+    (x: 8.33pt, y: 97.58pt, width: 48.00pt, height: 28.00pt, kind: "usecase", name: [Login], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 39.00pt, to-x: 39.00pt, path: ((c1: (39.00pt, 77.58pt), c2: (39.00pt, 89.58pt), end: (39.00pt, 101.58pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 32.33pt, to-x: 32.33pt, path: ((c1: (32.33pt, 75.36pt), c2: (32.33pt, 86.47pt), end: (32.33pt, 97.58pt)),)),
   ),
 )

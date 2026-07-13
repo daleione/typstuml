@@ -6,12 +6,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 15.00pt, y: 18.00pt, width: 88.11pt, height: 18.45pt, kind: "component", name: [WebService], fields: (), methods: ()),
-    (x: 133.11pt, y: 18.00pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),
-    (x: 103.65pt, y: 72.45pt, kind: "lollipop", width: 30.42pt, name: [AuthAPI]),
+    (x: 8.33pt, y: 16.67pt, width: 88.11pt, height: 18.45pt, kind: "component", name: [WebService], fields: (), methods: ()),
+    (x: 113.11pt, y: 16.67pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),
+    (x: 90.32pt, y: 68.45pt, kind: "lollipop", width: 30.42pt, name: [AuthAPI]),
   ),
   edges: (
-    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 178.68pt, to-x: 129.51pt, path: ((c1: (162.29pt, 48.45pt), c2: (145.90pt, 60.45pt), end: (129.51pt, 72.45pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", from-x: 59.05pt, to-x: 108.22pt, path: ((c1: (75.44pt, 48.45pt), c2: (91.83pt, 60.45pt), end: (108.22pt, 72.45pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 158.67pt, to-x: 116.18pt, path: ((c1: (144.51pt, 46.23pt), c2: (130.34pt, 57.34pt), end: (116.18pt, 68.45pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", from-x: 52.39pt, to-x: 94.88pt, path: ((c1: (66.55pt, 46.23pt), c2: (80.72pt, 57.34pt), end: (94.88pt, 68.45pt)),)),
   ),
 )

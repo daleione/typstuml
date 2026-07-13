@@ -6,16 +6,16 @@
 
 #cuca-layout(
   classes: (
-    (x: 15.00pt, y: 18.00pt, width: 94.06pt, height: 32.00pt, kind: "artifact", name: [ReleaseNotes], fields: (), methods: ()),
-    (x: 22.67pt, y: 86.00pt, width: 78.71pt, height: 30.00pt, kind: "collections", name: [Order Batch], fields: (), methods: ()),
-    (x: 33.49pt, y: 152.00pt, width: 57.07pt, height: 26.00pt, kind: "action", name: [Validate], fields: (), methods: ()),
-    (x: 72.23pt, y: 214.00pt, width: 73.65pt, height: 28.00pt, kind: "process", name: [Pipeline], fields: (), methods: ()),
-    (x: 120.57pt, y: 152.00pt, width: 71.02pt, height: 6.58pt, kind: "label", name: [EXPERIMENTAL], fields: (), methods: ()),
+    (x: 8.33pt, y: 16.67pt, width: 94.06pt, height: 32.00pt, kind: "artifact", name: [ReleaseNotes], fields: (), methods: ()),
+    (x: 16.01pt, y: 82.00pt, width: 78.71pt, height: 30.00pt, kind: "collections", name: [Order Batch], fields: (), methods: ()),
+    (x: 26.83pt, y: 145.33pt, width: 57.07pt, height: 26.00pt, kind: "action", name: [Validate], fields: (), methods: ()),
+    (x: 58.89pt, y: 204.67pt, width: 73.65pt, height: 28.00pt, kind: "process", name: [Pipeline], fields: (), methods: ()),
+    (x: 100.56pt, y: 145.33pt, width: 71.02pt, height: 6.58pt, kind: "label", name: [EXPERIMENTAL], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.03pt, to-x: 62.03pt, path: ((c1: (62.03pt, 62.00pt), c2: (62.03pt, 74.00pt), end: (62.03pt, 86.00pt)),)),
-    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.03pt, to-x: 62.03pt, path: ((c1: (62.03pt, 128.00pt), c2: (62.03pt, 140.00pt), end: (62.03pt, 152.00pt)),)),
-    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 62.03pt, to-x: 83.28pt, path: ((c1: (69.11pt, 190.00pt), c2: (76.19pt, 202.00pt), end: (83.28pt, 214.00pt)),)),
-    (from: 4, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 156.08pt, to-x: 134.83pt, path: ((c1: (148.99pt, 177.05pt), c2: (141.91pt, 195.53pt), end: (134.83pt, 214.00pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 55.36pt, to-x: 55.36pt, path: ((c1: (55.36pt, 59.78pt), c2: (55.36pt, 70.89pt), end: (55.36pt, 82.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 55.36pt, to-x: 55.36pt, path: ((c1: (55.36pt, 123.11pt), c2: (55.36pt, 134.22pt), end: (55.36pt, 145.33pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 55.36pt, to-x: 69.94pt, path: ((c1: (60.22pt, 182.44pt), c2: (65.08pt, 193.56pt), end: (69.94pt, 204.67pt)),)),
+    (from: 4, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 136.07pt, to-x: 121.50pt, path: ((c1: (131.22pt, 169.50pt), c2: (126.36pt, 187.08pt), end: (121.50pt, 204.67pt)),)),
   ),
 )

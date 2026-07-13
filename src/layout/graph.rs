@@ -14,6 +14,7 @@ use std::mem::swap;
 
 use crate::layout::dag::{NodeHandle, NodeIterator, DAG};
 use crate::layout::geometry::{Point, Position};
+use crate::layout::spacing::Spacing;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Orientation {
@@ -180,6 +181,12 @@ pub struct VisualGraph {
     /// When set, rank (y) assignment uses network simplex honouring each
     /// edge's `min_rank` (dot's minlen) instead of longest-path + sinking.
     pub ns_rank: bool,
+    /// Font-scaled spacing table consulted by cuca's compound layout,
+    /// `hierarchy::apply_cluster_margins`, and `tighten`'s sibling /
+    /// stranger separation. Defaults to the pre-M2 constants
+    /// ([`Spacing::legacy`]) so every non-cuca diagram family is
+    /// unaffected; cuca opts in via `set_spacing`.
+    pub spacing: Spacing,
 }
 
 impl VisualGraph {
@@ -193,7 +200,12 @@ impl VisualGraph {
             hierarchy: crate::layout::sugiyama::HierarchyMap::new(),
             ns_xcoord: false,
             ns_rank: false,
+            spacing: Spacing::legacy(),
         }
+    }
+
+    pub fn set_spacing(&mut self, spacing: Spacing) {
+        self.spacing = spacing;
     }
 
     /// Use dot's network-simplex x-coordinate assignment for this graph.
@@ -262,6 +274,20 @@ impl VisualGraph {
         debug_assert_eq!(h.get_index(), self.nodes.len());
         self.nodes.push(elem);
         h
+    }
+
+    /// Like `add_node(Element::new_box(size, orientation))` but with an
+    /// explicit halo instead of the shared `box_halo` default — lets a
+    /// caller (cuca) size gaps from its own `Spacing` table without
+    /// changing the halo every other diagram family gets from
+    /// `Element::new_box`.
+    pub fn add_node_with_halo(&mut self, size: Point, halo: Point, orientation: Orientation) -> NodeHandle {
+        let elem = Element {
+            kind: NodeKind::Box,
+            pos: Position::new(Point::zero(), size, Point::zero(), halo),
+            orientation,
+        };
+        self.add_node(elem)
     }
 
     pub fn add_edge(&mut self, edge: Edge, from: NodeHandle, to: NodeHandle) {

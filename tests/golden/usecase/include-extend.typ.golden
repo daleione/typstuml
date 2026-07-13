@@ -5,16 +5,16 @@
 #cuca-layout(
   direction: "lr",
   classes: (
-    (x: 18.00pt, y: 34.21pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
-    (x: 138.15pt, y: 44.00pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
-    (x: 246.05pt, y: 15.00pt, width: 79.33pt, height: 28.00pt, kind: "usecase", name: [Validate Card], fields: (), methods: ()),
-    (x: 18.00pt, y: 111.79pt, width: 84.15pt, height: 28.00pt, kind: "usecase", name: [Apply Coupon], fields: (), methods: ()),
-    (x: 246.05pt, y: 75.45pt, width: 93.85pt, height: 28.00pt, kind: "usecase", name: [Generate Receipt], fields: (), methods: ()),
+    (x: 16.67pt, y: 8.33pt, width: 24.00pt, height: 47.58pt, kind: "actor", name: [User], fields: (), methods: ()),
+    (x: 134.15pt, y: 72.58pt, width: 71.90pt, height: 28.00pt, kind: "usecase", name: [Place Order], fields: (), methods: ()),
+    (x: 239.38pt, y: 47.80pt, width: 79.33pt, height: 28.00pt, kind: "usecase", name: [Validate Card], fields: (), methods: ()),
+    (x: 16.67pt, y: 72.58pt, width: 84.15pt, height: 28.00pt, kind: "usecase", name: [Apply Coupon], fields: (), methods: ()),
+    (x: 239.38pt, y: 94.91pt, width: 93.85pt, height: 28.00pt, kind: "usecase", name: [Generate Receipt], fields: (), methods: ()),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 58.00pt, path: ((c1: (74.05pt, 58.00pt), c2: (106.10pt, 58.00pt), end: (138.15pt, 58.00pt)),)),
-    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 29.00pt, label: [\<\<include\>\>], path: ((c1: (222.05pt, 48.33pt), c2: (234.05pt, 38.67pt), end: (246.05pt, 29.00pt)),)),
-    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 58.00pt, to-y: 89.45pt, label: [\<\<include\>\>], path: ((c1: (222.05pt, 68.48pt), c2: (234.05pt, 78.96pt), end: (246.05pt, 89.45pt)),)),
-    (from: 3, to: 1, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 125.79pt, to-y: 67.80pt, label: [\<\<extends\>\>], path: ((c1: (114.15pt, 106.46pt), c2: (126.15pt, 87.13pt), end: (138.15pt, 67.80pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 32.12pt, to-y: 76.78pt, path: ((c1: (71.83pt, 47.01pt), c2: (102.99pt, 61.89pt), end: (134.15pt, 76.78pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 61.80pt, label: [\<\<include\>\>], path: ((c1: (217.16pt, 78.32pt), c2: (228.27pt, 70.06pt), end: (239.38pt, 61.80pt)),)),
+    (from: 1, to: 4, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 108.91pt, label: [\<\<include\>\>], path: ((c1: (217.16pt, 94.02pt), c2: (228.27pt, 101.47pt), end: (239.38pt, 108.91pt)),)),
+    (from: 3, to: 1, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "right", to-side: "left", from-y: 86.58pt, to-y: 86.58pt, label: [\<\<extends\>\>], path: ((c1: (111.93pt, 86.58pt), c2: (123.04pt, 86.58pt), end: (134.15pt, 86.58pt)),)),
   ),
 )

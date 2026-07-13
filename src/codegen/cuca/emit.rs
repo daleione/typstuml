@@ -239,6 +239,7 @@ pub(super) fn emit_edge(
     sides: Option<(Side, Side)>,
     from_override: Option<f64>,
     to_override: Option<f64>,
+    label_pos: Option<Point>,
 ) {
     let _ = write!(
         out,
@@ -281,6 +282,9 @@ pub(super) fn emit_edge(
         out.push_str(", label: [");
         out.push_str(&creole_to_typst(label));
         out.push(']');
+    }
+    if let Some(p) = label_pos {
+        let _ = write!(out, ", label-pos: ({:.2}pt, {:.2}pt)", p.x, p.y);
     }
     if let Some(c) = &oe.relation.color {
         if let Some(typst_color) = puml_color_to_typst(c) {

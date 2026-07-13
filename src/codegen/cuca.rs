@@ -980,8 +980,8 @@ pub fn emit(
 
     let sp = cuca_spacing();
     for pe in &pending {
-        let segments = match &pe.route {
-            PendingRoute::Final(segs) => segs.clone(),
+        let (segments, label_pos) = match &pe.route {
+            PendingRoute::Final(segs) => (segs.clone(), None),
             PendingRoute::Ortho(_) => {
                 let (_, separated) = ortho_result_iter.next().expect("one entry per ortho edge");
                 let arc = if line_mode == LineMode::Polyline {
@@ -989,7 +989,19 @@ pub fn emit(
                 } else {
                     sp.ortho_arc
                 };
-                ortho::to_rounded_cubics(&separated, arc)
+                // Longest-trunk midpoint (§3.8): the straight
+                // start→end chord midpoint the painter uses by
+                // default can land far from a bent orthogonal path,
+                // so ortho edges carrying a label get an explicit
+                // position instead. Only worth computing when there
+                // actually is a label to place.
+                let label_pos = pe
+                    .oe
+                    .relation
+                    .label
+                    .as_ref()
+                    .and_then(|_| ortho::longest_trunk_midpoint(&separated));
+                (ortho::to_rounded_cubics(&separated, arc), label_pos)
             }
         };
         emit_edge(
@@ -999,6 +1011,7 @@ pub fn emit(
             Some((pe.from_side, pe.to_side)),
             pe.from_emit_override,
             pe.to_emit_override,
+            label_pos,
         );
     }
     // Association-class edges. The layout pass placed C at the rank

@@ -24,6 +24,26 @@ use crate::layout::pathplan::Box as Obstacle;
 pub use post::separate_overlapping;
 pub use round::{simplify, to_rounded_cubics};
 
+/// Midpoint of the longest straight segment in an orthogonal polyline
+/// — where an edge label reads best (§3.8). The straight `start→end`
+/// chord midpoint (what the painter uses for spline edges) can land
+/// far from the actual path once it bends, so ortho-routed edges with
+/// a label use this instead. `None` for a polyline with no segments
+/// (fewer than 2 points).
+pub fn longest_trunk_midpoint(points: &[Point]) -> Option<Point> {
+    if points.len() < 2 {
+        return None;
+    }
+    points
+        .windows(2)
+        .max_by(|a, b| {
+            a[0].distance_to(a[1])
+                .partial_cmp(&b[0].distance_to(b[1]))
+                .unwrap()
+        })
+        .map(|seg| seg[0].add(seg[1]).scale(0.5))
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dir {
     Up,

@@ -4,16 +4,16 @@
 
 #cuca-layout(
   classes: (
-    (x: 82.32pt, y: 53.15pt, width: 33.18pt, height: 17.00pt, kind: "class", name: [X], fields: (), methods: ()),
+    (x: 46.84pt, y: 53.15pt, width: 33.18pt, height: 17.00pt, kind: "class", name: [X], fields: (), methods: ()),
     (x: 33.33pt, y: 103.48pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Y], fields: (), methods: ()),
-    (x: 173.83pt, y: 139.97pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Z], fields: (), methods: ()),
+    (x: 61.29pt, y: 215.30pt, width: 32.24pt, height: 17.00pt, kind: "class", name: [Z], fields: (), methods: ()),
   ),
   packages: (
-    (x: 8.33pt, y: 16.67pt, w: 132.16pt, h: 128.82pt, kind: "package", label: [PkgA]),
-    (x: 148.83pt, y: 103.48pt, w: 82.24pt, h: 78.48pt, kind: "package", label: [PkgB]),
+    (x: 8.33pt, y: 16.67pt, w: 96.69pt, h: 128.82pt, kind: "package", label: [PkgA]),
+    (x: 36.29pt, y: 178.82pt, w: 82.24pt, h: 78.48pt, kind: "package", label: [PkgB]),
   ),
   edges: (
-    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 98.91pt, to-x: 49.45pt, path: ((c1: (82.42pt, 81.26pt), c2: (65.94pt, 92.37pt), end: (49.45pt, 103.48pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 98.91pt, to-x: 189.95pt, path: ((c1: (129.25pt, 93.42pt), c2: (159.60pt, 116.69pt), end: (189.95pt, 139.97pt)),)),
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 56.44pt, to-x: 56.44pt, path: ((c1: (56.44pt, 81.26pt), c2: (56.44pt, 92.37pt), end: (56.44pt, 103.48pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 70.42pt, to-x: 70.42pt, path: ((c1: (70.42pt, 118.53pt), c2: (70.42pt, 166.92pt), end: (70.42pt, 215.30pt)),)),
   ),
 )

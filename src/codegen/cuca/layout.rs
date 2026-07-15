@@ -219,6 +219,7 @@ fn hierarchical_layout(
         }
     }
     vg.set_hierarchy(hierarchy);
+    vg.set_cluster_rank(true);
 
     vg.layout();
 
@@ -252,7 +253,10 @@ fn hierarchical_layout(
 /// Mirror of `cluster_label_band` but reads from an `Option<&LabelBand>`
 /// directly — the hierarchical path doesn't have `cluster_data` to thread
 /// through.
-fn cluster_label_band_for_map(c: &crate::ir::Container, band: Option<&Option<LabelBand>>) -> f64 {
+pub(super) fn cluster_label_band_for_map(
+    c: &crate::ir::Container,
+    band: Option<&Option<LabelBand>>,
+) -> f64 {
     if c.together {
         return 0.0;
     }

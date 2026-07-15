@@ -14,6 +14,7 @@
 //!   record-graph codegen for obstacle-aware edge routes.
 
 pub mod dag;
+pub mod elk;
 pub mod geometry;
 pub mod graph;
 pub mod ortho;

@@ -24,6 +24,7 @@
 //! - `chord_pad` inside the couple-edge post-fix loop (visible dashed
 //!   connector length).
 
+mod elk;
 mod emit;
 mod geom;
 mod layout;
@@ -226,13 +227,39 @@ pub fn emit(
     // cluster rectangles even when one cluster's widest member is
     // wider than another cluster's narrowest. With no containers the
     // whole thing falls back to a flat single-pass layout.
-    let layout = compound_layout(
-        diag,
-        &geoms,
-        orientation,
-        &layout_edges,
-        &label_bands,
-    );
+    // E9: desc-flavor architecture diagrams place AND route through the
+    // ported ELK engine (draw-uml's layered pipeline, oracle-verified in
+    // tests/elk_port.rs). The engine owns node positions, package frames
+    // and orthogonal edge polylines in one pass, so the Sugiyama layout,
+    // the post-layout nudge heuristics and the grid router below are all
+    // bypassed. Falls back to the Sugiyama path for LR direction,
+    // association-class couples and self-loops (outside the engine's
+    // ported scope).
+    let use_elk_engine = is_desc_flavor(diag)
+        && diag.direction == LayoutDirection::TopToBottom
+        && couple_edges.is_empty()
+        && layout_edges.iter().all(|&(s, d)| s != d);
+    let elk_desc = if use_elk_engine {
+        Some(elk::layout(diag, &geoms, &layout_edges, &label_bands))
+    } else {
+        None
+    };
+
+    let layout = if let Some(elk) = &elk_desc {
+        layout::LayoutResult {
+            top_lefts: elk.top_lefts.clone(),
+            container_bboxes: elk.container_bboxes.clone(),
+            entity_container: elk.entity_container.clone(),
+        }
+    } else {
+        compound_layout(
+            diag,
+            &geoms,
+            orientation,
+            &layout_edges,
+            &label_bands,
+        )
+    };
     // Sugiyama now sizes gaps directly from each node's halo (§3.1's
     // `Spacing`, wired in `layout::node_halo`), so the top-lefts it
     // returns are final — no inflate/deflate shift needed.
@@ -279,8 +306,10 @@ pub fn emit(
     // in open space. Only fires when every connected neighbor agrees
     // on the same top-level cluster (no snap for a genuinely shared
     // interface); skipped entirely if it would newly overlap another
-    // entity or a *different* frame.
-    {
+    // entity or a *different* frame. ELK-engine layouts skip this (and
+    // every other post-layout nudge): the engine already routed the
+    // edges, so moving a node would detach its polylines.
+    if elk_desc.is_none() {
         let parents = scope::container_parents(diag);
         let top_of = |mut c: usize| -> usize {
             while let Some(p) = parents[c] {
@@ -375,7 +404,7 @@ pub fn emit(
     // Dog/Cat in basic.puml) ends up flush with one parent instead
     // of centered. We do this *before* the chord-overlap fix below
     // because re-centering can resolve some overlaps too.
-    {
+    if elk_desc.is_none() {
         let mut preds: Vec<Vec<usize>> = vec![Vec::new(); diag.entities.len()];
         for &(s, d) in &layout_edges {
             preds[d].push(s);
@@ -571,448 +600,455 @@ pub fn emit(
 
     out.push_str("  edges: (\n");
 
-    // Pre-pass 1: pick from/to sides for every edge. Distribution needs
-    // side info before we can group siblings by shared face.
-    let edge_sides: Vec<(Side, Side)> = oriented
-        .iter()
-        .map(|oe| {
-            let from = oe.src_idx;
-            let to = oe.dst_idx;
-            pick_edge_sides(
-                box_center(&geoms[from], top_lefts[from]),
-                box_center(&geoms[to], top_lefts[to]),
-                (top_lefts[from], top_lefts[from].add(geoms[from].size)),
-                (top_lefts[to], top_lefts[to].add(geoms[to].size)),
-                is_lr,
-            )
-        })
-        .collect();
+    if let Some(elk) = &elk_desc {
+        // E9: engine-routed polylines — placement and routing were both
+        // produced by the ELK pipeline above.
+        elk::emit_edges(out, diag, &oriented, elk, line_mode);
+    } else {
 
-    // Pre-pass 2: nudge arrowheads off each other when sibling edges
-    // collide at the same anchor point on a destination face. We DO NOT
-    // redistribute by default — `smart_align_coord` already places
-    // anchors at geometrically meaningful coords (perpendicular-overlap
-    // overlaps that yield straight sibling-rank lines), and moving them
-    // turns previously-clean horizontals into S-bends.
-    //
-    // What we do: for each destination face with >=2 edges arriving,
-    // collect their natural anchor coords (smart-aligned or midpoint).
-    // If two or more land within COLLISION_EPS_PT of each other, keep
-    // the smart-aligned anchors in place and shove the un-aligned ones
-    // to fresh slots along the face. Source faces aren't redistributed
-    // since arrowheads sit at the destination — tails fanning out from
-    // a shared point don't pile visibly.
-    const COLLISION_EPS_PT: f64 = 4.0;
-    const MIN_SEPARATION_PT: f64 = 10.0;
-    const FACE_INSET_FRAC: f64 = 0.15;
-    use std::collections::BTreeMap;
-    let mut dst_face_groups: BTreeMap<(usize, Side), Vec<usize>> = BTreeMap::new();
-    for (i, oe) in oriented.iter().enumerate() {
-        let (_, ts) = edge_sides[i];
-        dst_face_groups.entry((oe.dst_idx, ts)).or_default().push(i);
-    }
-    let mut to_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
+        // Pre-pass 1: pick from/to sides for every edge. Distribution needs
+        // side info before we can group siblings by shared face.
+        let edge_sides: Vec<(Side, Side)> = oriented
+            .iter()
+            .map(|oe| {
+                let from = oe.src_idx;
+                let to = oe.dst_idx;
+                pick_edge_sides(
+                    box_center(&geoms[from], top_lefts[from]),
+                    box_center(&geoms[to], top_lefts[to]),
+                    (top_lefts[from], top_lefts[from].add(geoms[from].size)),
+                    (top_lefts[to], top_lefts[to].add(geoms[to].size)),
+                    is_lr,
+                )
+            })
+            .collect();
 
-    // Per-edge pre-computed default + smart-align coords for the
-    // destination face. Needed to decide collisions before we commit to
-    // any override.
-    let mut to_natural: Vec<f64> = Vec::with_capacity(oriented.len());
-    let mut to_aligned_flag: Vec<bool> = Vec::with_capacity(oriented.len());
-    for (i, oe) in oriented.iter().enumerate() {
-        let (from_side, to_side) = edge_sides[i];
-        let default_end =
-            anchor_for_side(&geoms[oe.dst_idx], top_lefts[oe.dst_idx], to_side);
-        let aligned = smart_align_coord(
-            &geoms[oe.src_idx],
-            top_lefts[oe.src_idx],
-            &geoms[oe.dst_idx],
-            top_lefts[oe.dst_idx],
-            from_side,
-            to_side,
-        );
-        let face_horizontal = matches!(to_side, Side::Left | Side::Right);
-        let coord = match aligned {
-            Some(c) => c,
-            None => {
-                if face_horizontal {
-                    default_end.y
-                } else {
-                    default_end.x
-                }
-            }
-        };
-        to_natural.push(coord);
-        to_aligned_flag.push(aligned.is_some());
-    }
-
-    for ((entity_idx, side), edges) in dst_face_groups.iter() {
-        if edges.len() < 2 {
-            continue;
+        // Pre-pass 2: nudge arrowheads off each other when sibling edges
+        // collide at the same anchor point on a destination face. We DO NOT
+        // redistribute by default — `smart_align_coord` already places
+        // anchors at geometrically meaningful coords (perpendicular-overlap
+        // overlaps that yield straight sibling-rank lines), and moving them
+        // turns previously-clean horizontals into S-bends.
+        //
+        // What we do: for each destination face with >=2 edges arriving,
+        // collect their natural anchor coords (smart-aligned or midpoint).
+        // If two or more land within COLLISION_EPS_PT of each other, keep
+        // the smart-aligned anchors in place and shove the un-aligned ones
+        // to fresh slots along the face. Source faces aren't redistributed
+        // since arrowheads sit at the destination — tails fanning out from
+        // a shared point don't pile visibly.
+        const COLLISION_EPS_PT: f64 = 4.0;
+        const MIN_SEPARATION_PT: f64 = 10.0;
+        const FACE_INSET_FRAC: f64 = 0.15;
+        use std::collections::BTreeMap;
+        let mut dst_face_groups: BTreeMap<(usize, Side), Vec<usize>> = BTreeMap::new();
+        for (i, oe) in oriented.iter().enumerate() {
+            let (_, ts) = edge_sides[i];
+            dst_face_groups.entry((oe.dst_idx, ts)).or_default().push(i);
         }
-        let face_horizontal = matches!(side, Side::Left | Side::Right);
-        // Detect collision: any two natural coords within EPS?
-        let mut collided = false;
-        for i in 0..edges.len() {
-            for j in (i + 1)..edges.len() {
-                if (to_natural[edges[i]] - to_natural[edges[j]]).abs() < COLLISION_EPS_PT {
-                    collided = true;
+        let mut to_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
+
+        // Per-edge pre-computed default + smart-align coords for the
+        // destination face. Needed to decide collisions before we commit to
+        // any override.
+        let mut to_natural: Vec<f64> = Vec::with_capacity(oriented.len());
+        let mut to_aligned_flag: Vec<bool> = Vec::with_capacity(oriented.len());
+        for (i, oe) in oriented.iter().enumerate() {
+            let (from_side, to_side) = edge_sides[i];
+            let default_end =
+                anchor_for_side(&geoms[oe.dst_idx], top_lefts[oe.dst_idx], to_side);
+            let aligned = smart_align_coord(
+                &geoms[oe.src_idx],
+                top_lefts[oe.src_idx],
+                &geoms[oe.dst_idx],
+                top_lefts[oe.dst_idx],
+                from_side,
+                to_side,
+            );
+            let face_horizontal = matches!(to_side, Side::Left | Side::Right);
+            let coord = match aligned {
+                Some(c) => c,
+                None => {
+                    if face_horizontal {
+                        default_end.y
+                    } else {
+                        default_end.x
+                    }
+                }
+            };
+            to_natural.push(coord);
+            to_aligned_flag.push(aligned.is_some());
+        }
+
+        for ((entity_idx, side), edges) in dst_face_groups.iter() {
+            if edges.len() < 2 {
+                continue;
+            }
+            let face_horizontal = matches!(side, Side::Left | Side::Right);
+            // Detect collision: any two natural coords within EPS?
+            let mut collided = false;
+            for i in 0..edges.len() {
+                for j in (i + 1)..edges.len() {
+                    if (to_natural[edges[i]] - to_natural[edges[j]]).abs() < COLLISION_EPS_PT {
+                        collided = true;
+                        break;
+                    }
+                }
+                if collided {
                     break;
                 }
             }
-            if collided {
-                break;
+            if !collided {
+                continue;
             }
-        }
-        if !collided {
-            continue;
-        }
-        let bbox_min = top_lefts[*entity_idx];
-        let bbox_max = bbox_min.add(geoms[*entity_idx].size);
-        let (face_min, face_max) = if face_horizontal {
-            (bbox_min.y, bbox_max.y)
-        } else {
-            (bbox_min.x, bbox_max.x)
-        };
-        // Useable portion of the face — inset slightly from the bbox
-        // corners. For ellipse-shaped entities (usecase / cloud /
-        // database) the corners are far from the actual boundary, and
-        // even for rectangles distributing edges right up to the
-        // corner looks cramped.
-        let inset = (face_max - face_min) * FACE_INSET_FRAC;
-        let face_min_use = face_min + inset;
-        let face_max_use = face_max - inset;
-        // Split into "fixed" (smart-aligned) and "flexible" (midpoint).
-        let fixed: Vec<usize> = edges
-            .iter()
-            .copied()
-            .filter(|&i| to_aligned_flag[i])
-            .collect();
-        let flexible: Vec<usize> = edges
-            .iter()
-            .copied()
-            .filter(|&i| !to_aligned_flag[i])
-            .collect();
-        let reserved: Vec<f64> = fixed.iter().map(|&i| to_natural[i]).collect();
-        // For each flexible edge, place it where its source naturally
-        // wants to enter — but force MIN_SEPARATION_PT clearance from
-        // every reserved (smart-aligned) and already-chosen anchor.
-        // Without the minimum-separation guarantee, sibling arrows
-        // land within a few pt of each other and the heads still pile
-        // visibly.
-        let mut chosen: Vec<f64> = Vec::new();
-        for &edge_idx in flexible.iter() {
-            let src_center = box_center(
-                &geoms[oriented[edge_idx].src_idx],
-                top_lefts[oriented[edge_idx].src_idx],
-            );
-            let ideal_raw = if face_horizontal {
-                src_center.y
+            let bbox_min = top_lefts[*entity_idx];
+            let bbox_max = bbox_min.add(geoms[*entity_idx].size);
+            let (face_min, face_max) = if face_horizontal {
+                (bbox_min.y, bbox_max.y)
             } else {
-                src_center.x
+                (bbox_min.x, bbox_max.x)
             };
-            let ideal = ideal_raw.clamp(face_min_use, face_max_use);
-            let mut coord = ideal;
-            // One pass of snap-away from each conflict. For 1 fixed +
-            // few flexible (the common case), one pass is enough; the
-            // initial ideal already biases toward the source's side.
-            for &r in reserved.iter().chain(chosen.iter()) {
-                if (coord - r).abs() < MIN_SEPARATION_PT {
-                    if ideal >= r {
-                        coord = (r + MIN_SEPARATION_PT).min(face_max_use);
-                    } else {
-                        coord = (r - MIN_SEPARATION_PT).max(face_min_use);
+            // Useable portion of the face — inset slightly from the bbox
+            // corners. For ellipse-shaped entities (usecase / cloud /
+            // database) the corners are far from the actual boundary, and
+            // even for rectangles distributing edges right up to the
+            // corner looks cramped.
+            let inset = (face_max - face_min) * FACE_INSET_FRAC;
+            let face_min_use = face_min + inset;
+            let face_max_use = face_max - inset;
+            // Split into "fixed" (smart-aligned) and "flexible" (midpoint).
+            let fixed: Vec<usize> = edges
+                .iter()
+                .copied()
+                .filter(|&i| to_aligned_flag[i])
+                .collect();
+            let flexible: Vec<usize> = edges
+                .iter()
+                .copied()
+                .filter(|&i| !to_aligned_flag[i])
+                .collect();
+            let reserved: Vec<f64> = fixed.iter().map(|&i| to_natural[i]).collect();
+            // For each flexible edge, place it where its source naturally
+            // wants to enter — but force MIN_SEPARATION_PT clearance from
+            // every reserved (smart-aligned) and already-chosen anchor.
+            // Without the minimum-separation guarantee, sibling arrows
+            // land within a few pt of each other and the heads still pile
+            // visibly.
+            let mut chosen: Vec<f64> = Vec::new();
+            for &edge_idx in flexible.iter() {
+                let src_center = box_center(
+                    &geoms[oriented[edge_idx].src_idx],
+                    top_lefts[oriented[edge_idx].src_idx],
+                );
+                let ideal_raw = if face_horizontal {
+                    src_center.y
+                } else {
+                    src_center.x
+                };
+                let ideal = ideal_raw.clamp(face_min_use, face_max_use);
+                let mut coord = ideal;
+                // One pass of snap-away from each conflict. For 1 fixed +
+                // few flexible (the common case), one pass is enough; the
+                // initial ideal already biases toward the source's side.
+                for &r in reserved.iter().chain(chosen.iter()) {
+                    if (coord - r).abs() < MIN_SEPARATION_PT {
+                        if ideal >= r {
+                            coord = (r + MIN_SEPARATION_PT).min(face_max_use);
+                        } else {
+                            coord = (r - MIN_SEPARATION_PT).max(face_min_use);
+                        }
                     }
                 }
+                to_overrides[edge_idx] = Some(coord);
+                chosen.push(coord);
             }
-            to_overrides[edge_idx] = Some(coord);
-            chosen.push(coord);
+            // Silence unused warnings on the COLLISION_EPS_PT const if no
+            // path uses it after this restructure. Currently still used by
+            // the slot-removal logic above the loop.
+            let _ = COLLISION_EPS_PT;
         }
-        // Silence unused warnings on the COLLISION_EPS_PT const if no
-        // path uses it after this restructure. Currently still used by
-        // the slot-removal logic above the loop.
-        let _ = COLLISION_EPS_PT;
-    }
-    // No source-side redistribution.
-    let from_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
+        // No source-side redistribution.
+        let from_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
 
-    // Two passes: the first resolves every edge's route (ortho routes
-    // stay as raw polylines, not yet rounded), then
-    // `ortho::separate_overlapping` (§3.5.2) fans apart parallel trunk
-    // segments across *all* routes at once — it needs every polyline
-    // up front, so it can't run inside the per-edge loop. The second
-    // pass rounds the (possibly now-separated) ortho polylines and
-    // emits every edge in original order.
-    enum PendingRoute {
-        Final(Vec<(Point, Point, Point)>),
-        Ortho(Vec<Point>),
-    }
-    struct PendingEdge<'a> {
-        oe: &'a OrientedEdge,
-        from_side: Side,
-        to_side: Side,
-        from_emit_override: Option<f64>,
-        to_emit_override: Option<f64>,
-        route: PendingRoute,
-    }
-    let mut pending: Vec<PendingEdge> = Vec::with_capacity(oriented.len());
+        // Two passes: the first resolves every edge's route (ortho routes
+        // stay as raw polylines, not yet rounded), then
+        // `ortho::separate_overlapping` (§3.5.2) fans apart parallel trunk
+        // segments across *all* routes at once — it needs every polyline
+        // up front, so it can't run inside the per-edge loop. The second
+        // pass rounds the (possibly now-separated) ortho polylines and
+        // emits every edge in original order.
+        enum PendingRoute {
+            Final(Vec<(Point, Point, Point)>),
+            Ortho(Vec<Point>),
+        }
+        struct PendingEdge<'a> {
+            oe: &'a OrientedEdge,
+            from_side: Side,
+            to_side: Side,
+            from_emit_override: Option<f64>,
+            to_emit_override: Option<f64>,
+            route: PendingRoute,
+        }
+        let mut pending: Vec<PendingEdge> = Vec::with_capacity(oriented.len());
 
-    for (edge_idx, oe) in oriented.iter().enumerate() {
-        let from = oe.src_idx;
-        let to = oe.dst_idx;
-        let (from_side, to_side) = edge_sides[edge_idx];
-        let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
+        for (edge_idx, oe) in oriented.iter().enumerate() {
+            let from = oe.src_idx;
+            let to = oe.dst_idx;
+            let (from_side, to_side) = edge_sides[edge_idx];
+            let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
 
-        let default_start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
-        let default_end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
+            let default_start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
+            let default_end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
 
-        // Smart alignment — when both ends are unconstrained AND on the
-        // same axis with overlapping perpendicular extents, place both
-        // anchors at the same coord inside the overlap. The distribution
-        // overrides take precedence: once we've assigned a sibling-spread
-        // coord to either end, smart-align is no longer applicable.
-        let aligned_coord = if from_overrides[edge_idx].is_none()
-            && to_overrides[edge_idx].is_none()
-        {
-            smart_align_coord(
-                &geoms[from],
-                top_lefts[from],
-                &geoms[to],
-                top_lefts[to],
-                from_side,
-                to_side,
-            )
-        } else {
-            None
-        };
-
-        let (mut from_emit_override, mut to_emit_override) =
-            (from_overrides[edge_idx], to_overrides[edge_idx]);
-        let (start, end) = if let Some(coord) = aligned_coord {
-            from_emit_override = Some(coord);
-            to_emit_override = Some(coord);
-            if mainly_vertical {
-                (
-                    Point::new(coord, default_start.y),
-                    Point::new(coord, default_end.y),
+            // Smart alignment — when both ends are unconstrained AND on the
+            // same axis with overlapping perpendicular extents, place both
+            // anchors at the same coord inside the overlap. The distribution
+            // overrides take precedence: once we've assigned a sibling-spread
+            // coord to either end, smart-align is no longer applicable.
+            let aligned_coord = if from_overrides[edge_idx].is_none()
+                && to_overrides[edge_idx].is_none()
+            {
+                smart_align_coord(
+                    &geoms[from],
+                    top_lefts[from],
+                    &geoms[to],
+                    top_lefts[to],
+                    from_side,
+                    to_side,
                 )
             } else {
-                (
-                    Point::new(default_start.x, coord),
-                    Point::new(default_end.x, coord),
-                )
-            }
-        } else {
-            let start = match (from_overrides[edge_idx], from_side) {
-                (Some(c), Side::Left | Side::Right) => Point::new(default_start.x, c),
-                (Some(c), Side::Top | Side::Bot) => Point::new(c, default_start.y),
-                (None, _) => default_start,
+                None
             };
-            let end = match (to_overrides[edge_idx], to_side) {
-                (Some(c), Side::Left | Side::Right) => Point::new(default_end.x, c),
-                (Some(c), Side::Top | Side::Bot) => Point::new(c, default_end.y),
-                (None, _) => default_end,
-            };
-            (start, end)
-        };
 
-        // Entity obstacles: every entity bbox except this edge's two
-        // endpoints. M3 ranks clusters via Sugiyama and tighten pulls
-        // them apart, so cross-cluster edges no longer need explicit
-        // cluster-bbox obstacles to detour — the rank ordering keeps
-        // the natural path from clipping through a sibling cluster.
-        // try_manhattan_route's detour-bend remains the safety net for
-        // residual obstacle-clipping cases.
-        let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
-            .filter(|i| *i != from && *i != to)
-            .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
-            .collect();
-        let route_opts = pathplan::RouteOpts {
-            obstacle_padding: ROUTE_PADDING_PT,
-            src_tangent: side_tangent(from_side),
-            dst_tangent: side_tangent(to_side).neg(),
-        };
-
-        // Lollipop / socket connectors (`--`, `-(`) are short curved
-        // stubs to a small disc approached from any angle, not
-        // rectangular-face-to-face architecture edges — forcing them
-        // through the axis-aligned router produces ugly hooked
-        // detours. Actor/use-case edges have the same problem (open
-        // question 7 in docs/cuca-architecture-layout-redesign.md):
-        // an ellipse or stick figure read poorly with orthogonal
-        // jogs. Keep both on the spline chain even in ortho mode.
-        let keeps_spline_shape = |i: usize| {
-            matches!(
-                diag.entities[i].usymbol,
-                USymbol::Interface
-                    | USymbol::Port
-                    | USymbol::PortIn
-                    | USymbol::PortOut
-                    | USymbol::Actor
-                    | USymbol::ActorBusiness
-                    | USymbol::ActorAwesome
-                    | USymbol::ActorHollow
-                    | USymbol::UseCase
-                    | USymbol::UseCaseBusiness
-            )
-        };
-        let edge_prefers_spline = keeps_spline_shape(from) || keeps_spline_shape(to);
-
-        // Orthogonal routing (§3.4): desc-flavor diagrams (or an
-        // explicit `skinparam linetype`) route through the grid + A*
-        // router instead of the spline chain below. Obstacles add
-        // every *foreign* package frame (§3.3) on top of the entity
-        // boxes, since the whole point of ortho mode is detouring
-        // around packages, not just entities. Falls through to the
-        // spline chain if the grid search fails (should only happen on
-        // a genuinely unroutable layout). The raw (unrounded) polyline
-        // is stashed for now — `separate_overlapping` (§3.5.2) needs
-        // every edge's polyline at once, so rounding happens in the
-        // second pass below.
-        let ortho_polyline: Option<Vec<Point>> = if line_mode != LineMode::Spline
-            && !edge_prefers_spline
-        {
-            let sp = cuca_spacing();
-            let mut ortho_obstacles = obstacles.clone();
-            ortho_obstacles.extend(foreign_frame_obstacles(
-                diag,
-                &container_bboxes,
-                entity_container,
-                from,
-                to,
-            ));
-            let opts = ortho::RouteOpts {
-                clearance: sp.edge_node,
-                bend_penalty: 4.0 * sp.edge_node,
-                stub_len: sp.edge_node,
-            };
-            ortho::route(
-                start,
-                ortho::Dir::from_tangent(side_tangent(from_side)),
-                end,
-                ortho::Dir::from_tangent(side_tangent(to_side).neg()),
-                &ortho_obstacles,
-                &opts,
-            )
-            .map(|pts| ortho::simplify(&pts, 1.0))
-        } else {
-            None
-        };
-
-        // Routing priority (cuca-edge-routing-redesign.md §2.1),
-        // superseded by `ortho_polyline` when ortho mode is active:
-        //   1. Straight line of sight — single direct cubic bezier
-        //      from source anchor to dest anchor (PlantUML / dot
-        //      `splines=true` style). The control handles sit at 1/3
-        //      and 2/3 along the chord so the visible curve is a
-        //      straight line; decorated heads rotate to match.
-        //   2. Manhattan Z — for blocked diagonals, fall back to a
-        //      down-across-down (or right-along-right) right-angle route.
-        //   3. Pathplan bezier — for routes that need to detour around
-        //      multiple obstacles.
-        //   4. Forced straight cubic — last resort.
-        let line_of_sight =
-            ortho_polyline.is_none() && line_of_sight_clear(start, end, &obstacles);
-        let route = if let Some(pts) = ortho_polyline {
-            PendingRoute::Ortho(pts)
-        } else if line_of_sight {
-            PendingRoute::Final(vec![cubic_from_straight(start, end)])
-        } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
-            PendingRoute::Final(segs)
-        } else {
-            PendingRoute::Final(match pathplan::route_edge(start, end, &obstacles, route_opts) {
-                Ok(cubics) => cubics
-                    .into_iter()
-                    .map(|c| c.into_painter_segment())
-                    .collect(),
-                Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
-            })
-        };
-
-        // For direct cubics, codegen owns the chord tangent — the head
-        // should rotate with it. Setting explicit anchor overrides
-        // signals the painter to skip the axis-snap that would
-        // otherwise force the head perpendicular to the destination
-        // face. Manhattan / pathplan / ortho routes keep midpoint
-        // anchors unless smart-align or distribution already set them,
-        // since their final segment is axis-aligned by construction.
-        if line_of_sight {
-            if from_emit_override.is_none() {
-                from_emit_override = Some(match from_side {
-                    Side::Top | Side::Bot => start.x,
-                    Side::Left | Side::Right => start.y,
-                });
-            }
-            if to_emit_override.is_none() {
-                to_emit_override = Some(match to_side {
-                    Side::Top | Side::Bot => end.x,
-                    Side::Left | Side::Right => end.y,
-                });
-            }
-        }
-
-        pending.push(PendingEdge {
-            oe,
-            from_side,
-            to_side,
-            from_emit_override,
-            to_emit_override,
-            route,
-        });
-    }
-
-    // Batch pass: fan apart parallel trunk segments across every
-    // ortho-routed edge, then round each polyline (post-separation)
-    // into the painter's cubic segment list, and emit every edge in
-    // its original order.
-    let mut ortho_indices: Vec<usize> = Vec::new();
-    let mut ortho_polylines: Vec<Vec<Point>> = Vec::new();
-    for (i, pe) in pending.iter().enumerate() {
-        if let PendingRoute::Ortho(pts) = &pe.route {
-            ortho_indices.push(i);
-            ortho_polylines.push(pts.clone());
-        }
-    }
-    if !ortho_polylines.is_empty() {
-        let sp = cuca_spacing();
-        ortho::separate_overlapping(&mut ortho_polylines, sp.ortho_min_gap);
-    }
-    let mut ortho_result_iter = ortho_indices.into_iter().zip(ortho_polylines);
-
-    let sp = cuca_spacing();
-    for pe in &pending {
-        let (segments, label_pos) = match &pe.route {
-            PendingRoute::Final(segs) => (segs.clone(), None),
-            PendingRoute::Ortho(_) => {
-                let (_, separated) = ortho_result_iter.next().expect("one entry per ortho edge");
-                let arc = if line_mode == LineMode::Polyline {
-                    0.0
+            let (mut from_emit_override, mut to_emit_override) =
+                (from_overrides[edge_idx], to_overrides[edge_idx]);
+            let (start, end) = if let Some(coord) = aligned_coord {
+                from_emit_override = Some(coord);
+                to_emit_override = Some(coord);
+                if mainly_vertical {
+                    (
+                        Point::new(coord, default_start.y),
+                        Point::new(coord, default_end.y),
+                    )
                 } else {
-                    sp.ortho_arc
+                    (
+                        Point::new(default_start.x, coord),
+                        Point::new(default_end.x, coord),
+                    )
+                }
+            } else {
+                let start = match (from_overrides[edge_idx], from_side) {
+                    (Some(c), Side::Left | Side::Right) => Point::new(default_start.x, c),
+                    (Some(c), Side::Top | Side::Bot) => Point::new(c, default_start.y),
+                    (None, _) => default_start,
                 };
-                // Longest-trunk midpoint (§3.8): the straight
-                // start→end chord midpoint the painter uses by
-                // default can land far from a bent orthogonal path,
-                // so ortho edges carrying a label get an explicit
-                // position instead. Only worth computing when there
-                // actually is a label to place.
-                let label_pos = pe
-                    .oe
-                    .relation
-                    .label
-                    .as_ref()
-                    .and_then(|_| ortho::longest_trunk_midpoint(&separated));
-                (ortho::to_rounded_cubics(&separated, arc), label_pos)
+                let end = match (to_overrides[edge_idx], to_side) {
+                    (Some(c), Side::Left | Side::Right) => Point::new(default_end.x, c),
+                    (Some(c), Side::Top | Side::Bot) => Point::new(c, default_end.y),
+                    (None, _) => default_end,
+                };
+                (start, end)
+            };
+
+            // Entity obstacles: every entity bbox except this edge's two
+            // endpoints. M3 ranks clusters via Sugiyama and tighten pulls
+            // them apart, so cross-cluster edges no longer need explicit
+            // cluster-bbox obstacles to detour — the rank ordering keeps
+            // the natural path from clipping through a sibling cluster.
+            // try_manhattan_route's detour-bend remains the safety net for
+            // residual obstacle-clipping cases.
+            let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
+                .filter(|i| *i != from && *i != to)
+                .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
+                .collect();
+            let route_opts = pathplan::RouteOpts {
+                obstacle_padding: ROUTE_PADDING_PT,
+                src_tangent: side_tangent(from_side),
+                dst_tangent: side_tangent(to_side).neg(),
+            };
+
+            // Lollipop / socket connectors (`--`, `-(`) are short curved
+            // stubs to a small disc approached from any angle, not
+            // rectangular-face-to-face architecture edges — forcing them
+            // through the axis-aligned router produces ugly hooked
+            // detours. Actor/use-case edges have the same problem (open
+            // question 7 in docs/cuca-architecture-layout-redesign.md):
+            // an ellipse or stick figure read poorly with orthogonal
+            // jogs. Keep both on the spline chain even in ortho mode.
+            let keeps_spline_shape = |i: usize| {
+                matches!(
+                    diag.entities[i].usymbol,
+                    USymbol::Interface
+                        | USymbol::Port
+                        | USymbol::PortIn
+                        | USymbol::PortOut
+                        | USymbol::Actor
+                        | USymbol::ActorBusiness
+                        | USymbol::ActorAwesome
+                        | USymbol::ActorHollow
+                        | USymbol::UseCase
+                        | USymbol::UseCaseBusiness
+                )
+            };
+            let edge_prefers_spline = keeps_spline_shape(from) || keeps_spline_shape(to);
+
+            // Orthogonal routing (§3.4): desc-flavor diagrams (or an
+            // explicit `skinparam linetype`) route through the grid + A*
+            // router instead of the spline chain below. Obstacles add
+            // every *foreign* package frame (§3.3) on top of the entity
+            // boxes, since the whole point of ortho mode is detouring
+            // around packages, not just entities. Falls through to the
+            // spline chain if the grid search fails (should only happen on
+            // a genuinely unroutable layout). The raw (unrounded) polyline
+            // is stashed for now — `separate_overlapping` (§3.5.2) needs
+            // every edge's polyline at once, so rounding happens in the
+            // second pass below.
+            let ortho_polyline: Option<Vec<Point>> = if line_mode != LineMode::Spline
+                && !edge_prefers_spline
+            {
+                let sp = cuca_spacing();
+                let mut ortho_obstacles = obstacles.clone();
+                ortho_obstacles.extend(foreign_frame_obstacles(
+                    diag,
+                    &container_bboxes,
+                    entity_container,
+                    from,
+                    to,
+                ));
+                let opts = ortho::RouteOpts {
+                    clearance: sp.edge_node,
+                    bend_penalty: 4.0 * sp.edge_node,
+                    stub_len: sp.edge_node,
+                };
+                ortho::route(
+                    start,
+                    ortho::Dir::from_tangent(side_tangent(from_side)),
+                    end,
+                    ortho::Dir::from_tangent(side_tangent(to_side).neg()),
+                    &ortho_obstacles,
+                    &opts,
+                )
+                .map(|pts| ortho::simplify(&pts, 1.0))
+            } else {
+                None
+            };
+
+            // Routing priority (cuca-edge-routing-redesign.md §2.1),
+            // superseded by `ortho_polyline` when ortho mode is active:
+            //   1. Straight line of sight — single direct cubic bezier
+            //      from source anchor to dest anchor (PlantUML / dot
+            //      `splines=true` style). The control handles sit at 1/3
+            //      and 2/3 along the chord so the visible curve is a
+            //      straight line; decorated heads rotate to match.
+            //   2. Manhattan Z — for blocked diagonals, fall back to a
+            //      down-across-down (or right-along-right) right-angle route.
+            //   3. Pathplan bezier — for routes that need to detour around
+            //      multiple obstacles.
+            //   4. Forced straight cubic — last resort.
+            let line_of_sight =
+                ortho_polyline.is_none() && line_of_sight_clear(start, end, &obstacles);
+            let route = if let Some(pts) = ortho_polyline {
+                PendingRoute::Ortho(pts)
+            } else if line_of_sight {
+                PendingRoute::Final(vec![cubic_from_straight(start, end)])
+            } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
+                PendingRoute::Final(segs)
+            } else {
+                PendingRoute::Final(match pathplan::route_edge(start, end, &obstacles, route_opts) {
+                    Ok(cubics) => cubics
+                        .into_iter()
+                        .map(|c| c.into_painter_segment())
+                        .collect(),
+                    Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
+                })
+            };
+
+            // For direct cubics, codegen owns the chord tangent — the head
+            // should rotate with it. Setting explicit anchor overrides
+            // signals the painter to skip the axis-snap that would
+            // otherwise force the head perpendicular to the destination
+            // face. Manhattan / pathplan / ortho routes keep midpoint
+            // anchors unless smart-align or distribution already set them,
+            // since their final segment is axis-aligned by construction.
+            if line_of_sight {
+                if from_emit_override.is_none() {
+                    from_emit_override = Some(match from_side {
+                        Side::Top | Side::Bot => start.x,
+                        Side::Left | Side::Right => start.y,
+                    });
+                }
+                if to_emit_override.is_none() {
+                    to_emit_override = Some(match to_side {
+                        Side::Top | Side::Bot => end.x,
+                        Side::Left | Side::Right => end.y,
+                    });
+                }
             }
-        };
-        emit_edge(
-            out,
-            pe.oe,
-            &segments,
-            Some((pe.from_side, pe.to_side)),
-            pe.from_emit_override,
-            pe.to_emit_override,
-            label_pos,
-        );
+
+            pending.push(PendingEdge {
+                oe,
+                from_side,
+                to_side,
+                from_emit_override,
+                to_emit_override,
+                route,
+            });
+        }
+
+        // Batch pass: fan apart parallel trunk segments across every
+        // ortho-routed edge, then round each polyline (post-separation)
+        // into the painter's cubic segment list, and emit every edge in
+        // its original order.
+        let mut ortho_indices: Vec<usize> = Vec::new();
+        let mut ortho_polylines: Vec<Vec<Point>> = Vec::new();
+        for (i, pe) in pending.iter().enumerate() {
+            if let PendingRoute::Ortho(pts) = &pe.route {
+                ortho_indices.push(i);
+                ortho_polylines.push(pts.clone());
+            }
+        }
+        if !ortho_polylines.is_empty() {
+            let sp = cuca_spacing();
+            ortho::separate_overlapping(&mut ortho_polylines, sp.ortho_min_gap);
+        }
+        let mut ortho_result_iter = ortho_indices.into_iter().zip(ortho_polylines);
+
+        let sp = cuca_spacing();
+        for pe in &pending {
+            let (segments, label_pos) = match &pe.route {
+                PendingRoute::Final(segs) => (segs.clone(), None),
+                PendingRoute::Ortho(_) => {
+                    let (_, separated) = ortho_result_iter.next().expect("one entry per ortho edge");
+                    let arc = if line_mode == LineMode::Polyline {
+                        0.0
+                    } else {
+                        sp.ortho_arc
+                    };
+                    // Longest-trunk midpoint (§3.8): the straight
+                    // start→end chord midpoint the painter uses by
+                    // default can land far from a bent orthogonal path,
+                    // so ortho edges carrying a label get an explicit
+                    // position instead. Only worth computing when there
+                    // actually is a label to place.
+                    let label_pos = pe
+                        .oe
+                        .relation
+                        .label
+                        .as_ref()
+                        .and_then(|_| ortho::longest_trunk_midpoint(&separated));
+                    (ortho::to_rounded_cubics(&separated, arc), label_pos)
+                }
+            };
+            emit_edge(
+                out,
+                pe.oe,
+                &segments,
+                Some((pe.from_side, pe.to_side)),
+                pe.from_emit_override,
+                pe.to_emit_override,
+                label_pos,
+            );
+        }
     }
     // Association-class edges. The layout pass placed C at the rank
     // between A and B (via virtual A→C, C→B edges), so the dashed

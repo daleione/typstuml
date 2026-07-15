@@ -45,6 +45,7 @@ typst-pdf = { version = "0.14.2", optional = true }
 typst-render = { version = "0.14.2", optional = true }
 include_dir = { version = "0.7", optional = true }
 thiserror = "2"
+serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml_ng = "0.10"
 

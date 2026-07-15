@@ -10,6 +10,7 @@
 //! lives in submodules.
 
 mod bk;
+pub(crate) mod cluster_rank;
 mod compact;
 pub(crate) mod ns;
 mod xcoord;

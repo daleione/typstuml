@@ -6,12 +6,12 @@
 
 #cuca-layout(
   classes: (
-    (x: 8.33pt, y: 16.67pt, width: 88.11pt, height: 18.45pt, kind: "component", name: [WebService], fields: (), methods: ()),
-    (x: 113.11pt, y: 16.67pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),
-    (x: 90.32pt, y: 68.45pt, kind: "lollipop", width: 30.42pt, name: [AuthAPI]),
+    (x: 12.00pt, y: 12.00pt, width: 88.11pt, height: 18.45pt, kind: "component", name: [WebService], fields: (), methods: ()),
+    (x: 116.78pt, y: 12.00pt, width: 91.13pt, height: 18.45pt, kind: "component", name: [AuthService], fields: (), methods: ()),
+    (x: 93.99pt, y: 63.78pt, kind: "lollipop", width: 30.42pt, name: [AuthAPI]),
   ),
   edges: (
-    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 158.67pt, to-x: 116.18pt, path: ((c1: (144.51pt, 46.23pt), c2: (130.34pt, 57.34pt), end: (116.18pt, 68.45pt)),)),
-    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", from-x: 52.39pt, to-x: 94.88pt, path: ((c1: (66.55pt, 46.23pt), c2: (80.72pt, 57.34pt), end: (94.88pt, 68.45pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 162.34pt, to-x: 111.53pt, path: ((c1: (162.34pt, 33.23pt), c2: (162.34pt, 36.01pt), end: (162.34pt, 38.78pt)), (c1: (162.34pt, 43.39pt), c2: (158.61pt, 47.12pt), end: (154.01pt, 47.12pt)), (c1: (142.63pt, 47.12pt), c2: (131.25pt, 47.12pt), end: (119.86pt, 47.12pt)), (c1: (115.26pt, 47.12pt), c2: (111.53pt, 50.85pt), end: (111.53pt, 55.45pt)), (c1: (111.53pt, 58.23pt), c2: (111.53pt, 61.01pt), end: (111.53pt, 63.78pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "socket-open", style: "solid", from-side: "bot", to-side: "top", from-x: 56.05pt, to-x: 106.86pt, path: ((c1: (56.05pt, 33.23pt), c2: (56.05pt, 36.01pt), end: (56.05pt, 38.78pt)), (c1: (56.05pt, 43.39pt), c2: (59.79pt, 47.12pt), end: (64.39pt, 47.12pt)), (c1: (75.77pt, 47.12pt), c2: (87.15pt, 47.12pt), end: (98.53pt, 47.12pt)), (c1: (103.13pt, 47.12pt), c2: (106.86pt, 50.85pt), end: (106.86pt, 55.45pt)), (c1: (106.86pt, 58.23pt), c2: (106.86pt, 61.01pt), end: (106.86pt, 63.78pt)))),
   ),
 )

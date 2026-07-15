@@ -141,6 +141,22 @@ fn resolve_strangers(vg: &mut VisualGraph) {
             let mut right_edge = f64::NEG_INFINITY;
             let mut top_edge = f64::INFINITY;
             let mut bottom_edge = f64::NEG_INFINITY;
+            // Rank span of everything that could block a vertical
+            // escape: a vertical move is only rank-coherent when `n`
+            // (or its whole package) actually ranks before/after every
+            // x-overlapping obstacle — otherwise a "cheap" upward
+            // escape puts a rank-10 node visually above the rank-7..9
+            // package it follows, undoing what compaction and
+            // `restore_rank_monotonicity` established.
+            let mut obst_rank_min = usize::MAX;
+            let mut obst_rank_max = 0usize;
+            let (n_rank_min, n_rank_max) = match n_top {
+                Some(t) => cluster_level_span(vg, t),
+                None => {
+                    let l = vg.dag.level(n);
+                    (l, l)
+                }
+            };
             for c in 0..num_clusters {
                 if vg.hierarchy.is_inside(n, c) {
                     continue;
@@ -161,6 +177,9 @@ fn resolve_strangers(vg: &mut VisualGraph) {
                 if x_overlap > 0.0 {
                     top_edge = top_edge.min(cl.y_min);
                     bottom_edge = bottom_edge.max(cl.y_max);
+                    let (c_min, c_max) = cluster_level_span(vg, c);
+                    obst_rank_min = obst_rank_min.min(c_min);
+                    obst_rank_max = obst_rank_max.max(c_max);
                 }
             }
             // Same escape-direction treatment for individual entities:
@@ -190,24 +209,51 @@ fn resolve_strangers(vg: &mut VisualGraph) {
                 if x_overlap > 0.0 {
                     top_edge = top_edge.min(mtl.y);
                     bottom_edge = bottom_edge.max(mbr.y);
+                    let m_lvl = vg.dag.level(m);
+                    obst_rank_min = obst_rank_min.min(m_lvl);
+                    obst_rank_max = obst_rank_max.max(m_lvl);
                 }
             }
             if !in_conflict {
                 continue;
             }
 
-            let mut candidates: Vec<Point> = Vec::new();
-            if left_edge.is_finite() {
-                candidates.push(Point::new(-(br.x - left_edge + vg.spacing.cluster_gap), 0.0));
-            }
-            if right_edge.is_finite() {
-                candidates.push(Point::new(right_edge - tl.x + vg.spacing.cluster_gap, 0.0));
-            }
-            if top_edge.is_finite() {
-                candidates.push(Point::new(0.0, -(br.y - top_edge + vg.spacing.cluster_gap)));
-            }
-            if bottom_edge.is_finite() {
-                candidates.push(Point::new(0.0, bottom_edge - tl.y + vg.spacing.cluster_gap));
+            let horizontal: Vec<Point> = [
+                left_edge
+                    .is_finite()
+                    .then(|| Point::new(-(br.x - left_edge + vg.spacing.cluster_gap), 0.0)),
+                right_edge
+                    .is_finite()
+                    .then(|| Point::new(right_edge - tl.x + vg.spacing.cluster_gap, 0.0)),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            // Vertical escapes only in the rank-coherent direction:
+            // above every x-overlapping obstacle only if `n` ranks
+            // before them all, below only if it ranks after them all.
+            let vertical: Vec<Point> = [
+                (top_edge.is_finite() && n_rank_max < obst_rank_min)
+                    .then(|| Point::new(0.0, -(br.y - top_edge + vg.spacing.cluster_gap))),
+                (bottom_edge.is_finite() && n_rank_min > obst_rank_max)
+                    .then(|| Point::new(0.0, bottom_edge - tl.y + vg.spacing.cluster_gap)),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            let mut candidates: Vec<Point> = horizontal;
+            candidates.extend(vertical);
+            // Nothing rank-coherent available (e.g. the node's rank
+            // falls inside every obstacle's span and no horizontal
+            // lane exists): fall back to the unfiltered directions
+            // rather than leaving the overlap in place.
+            if candidates.is_empty() {
+                if top_edge.is_finite() {
+                    candidates.push(Point::new(0.0, -(br.y - top_edge + vg.spacing.cluster_gap)));
+                }
+                if bottom_edge.is_finite() {
+                    candidates.push(Point::new(0.0, bottom_edge - tl.y + vg.spacing.cluster_gap));
+                }
             }
             let Some(delta) = candidates.into_iter().min_by(|a, b| {
                 let ma = a.x.abs() + a.y.abs();
@@ -573,6 +619,25 @@ fn resolve_against_sibling_nodes(vg: &mut VisualGraph, level: &[ClusterId]) {
     }
 }
 
+/// Minimum and maximum DAG rank among the cluster's real members
+/// (direct + nested). `(usize::MAX, 0)` when the cluster owns no real
+/// node yet.
+fn cluster_level_span(vg: &VisualGraph, c: ClusterId) -> (usize, usize) {
+    let mut min = usize::MAX;
+    let mut max = 0usize;
+    for h in vg.iter_nodes() {
+        if vg.is_connector(h) {
+            continue;
+        }
+        if vg.hierarchy.is_inside(h, c) {
+            let l = vg.dag.level(h);
+            min = min.min(l);
+            max = max.max(l);
+        }
+    }
+    (min, max)
+}
+
 /// Minimum DAG rank among the cluster's members (direct + nested).
 /// `usize::MAX` when the cluster owns no real node yet.
 fn cluster_min_level(vg: &VisualGraph, c: ClusterId) -> usize {
@@ -593,6 +658,20 @@ fn cluster_min_level(vg: &VisualGraph, c: ClusterId) -> usize {
 fn shift_cluster_subtree(vg: &mut VisualGraph, c: ClusterId, dx: f64, dy: f64) {
     let nodes: Vec<_> = vg.hierarchy.clusters[c].direct_nodes.clone();
     for h in nodes {
+        vg.pos_mut(h).translate(Point::new(dx, dy));
+    }
+    // Connector dummies inherit the cluster (see `inherit_node`) but are
+    // deliberately absent from `direct_nodes`. Carry them along anyway:
+    // `restore_rank_monotonicity` walks dag predecessors — which for a
+    // long edge are these dummies — and comparing a downstream node
+    // against a dummy the shift left behind pins that node to a stale
+    // position (a root-level successor can end up drawn *above* the
+    // package it follows).
+    let conns: Vec<NodeHandle> = vg
+        .iter_nodes()
+        .filter(|&h| vg.is_connector(h) && vg.hierarchy.cluster_of(h) == Some(c))
+        .collect();
+    for h in conns {
         vg.pos_mut(h).translate(Point::new(dx, dy));
     }
     let cluster = &mut vg.hierarchy.clusters[c];

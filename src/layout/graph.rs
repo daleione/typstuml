@@ -193,6 +193,16 @@ pub struct VisualGraph {
     /// for no benefit (§3.7). Off by default; cuca opts in via
     /// `set_model_order`.
     pub model_order: bool,
+    /// When set, rank assignment uses compound-graph (per-cluster)
+    /// critical-path ranking instead of flat longest-path — every
+    /// cluster's own height reflects only its own content, instead of
+    /// being stretched across whatever global rank numbers unrelated
+    /// clusters happen to be using (M7's real aspect-ratio fix; see
+    /// `sugiyama::cluster_rank`). Takes priority over `ns_rank` when
+    /// both are set (cuca never sets `ns_rank`, so this doesn't arise
+    /// in practice). Off by default; cuca opts in via
+    /// `set_cluster_rank`.
+    pub cluster_rank: bool,
 }
 
 impl VisualGraph {
@@ -208,6 +218,7 @@ impl VisualGraph {
             ns_rank: false,
             spacing: Spacing::legacy(),
             model_order: false,
+            cluster_rank: false,
         }
     }
 
@@ -217,6 +228,10 @@ impl VisualGraph {
 
     pub fn set_model_order(&mut self, enabled: bool) {
         self.model_order = enabled;
+    }
+
+    pub fn set_cluster_rank(&mut self, enabled: bool) {
+        self.cluster_rank = enabled;
     }
 
     /// Use dot's network-simplex x-coordinate assignment for this graph.
@@ -357,7 +372,25 @@ impl VisualGraph {
     /// Insert connector dummies so each remaining edge spans exactly one
     /// rank, then run the rank/edge-cross optimizers and expand self-edges.
     fn split_long_edges(&mut self) {
-        if self.ns_rank {
+        if self.cluster_rank && !self.hierarchy.is_empty() {
+            // Compound-graph critical-path ranking (§M7): each
+            // cluster's own height reflects only its own content.
+            let result =
+                crate::layout::sugiyama::cluster_rank::compute(&mut self.dag, &self.hierarchy);
+            // Edges the compound ranker reversed to break a
+            // package-level cycle: the dag already points the layout
+            // direction, so flip the endpoint lists to match — the
+            // same state normalize-time back-edge reversal produces,
+            // which every downstream pass already handles.
+            for &(u, v) in &result.reversed {
+                for (_, lst) in self.edges.iter_mut() {
+                    if lst[0] == u && lst[1] == v {
+                        lst.swap(0, 1);
+                    }
+                }
+            }
+            self.dag.set_node_levels(&result.ranks);
+        } else if self.ns_rank {
             // dot's network-simplex rank assignment, honouring each edge's
             // min_rank (minlen). Replaces longest-path + greedy sinking.
             let n = self.dag.len();

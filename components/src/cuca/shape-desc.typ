@@ -13,6 +13,8 @@
 // shape carries its own visual identity and uses the `fill` argument
 // straight from codegen.
 
+#import "../palettes.typ": palettes
+
 // Lay out a use-case actor (stickman). Renders a simple head + body +
 // arms + legs stick figure with the name below. Matches PlantUML's
 // default actor style. Returns the same dict shape as `_layout-class`.
@@ -44,20 +46,20 @@
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Head.
     place(top + left, dx: mid-x - head-r, dy: 0pt,
-      circle(radius: head-r, fill: white, stroke: 0.9pt + black))
+      circle(radius: head-r, fill: white, stroke: 1pt + palettes.base.border-soft))
     // Body: vertical line.
     let body-top = 2 * head-r
     place(top + left, dx: mid-x, dy: body-top,
-      line(start: (0pt, 0pt), end: (0pt, body-len), stroke: 0.9pt + black))
+      line(start: (0pt, 0pt), end: (0pt, body-len), stroke: 1pt + palettes.base.border-soft))
     // Arms: horizontal line.
     place(top + left, dx: mid-x - arm-half, dy: body-top + arm-y,
-      line(start: (0pt, 0pt), end: (2 * arm-half, 0pt), stroke: 0.9pt + black))
+      line(start: (0pt, 0pt), end: (2 * arm-half, 0pt), stroke: 1pt + palettes.base.border-soft))
     // Left leg.
     place(top + left, dx: mid-x, dy: body-top + leg-y,
-      line(start: (0pt, 0pt), end: (-leg-half, leg-half), stroke: 0.9pt + black))
+      line(start: (0pt, 0pt), end: (-leg-half, leg-half), stroke: 1pt + palettes.base.border-soft))
     // Right leg.
     place(top + left, dx: mid-x, dy: body-top + leg-y,
-      line(start: (0pt, 0pt), end: (leg-half, leg-half), stroke: 0.9pt + black))
+      line(start: (0pt, 0pt), end: (leg-half, leg-half), stroke: 1pt + palettes.base.border-soft))
     // Label below.
     place(top + center, dy: stickman-h + top-gap, label)
   })
@@ -95,7 +97,7 @@
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 40pt))
   let total-h = spec.at("height", default: body-h + 2 * cap-h)
 
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Body rectangle (no top, no bottom — caps cover them).
     place(top + left, dy: cap-h,
@@ -118,8 +120,9 @@
     place(top + left, dy: total-h - 2 * cap-h,
       rect(width: total-w, height: cap-h, fill: fill, stroke: none))
     // Re-stroke the visible top edge of the bottom ellipse (its widest
-    // line, which is the body's bottom edge).
-    place(top + left, dy: total-h - 2 * cap-h,
+    // line — the equator of the bounding box, which is the body's
+    // bottom edge — not the box's top edge).
+    place(top + left, dy: total-h - cap-h,
       line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: stroke))
     // Centered label.
     place(center + horizon, label)
@@ -150,10 +153,10 @@
     default: m.width + 2 * pad-x + icon-w + icon-margin,
   )
   let total-h = spec.at("height", default: m.height + 2 * pad-y)
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
-    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
     // Two-tab icon at top-right.
     let icon-x = total-w - icon-w - icon-margin
     let icon-y = icon-margin
@@ -194,7 +197,7 @@
   let front-h = calc.max(m.height + 2 * pad-y, 28pt)
   let total-w = spec.at("width", default: front-w + depth)
   let total-h = spec.at("height", default: front-h + depth)
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let fw = total-w - depth
   let fh = total-h - depth
@@ -255,7 +258,7 @@
   // roughly 1.5× wider than tall for a one-line label.
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 48pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     place(top + left,
@@ -282,7 +285,7 @@
   let m = measure(label)
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 64pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 40pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   // Cloud silhouette = three overlapping bumps along the top edge
   // backed by a flat-bottom curve. Approximate with a rounded box +
@@ -324,10 +327,10 @@
   let m = measure(label)
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 40pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 24pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
-    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
     place(center + horizon, label)
   })
 
@@ -353,12 +356,13 @@
   let tab-skew = 4pt
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 50pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y + tab-h, 32pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Body rectangle (below the tab).
     place(top + left, dy: tab-h,
-      rect(width: total-w, height: total-h - tab-h, fill: fill, stroke: stroke))
+      rect(width: total-w, height: total-h - tab-h, fill: fill, stroke: stroke,
+           radius: (bottom: 6pt)))
     // Tab outline — trapezoid jutting up from the body's top edge.
     place(top + left, polygon(
       fill: fill, stroke: stroke,
@@ -395,10 +399,11 @@
   let notch-corner = 4pt
   let total-w = spec.at("width", default: calc.max(notch-w + 16pt, 60pt))
   let total-h = spec.at("height", default: calc.max(notch-h + m.height + 2 * pad-y, 40pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
-    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke,
+         radius: (bottom: 6pt))
     // Notch polygon: top-left corner with a stepped notch carved out.
     place(top + left, polygon(
       fill: fill, stroke: stroke,
@@ -431,7 +436,7 @@
   let fold = 10pt
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x + fold, 60pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 30pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Body: rectangle with the upper-right corner cut.
@@ -474,7 +479,7 @@
   let cap-w = 6pt
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x + 2 * cap-w, 48pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Body rectangle (between caps).
@@ -520,7 +525,7 @@
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 60pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
   let radius = total-h / 2
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     place(top + left,
@@ -550,7 +555,7 @@
   let cut = 10pt
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x + 2 * cut, 56pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 30pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     place(top + left, polygon(
@@ -583,7 +588,7 @@
   let m = measure(label)
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 50pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
@@ -615,10 +620,10 @@
     default: calc.max(m.width + 2 * pad-x + icon-w + icon-margin, 56pt),
   )
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 32pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
-    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
     // Folded-page icon (top-right).
     let icon-x = total-w - icon-w - icon-margin
     let icon-y = icon-margin
@@ -664,15 +669,15 @@
   let inner-h = calc.max(m.height + 2 * pad-y, 26pt)
   let total-w = spec.at("width", default: inner-w + offset)
   let total-h = spec.at("height", default: inner-h + offset)
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Back rectangle (offset up-right).
     place(top + left, dx: offset, dy: 0pt,
-      rect(width: inner-w, height: inner-h, fill: fill, stroke: stroke))
+      rect(width: inner-w, height: inner-h, fill: fill, stroke: stroke, radius: 6pt))
     // Front rectangle.
     place(top + left, dx: 0pt, dy: offset,
-      rect(width: inner-w, height: inner-h, fill: fill, stroke: stroke))
+      rect(width: inner-w, height: inner-h, fill: fill, stroke: stroke, radius: 6pt))
     // Label centered on the front rectangle.
     place(top + left, dx: 0pt, dy: offset,
       block(width: inner-w, height: inner-h,
@@ -706,11 +711,11 @@
   let m = measure(label)
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 50pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 26pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     rect(width: total-w, height: total-h, fill: fill, stroke: stroke,
-         radius: 12pt)
+         radius: 6pt)
     place(center + horizon, label)
   })
 
@@ -737,7 +742,7 @@
   let core-w = calc.max(m.width + 2 * pad-x, 48pt)
   let total-w = spec.at("width", default: core-w + 2 * tip)
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y, 28pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     place(top + left, polygon(
@@ -803,15 +808,15 @@
   let stack-lines = 2 * stack-gap
   let total-w = spec.at("width", default: calc.max(m.width + 2 * pad-x, 48pt))
   let total-h = spec.at("height", default: calc.max(m.height + 2 * pad-y + stack-lines, 30pt))
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
-    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
     // Two thin horizontal "page edge" lines near the bottom.
     place(top + left, dx: 0pt, dy: total-h - stack-lines,
-      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: 0.5pt + black))
+      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: 0.5pt + palettes.base.border-soft))
     place(top + left, dx: 0pt, dy: total-h - stack-gap,
-      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: 0.5pt + black))
+      line(start: (0pt, 0pt), end: (total-w, 0pt), stroke: 0.5pt + palettes.base.border-soft))
     place(top + left, dx: 0pt, dy: 0pt,
       block(width: total-w, height: total-h - stack-lines,
         align(center + horizon, label)))
@@ -833,7 +838,7 @@
   let pad-y = 4pt
   let name = spec.at("name", default: [])
   let label = text(weight: "bold", name)
-  let stereo-text = text(size: 0.75em, fill: rgb("#666666"), "«agent»")
+  let stereo-text = text(size: 0.75em, fill: palettes.base.text-muted, "«agent»")
   let m = measure(label)
   let stereo-m = measure(stereo-text)
   let stereo-h = stereo-m.height + 2pt
@@ -845,10 +850,10 @@
     "height",
     default: stereo-h + m.height + 2 * pad-y + 2pt,
   )
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
-    rect(width: total-w, height: total-h, fill: fill, stroke: stroke)
+    rect(width: total-w, height: total-h, fill: fill, stroke: stroke, radius: 6pt)
     place(top + center, dy: pad-y, stereo-text)
     place(top + center, dy: pad-y + stereo-h, label)
   })
@@ -878,7 +883,7 @@
   let total-w = spec.at("width", default: calc.max(person-w, m.width))
   let total-h = spec.at("height", default: person-h + gap + m.height)
   let mid-x = total-w / 2
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Head circle.
@@ -923,7 +928,7 @@
   let total-w = spec.at("width", default: calc.max(figure-w, m.width))
   let total-h = spec.at("height", default: figure-h + gap + m.height)
   let mid-x = total-w / 2
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Disc, offset right to make room for the stick.
@@ -962,7 +967,7 @@
   let total-w = spec.at("width", default: calc.max(figure-w, m.width))
   let total-h = spec.at("height", default: figure-h + gap + m.height)
   let mid-x = total-w / 2
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Disc, offset down to make room for the arrow.
@@ -1002,7 +1007,7 @@
   let total-w = spec.at("width", default: calc.max(figure-w, m.width))
   let total-h = spec.at("height", default: figure-h + gap + m.height)
   let mid-x = total-w / 2
-  let stroke = 0.9pt + black
+  let stroke = 1pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     place(top + left, dx: mid-x - disc-r, dy: 0pt,

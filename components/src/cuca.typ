@@ -28,6 +28,7 @@
 //                    label placement with class-bbox avoidance
 // ============================================================================
 
+#import "palettes.typ": palettes
 #import "cuca/shape-card.typ": _layout-class, _layout-note, _layout-lollipop, _layout-object
 #import "cuca/shape-desc.typ": *
 #import "cuca/edges.typ": _draw-edge, _place-edge-label
@@ -129,7 +130,7 @@
 ///   `mult-to`, `color`.
 /// - `bg-color`: page background (used to fill "open" head shapes so the
 ///   underlying line doesn't show through). Defaults to white.
-/// - `default-fill`: fallback class fill when a class spec has no `fill`.
+/// - `default-fill`: fallback fill when a class spec has no `fill`.
 /// - `stroke` / `inner-stroke`: outer class border and compartment
 ///   separator strokes.
 /// - `radius`: corner radius of class boxes.
@@ -137,6 +138,10 @@
 /// - `edge-color` / `edge-thickness`: default edge stroke styling
 ///   (overridden per-edge by `color` in an edge dict).
 /// - `head-size`: tip size for arrow / triangle / diamond / circle heads.
+/// - `package-fill`: fill for package/frame container boxes. `none`
+///   (the default) picks a soft blue tint that deepens slightly with
+///   nesting depth (see `_pkg-tint`); pass an explicit color (e.g. from
+///   `skinparam packageBackgroundColor`) to force one fill everywhere.
 #let cuca-layout(
   title: none,
   classes: (),
@@ -144,16 +149,16 @@
   packages: (),
   direction: "tb",
   bg-color: white,
-  default-fill: rgb("#FEFECE"),
-  stroke: 1pt + black,
-  inner-stroke: 0.5pt + black,
-  radius: 4pt,
+  default-fill: palettes.pastel.blue,
+  stroke: 1pt + palettes.base.border-soft,
+  inner-stroke: 1pt + palettes.base.border-soft,
+  radius: 6pt,
   inset: (x: 0.6em, y: 0.3em),
-  edge-color: black,
-  edge-thickness: 0.8pt,
+  edge-color: palettes.base.border-soft,
+  edge-thickness: 1.5pt,
   head-size: 6pt,
-  package-stroke: 0.6pt + rgb("#888888"),
-  package-fill: rgb("#FAFAFA"),
+  package-stroke: 1pt + palettes.base.border-soft,
+  package-fill: none,
 ) = context {
   let head-size = head-size.to-absolute()
 
@@ -286,22 +291,60 @@
   let final-w = canvas-w + shift-x
   let final-h = canvas-h + shift-y
 
+  // Nesting depth of package `i` — how many other packages fully
+  // enclose it. Used to give inner containers a slightly richer (but
+  // still very light) blue tint than their parents, so nesting reads
+  // visually without resorting to a different hue per sibling package.
+  let pkg-depth(i) = {
+    let a = packages.at(i)
+    let count = 0
+    for (j, b) in packages.enumerate() {
+      if j != i {
+        // `b` is a strict ancestor of `a` when it encloses `a`'s bbox
+        // on all sides and is strictly bigger in at least one
+        // dimension (container padding guarantees a true parent
+        // always is; this also excludes `a` matching itself).
+        let encloses = (
+          b.x <= a.x and b.y <= a.y
+          and (b.x + b.w) >= (a.x + a.w) and (b.y + b.h) >= (a.y + a.h)
+          and (b.w > a.w or b.h > a.h)
+        )
+        if encloses { count = count + 1 }
+      }
+    }
+    count
+  }
+  // Deliberately much lighter than any component fill (the lightest
+  // component tint is the raw `palettes.pastel.*` swatch) — the
+  // package needs to read as "pale backdrop", not compete with the
+  // components sitting on top of it.
+  let pkg-tint(depth) = {
+    let tints = (
+      palettes.pastel.blue.lighten(88%),
+      palettes.pastel.blue.lighten(80%),
+      palettes.pastel.blue.lighten(72%),
+    )
+    tints.at(calc.min(depth, tints.len() - 1))
+  }
+
   let body = block(width: final-w, height: final-h, breakable: false, {
     // Packages first, so classes draw on top of the labeled rectangles.
     // `together` is anonymous and rendered with no fill / dashed border
     // to visually mark it as a soft hint rather than a real container.
-    for p in packages {
+    for (i, p) in packages.enumerate() {
       let kind = p.at("kind", default: "package")
       let label = p.at("label", default: [])
       let stereotype = p.at("stereotype", default: none)
       let is-together = kind == "together"
-      let pkg-fill = if is-together { none } else { package-fill }
+      let pkg-fill = if is-together { none }
+        else if package-fill != none { package-fill }
+        else { pkg-tint(pkg-depth(i)) }
       let pkg-stroke = if is-together {
-        (paint: rgb("#999999"), thickness: 0.5pt, dash: "dashed")
+        (paint: palettes.base.text-muted, thickness: 0.5pt, dash: "dashed")
       } else { package-stroke }
       place(top + left, dx: p.x + shift-x, dy: p.y + shift-y,
         rect(width: p.w, height: p.h, fill: pkg-fill, stroke: pkg-stroke,
-          radius: 3pt))
+          radius: 8pt))
       if not is-together and label != [] {
         // Header strip at the top of the rectangle (~14pt). Label is
         // bold, slight inset from the left.
@@ -311,7 +354,7 @@
       if stereotype != none {
         place(top + right, dx: -(final-w - (p.x + shift-x + p.w)) - 6pt,
               dy: p.y + shift-y + 2pt,
-          text(size: 0.7em, fill: rgb("#666666"), [«#stereotype»]))
+          text(size: 0.7em, fill: palettes.base.text-muted, [«#stereotype»]))
       }
     }
     // Classes.
@@ -420,8 +463,8 @@
           dx: mx + px * off - nw / 2,
           dy: my + py * off - nh / 2,
           box(width: nw, height: nh,
-              fill: rgb("#FBFB77"),
-              stroke: 0.4pt + rgb("#9C9C40"),
+              fill: palettes.pastel.yellow,
+              stroke: 0.4pt + palettes.base.border-soft,
               place(center + horizon, nbody)))
       }
     }

@@ -15,19 +15,19 @@
 // here; unknown kinds fall back to gray + no glyph so a user-defined
 // stereotype still renders something readable.
 #let _kind-styles = (
-  "class":      (fill: rgb("#ADD1B2"), letter: "C"),
-  "struct":     (fill: rgb("#ADD1B2"), letter: "C"),
-  "exception":  (fill: rgb("#ADD1B2"), letter: "C"),
-  "interface":  (fill: rgb("#B4A7E5"), letter: "I"),
-  "protocol":   (fill: rgb("#B4A7E5"), letter: "I"),
-  "abstract":   (fill: rgb("#A9DCDF"), letter: "A"),
-  "enum":       (fill: rgb("#EB937F"), letter: "E"),
-  "annotation": (fill: rgb("#E3664A"), letter: "@"),
-  "entity":     (fill: rgb("#ADD1B2"), letter: "E"),
+  "class":      (fill: palettes.pastel.green, letter: "C"),
+  "struct":     (fill: palettes.pastel.green, letter: "C"),
+  "exception":  (fill: palettes.pastel.green, letter: "C"),
+  "interface":  (fill: palettes.pastel.purple, letter: "I"),
+  "protocol":   (fill: palettes.pastel.purple, letter: "I"),
+  "abstract":   (fill: palettes.pastel.teal, letter: "A"),
+  "enum":       (fill: palettes.pastel.orange, letter: "E"),
+  "annotation": (fill: palettes.pastel.red, letter: "@"),
+  "entity":     (fill: palettes.pastel.green, letter: "E"),
 )
 
 #let _kind-style(kind) = _kind-styles.at(kind,
-  default: (fill: rgb("#D0D0D0"), letter: none))
+  default: (fill: palettes.pastel.gray, letter: none))
 
 // Render one compartment row (a field or method). `member` is a dict with
 // keys `vis` (string ∈ {"+", "-", "#", "~", ""}), `body` (content),

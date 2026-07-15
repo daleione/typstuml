@@ -65,9 +65,9 @@
   let total-w = calc.max(m.width + 2 * pad-x + dog-ear, 4 * dog-ear)
   let total-h = calc.max(m.height + 2 * pad-y, 2 * dog-ear)
 
-  let fill-color = rgb("#FBFB77")
-  let fold-color = rgb("#E0E060")
-  let border = 0.6pt + rgb("#9C9C40")
+  let fill-color = palettes.pastel.yellow
+  let fold-color = fill-color.darken(15%)
+  let border = 0.6pt + palettes.base.border-soft
 
   let content = block(width: total-w, height: total-h, breakable: false, {
     // Body shape with the top-right corner cut away.

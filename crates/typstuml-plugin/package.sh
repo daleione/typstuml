@@ -5,13 +5,9 @@
 #   typst.toml         metadata
 #   lib.typ            Typst-side API (plugin loader, eval scope, render-puml)
 #   typstuml.wasm      compiled plugin from ./build.sh
-#   blockcell/         vendored slim blockcell (lib.typ + src/*.typ)
+#   blockcell/         copy of ../../components/ (lib.typ + src/*.typ)
 #   LICENSE
 #   README.md
-#
-# The blockcell vendoring mirrors what build.rs stages for the CLI build
-# (`STAGED_LIB_TYP` + `STAGED_SRC_FILES`). Keep the lists in this script
-# in sync with build.rs — drifting them is what golden tests will catch.
 #
 # Usage:
 #   ./package.sh                  # assemble dist/typstuml/<version>/
@@ -27,51 +23,16 @@ fi
 
 VERSION=$(grep '^version' package/typst.toml | head -1 | cut -d'"' -f2)
 DEST=dist/typstuml/$VERSION
-BC_SRC=../../vendor/blockcell/src
+BC_SRC=../../components
 BC_DEST=$DEST/blockcell
 
-# Mirror of `STAGED_SRC_FILES` in /Users/dalei/github/TypstUML/build.rs.
-# If you add a new diagram type that pulls in a different blockcell file,
-# add it here AND there.
-BLOCKCELL_FILES=(
-  records.typ
-  seq-puml.typ
-  seq.typ
-  tree.typ
-  cuca.typ
-  cuca/theme.typ
-  cuca/shape-card.typ
-  cuca/shape-desc.typ
-  cuca/edges.typ
-  states.typ
-  atoms.typ
-  composites.typ
-  containers.typ
-  flows.typ
-  palettes.typ
-  internal/metrics.typ
-  internal/stroke.typ
-)
-
-# Mirror of `STAGED_LIB_TYP` in /Users/dalei/github/TypstUML/build.rs.
-BLOCKCELL_LIB_TYP='// Slim re-export for TypstUML. See build.rs for the full rationale.
-#import "src/records.typ": record-layout, record-probe
-#import "src/seq-puml.typ": seq-puml
-#import "src/tree.typ": tree, node, mindmap
-#import "src/cuca.typ": cuca-layout, cuca-probe, container-probe
-#import "src/states.typ": state-layout, state-probe, state-note-probe
-#import "src/atoms.typ": process, decision, terminal, junction, edge, flow-node
-#import "src/composites.typ": flow-col, section
-#import "src/flows.typ": branch, branch-merge, switch, case, n-way, fork-bar, flow-loop, start-marker, stop-marker, end-marker, detach-marker, partition, flow-note, with-notes, swimlane, lane
-'
-
 if [[ ! -d $BC_SRC ]]; then
-  echo "error: $BC_SRC missing — run 'git submodule update --init vendor/blockcell'" >&2
+  echo "error: $BC_SRC missing" >&2
   exit 1
 fi
 
 rm -rf "$DEST"
-mkdir -p "$DEST" "$BC_DEST/src"
+mkdir -p "$DEST"
 
 # 1. Package-level files
 cp package/typst.toml    "$DEST/typst.toml"
@@ -80,18 +41,8 @@ cp package/README.md     "$DEST/README.md"
 cp ../../LICENSE         "$DEST/LICENSE"
 cp pkg/typstuml.wasm     "$DEST/typstuml.wasm"
 
-# 2. Slim blockcell vendor
-printf '%s' "$BLOCKCELL_LIB_TYP" > "$BC_DEST/lib.typ"
-for rel in "${BLOCKCELL_FILES[@]}"; do
-  src="$BC_SRC/$rel"
-  dst="$BC_DEST/src/$rel"
-  mkdir -p "$(dirname "$dst")"
-  if [[ ! -f $src ]]; then
-    echo "error: blockcell file $src missing — submodule may be out of date" >&2
-    exit 1
-  fi
-  cp "$src" "$dst"
-done
+# 2. Slim blockcell vendor (mirrors components/, the single source of truth)
+cp -R "$BC_SRC" "$BC_DEST"
 
 echo ">> assembled $DEST"
 du -sh "$DEST"

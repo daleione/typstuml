@@ -2,7 +2,7 @@
 //!
 //! These run the actual binary via `assert_cmd`, exercising the full
 //! parse → preprocess → codegen → typst-compile → encode chain — they
-//! double as a regression net for vendoring drift in `vendor/blockcell/`.
+//! double as a regression net for vendoring drift in `components/`.
 //!
 //! Golden snapshots for the `emit` subcommand live under
 //! `tests/golden/sequence/`; refresh with `UPDATE_GOLDEN=1 cargo test`.

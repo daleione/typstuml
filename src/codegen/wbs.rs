@@ -1,7 +1,7 @@
 //! WBS diagram codegen.
 //!
 //! Flattens a [`WbsDiagram`]'s tree into a single `tree(node[…], …)` Typst
-//! expression rendered top-down by `vendor/blockcell/src/tree.typ`. v1
+//! expression rendered top-down by `components/src/tree.typ`. v1
 //! ignores `NodeSide` (children stack horizontally below their parent);
 //! `NodeShape::Line` maps to `node(shape: "underline")`. The recursive
 //! emission and decoration plumbing live in [`super::tree_emit`].

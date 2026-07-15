@@ -1,3 +1,0 @@
-[submodule "vendor/blockcell"]
-	path = vendor/blockcell
-	url = https://github.com/daleione/blockcell.git

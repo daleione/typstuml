@@ -1,6 +1,6 @@
 //! End-to-end CLI tests for the tree-shaped diagrams — WBS
 //! (`@startwbs`) and mind maps (`@startmindmap`). Both render through
-//! `vendor/blockcell/src/tree.typ`.
+//! `components/src/tree.typ`.
 
 mod common;
 

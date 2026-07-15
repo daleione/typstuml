@@ -1,7 +1,7 @@
 //! End-to-end CLI tests for the cuca diagram family — class /
 //! component / deployment / object — plus the measure double-pass and
 //! the annotation parser. All render through
-//! `vendor/blockcell/src/cuca.typ` via `#cuca-layout(...)`.
+//! `components/src/cuca.typ` via `#cuca-layout(...)`.
 
 mod common;
 

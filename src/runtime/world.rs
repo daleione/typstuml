@@ -27,11 +27,9 @@ use typst::{Library, LibraryExt};
 #[cfg(not(target_arch = "wasm32"))]
 use typst_kit::fonts::{FontSearcher, FontSlot};
 
-/// Vendored `blockcell` sources, baked into the binary at compile time.
-/// `build.rs` stages a minimal tree (`lib.typ` + `src/`) from
-/// `vendor/blockcell/` (a git subtree of daleione/blockcell) into
-/// `$OUT_DIR`; the directory contents are mounted at `/blockcell/`.
-static BLOCKCELL: Dir<'_> = include_dir!("$OUT_DIR/blockcell");
+/// `components/` (a hand-curated subset of daleione/blockcell), baked
+/// into the binary at compile time and mounted at `/blockcell/`.
+static BLOCKCELL: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/components");
 
 #[derive(Clone, Debug)]
 struct FileEntry {

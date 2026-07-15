@@ -3,7 +3,7 @@
 //! / choice / fork / join / history / synchro bar / entry / exit),
 //! transitions with `event [guard] / action` labels, concurrent regions,
 //! and notes. Codegen emits a single `#state-layout(...)` call rendered
-//! by `vendor/blockcell/src/states.typ`.
+//! by `components/src/states.typ`.
 
 mod common;
 

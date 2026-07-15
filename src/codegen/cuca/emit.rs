@@ -474,7 +474,7 @@ fn entity_kind_keyword(entity: &Entity) -> &'static str {
     }
     // Desc-family Plain entities: route to the painters that exist.
     // Keep this list in sync with the `kind ==` dispatch chain in
-    // `vendor/blockcell/src/cuca.typ::cuca-layout` and `cuca-probe`.
+    // `components/src/cuca.typ::cuca-layout` and `cuca-probe`.
     match entity.usymbol {
         USymbol::Actor => "actor",
         USymbol::Database => "database",

@@ -50,10 +50,9 @@ pub enum ImportStrategy {
 /// Every blockcell symbol the emitted Typst code references — both
 /// top-level painters and the secondary symbols that appear as
 /// arguments inside them (e.g. `swimlane(process[...], decision[...])`).
-/// Mirrors the `#import` list in the slim `lib.typ` that `build.rs`
-/// stages under `$OUT_DIR/blockcell/lib.typ`; the plugin path needs the
-/// full set in its `eval(..., scope: ...)` argument so eval'd code can
-/// resolve every name. Keep in sync with `build.rs::STAGED_LIB_TYP`.
+/// Mirrors the `#import` list in `components/lib.typ`; the plugin path
+/// needs the full set in its `eval(..., scope: ...)` argument so eval'd
+/// code can resolve every name. Keep in sync with `components/lib.typ`.
 pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
     // records (record-graph painters + record-probe pass-1)
     "record-layout",
@@ -242,13 +241,12 @@ mod tests {
     use super::REFERENCED_BLOCKCELL_SYMBOLS;
     use std::collections::HashSet;
 
-    /// Pulled from the staged `$OUT_DIR/blockcell/lib.typ` that `build.rs`
-    /// writes from `STAGED_LIB_TYP`. Parsing the file the build actually
-    /// emits avoids duplicating the import list across build.rs and the
-    /// test, and means this fires the moment build.rs's `STAGED_LIB_TYP`
-    /// stops re-exporting a symbol that codegen still emits.
-    const STAGED_LIB_TYP: &str =
-        include_str!(concat!(env!("OUT_DIR"), "/blockcell/lib.typ"));
+    /// Parsing `components/lib.typ` directly avoids duplicating the
+    /// import list across the file and this test, and means this fires
+    /// the moment `lib.typ` stops re-exporting a symbol that codegen
+    /// still emits.
+    const COMPONENTS_LIB_TYP: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/components/lib.typ"));
 
     /// Extract every symbol exported by an `#import "src/...": a, b, c`
     /// line. Tolerates whitespace and comments; ignores everything that
@@ -272,12 +270,12 @@ mod tests {
     }
 
     /// Every symbol codegen could emit (`REFERENCED_BLOCKCELL_SYMBOLS`)
-    /// must be exported by the staged `lib.typ`. If this fails the
+    /// must be exported by `components/lib.typ`. If this fails the
     /// plugin path will blow up at eval time with "unknown identifier"
     /// even though the CLI (which imports `*`) keeps working.
     #[test]
-    fn referenced_symbols_are_exported_by_staged_lib() {
-        let exported = imported_symbols(STAGED_LIB_TYP);
+    fn referenced_symbols_are_exported_by_lib_typ() {
+        let exported = imported_symbols(COMPONENTS_LIB_TYP);
         let missing: Vec<&&str> = REFERENCED_BLOCKCELL_SYMBOLS
             .iter()
             .filter(|s| !exported.contains(**s))
@@ -285,8 +283,8 @@ mod tests {
         assert!(
             missing.is_empty(),
             "REFERENCED_BLOCKCELL_SYMBOLS contains symbols not exported by \
-             STAGED_LIB_TYP in build.rs: {missing:?}. Add them to the \
-             matching `#import \"src/...\": ...` line."
+             components/lib.typ: {missing:?}. Add them to the matching \
+             `#import \"src/...\": ...` line."
         );
     }
 }

@@ -1,5 +1,5 @@
 //! End-to-end CLI tests for JSON / YAML diagrams. Both flatten to the
-//! same record-graph renderer (`vendor/blockcell/src/records.typ`), so
+//! same record-graph renderer (`components/src/records.typ`), so
 //! they're exercised together here.
 
 mod common;

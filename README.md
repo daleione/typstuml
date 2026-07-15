@@ -25,14 +25,10 @@ Cargo crate name and binary command: `typstuml`.
 ## Install (from source)
 
 ```sh
-git clone --recurse-submodules https://github.com/daleione/typstuml.git
+git clone https://github.com/daleione/typstuml.git
 cd typstuml
 cargo install --path .
 ```
-
-If you cloned without `--recurse-submodules`, run
-`git submodule update --init` first (`build.rs` will also try to do this
-automatically inside a git checkout).
 
 ## Usage
 
@@ -118,13 +114,13 @@ Legend: ✅ shipped · 🚧 partial · ⏳ planned
 | Salt (`@startsalt`)           |   ⏳   | UI / wireframe mockups                                                                  |
 | Network (`nwdiag`)            |   ⏳   | Network topology                                                                        |
 | Ditaa (`@startditaa`)         |   ⏳   | ASCII-art passthrough                                                                   |
-### Updating the vendored `blockcell`
+### Updating `components/` (the vendored `blockcell` subset)
 
-```sh
-git submodule update --remote vendor/blockcell
-git add vendor/blockcell && git commit -m "Bump blockcell"
-```
+`components/` is a hand-curated, plain-tracked copy of the
+[`blockcell`](https://github.com/daleione/blockcell) Typst sources
+TypstUML's codegen actually calls into — see `build.rs` and
+`CLAUDE.md` for the full sync procedure with the upstream repo.
 
 ## License
 
-MIT. Vendored `blockcell` sources keep their original MIT license.
+MIT. `components/` (vendored `blockcell` sources) keeps its original MIT license.

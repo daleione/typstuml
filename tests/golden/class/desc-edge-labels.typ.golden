@@ -1,0 +1,24 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*desc edge labels (engine-placed)*]
+
+#cuca-layout(
+  classes: (
+    (x: 148.99pt, y: 155.23pt, width: 80.74pt, height: 18.45pt, kind: "component", name: [App Store], fields: (), methods: ()),
+    (x: 99.30pt, y: 249.48pt, width: 86.85pt, height: 18.45pt, kind: "component", name: [Scene View], fields: (), methods: ()),
+    (x: 146.19pt, y: 12.00pt, width: 94.90pt, height: 18.45pt, kind: "component", name: [API Gateway], fields: (), methods: ()),
+    (x: 263.06pt, y: 118.75pt, width: 61.26pt, height: 44.00pt, kind: "database", name: [MongoDB], fields: (), methods: ()),
+  ),
+  packages: (
+    (x: 74.30pt, y: 118.75pt, w: 180.43pt, h: 174.18pt, kind: "package", label: [Frontend]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 175.90pt, to-x: 157.20pt, label: [render IR], label-pos: (138.33pt, 211.58pt), path: ((c1: (175.90pt, 176.46pt), c2: (175.90pt, 179.24pt), end: (175.90pt, 182.01pt)), (c1: (175.90pt, 186.62pt), c2: (172.17pt, 190.35pt), end: (167.57pt, 190.35pt)), (c1: (166.89pt, 190.35pt), c2: (166.21pt, 190.35pt), end: (165.53pt, 190.35pt)), (c1: (160.93pt, 190.35pt), c2: (157.20pt, 194.08pt), end: (157.20pt, 198.68pt)), (c1: (157.20pt, 215.61pt), c2: (157.20pt, 232.55pt), end: (157.20pt, 249.48pt)))),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "bot", from-x: 202.81pt, to-x: 165.17pt, label: [REST + SSE], label-pos: (32.73pt, 76.68pt), path: ((c1: (202.81pt, 217.60pt), c2: (202.81pt, 261.51pt), end: (202.81pt, 305.43pt)), (c1: (202.81pt, 310.03pt), c2: (199.08pt, 313.76pt), end: (194.48pt, 313.76pt)), (c1: (151.64pt, 313.76pt), c2: (108.80pt, 313.76pt), end: (65.96pt, 313.76pt)), (c1: (61.36pt, 313.76pt), c2: (57.63pt, 310.03pt), end: (57.63pt, 305.43pt)), (c1: (57.63pt, 222.10pt), c2: (57.63pt, 138.78pt), end: (57.63pt, 55.45pt)), (c1: (57.63pt, 50.85pt), c2: (61.36pt, 47.12pt), end: (65.96pt, 47.12pt)), (c1: (96.25pt, 47.12pt), c2: (126.54pt, 47.12pt), end: (156.83pt, 47.12pt)), (c1: (161.44pt, 47.12pt), c2: (165.17pt, 43.39pt), end: (165.17pt, 38.78pt)), (c1: (165.17pt, 36.01pt), c2: (165.17pt, 33.23pt), end: (165.17pt, 30.45pt)))),
+    (from: 2, to: 1, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 184.15pt, to-x: 128.25pt, label: [push events], label-pos: (129.89pt, 76.68pt), path: ((c1: (184.15pt, 36.01pt), c2: (184.15pt, 41.56pt), end: (184.15pt, 47.12pt)), (c1: (184.15pt, 51.72pt), c2: (180.42pt, 55.45pt), end: (175.81pt, 55.45pt)), (c1: (154.59pt, 55.45pt), c2: (133.36pt, 55.45pt), end: (112.13pt, 55.45pt)), (c1: (107.53pt, 55.45pt), c2: (103.80pt, 59.18pt), end: (103.80pt, 63.78pt)), (c1: (103.80pt, 117.35pt), c2: (103.80pt, 170.91pt), end: (103.80pt, 224.48pt)), (c1: (103.80pt, 229.08pt), c2: (107.53pt, 232.81pt), end: (112.13pt, 232.81pt)), (c1: (114.72pt, 232.81pt), c2: (117.32pt, 232.81pt), end: (119.91pt, 232.81pt)), (c1: (124.52pt, 232.81pt), c2: (128.25pt, 236.54pt), end: (128.25pt, 241.15pt)), (c1: (128.25pt, 243.93pt), c2: (128.25pt, 246.70pt), end: (128.25pt, 249.48pt)))),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 203.13pt, to-x: 283.48pt, label: [persist], label-pos: (267.46pt, 76.68pt), path: ((c1: (203.13pt, 36.01pt), c2: (203.13pt, 41.56pt), end: (203.13pt, 47.12pt)), (c1: (203.13pt, 51.72pt), c2: (206.86pt, 55.45pt), end: (211.46pt, 55.45pt)), (c1: (232.93pt, 55.45pt), c2: (254.40pt, 55.45pt), end: (275.87pt, 55.45pt)), (c1: (280.47pt, 55.45pt), c2: (284.16pt, 59.18pt), end: (284.11pt, 63.78pt)), (c1: (283.90pt, 82.10pt), c2: (283.69pt, 100.43pt), end: (283.48pt, 118.75pt)))),
+    (from: 3, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "top", to-side: "bot", from-x: 303.90pt, to-x: 222.11pt, label: [change feed], label-pos: (324.58pt, 76.68pt), path: ((c1: (303.90pt, 112.73pt), c2: (303.90pt, 106.71pt), end: (303.90pt, 100.69pt)), (c1: (303.90pt, 99.16pt), c2: (302.66pt, 97.92pt), end: (301.13pt, 97.92pt)), (c1: (301.13pt, 97.92pt), c2: (301.13pt, 97.92pt), end: (301.13pt, 97.92pt)), (c1: (299.60pt, 97.92pt), c2: (298.36pt, 96.67pt), end: (298.36pt, 95.14pt)), (c1: (298.36pt, 81.91pt), c2: (298.36pt, 68.68pt), end: (298.36pt, 55.45pt)), (c1: (298.36pt, 50.85pt), c2: (294.63pt, 47.12pt), end: (290.02pt, 47.12pt)), (c1: (270.16pt, 47.12pt), c2: (250.30pt, 47.12pt), end: (230.44pt, 47.12pt)), (c1: (225.84pt, 47.12pt), c2: (222.11pt, 43.39pt), end: (222.11pt, 38.78pt)), (c1: (222.11pt, 36.01pt), c2: (222.11pt, 33.23pt), end: (222.11pt, 30.45pt)))),
+  ),
+)

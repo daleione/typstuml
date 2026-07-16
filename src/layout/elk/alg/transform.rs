@@ -20,8 +20,8 @@ use crate::layout::elk::graph as json;
 use super::graph::{LEdgeId, LGraphArena, LGraphId, LNodeId, LPortId};
 use super::math::{Insets, KVector};
 use super::options::{
-    CycleBreakingStrategy, Direction, EdgeRouting, FixedAlignment, HierarchyHandling,
-    OrderingStrategy, PortSide, PortType,
+    CycleBreakingStrategy, Direction, EdgeLabelPlacement, EdgeRouting, FixedAlignment,
+    HierarchyHandling, OrderingStrategy, PortSide, PortType,
 };
 
 /// Java `ElkGraphImporter.importGraph(elkgraph)`: builds the LGraph
@@ -323,9 +323,35 @@ impl Importer<'_> {
                     elklabel.width.unwrap_or(0.0),
                     elklabel.height.unwrap_or(0.0),
                 );
+                let get = |key: &str| -> Option<String> {
+                    elklabel
+                        .layout_options
+                        .as_ref()?
+                        .get(key)?
+                        .as_str()
+                        .map(str::to_string)
+                };
+                // `edgeLabels.inline` matters only when set on the *label*
+                // element — draw-uml sets it on the edge, which ELK's
+                // importer never propagates (elkjs-verified no-op).
+                self.arena.labels[l.0].props.inline = matches!(
+                    get("org.eclipse.elk.edgeLabels.inline").as_deref(),
+                    Some("true")
+                );
+                let placement = get("org.eclipse.elk.edgeLabels.placement");
+                match placement.as_deref() {
+                    // EdgeLabelPlacement defaults to CENTER.
+                    None | Some("CENTER") => {
+                        self.arena.labels[l.0].props.placement = EdgeLabelPlacement::Center;
+                        let g = &mut self.arena.graphs[lgraph.0].props.graph_properties;
+                        g.center_labels = true;
+                    }
+                    Some("TAIL" | "HEAD") => panic!(
+                        "head/tail edge labels (END_LABELS chain) are outside the ported scope"
+                    ),
+                    Some(other) => panic!("unknown edgeLabels.placement {other}"),
+                }
                 self.arena.edges[ledge.0].labels.push(l);
-                let g = &mut self.arena.graphs[lgraph.0].props.graph_properties;
-                g.center_labels = true;
             }
         }
         ledge
@@ -595,8 +621,13 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
     // internal (ix, iy) → output DOWN (iy + off_x, ix + off_y).
     let tx = |v: KVector| json::ElkPoint { x: v.y + off_x, y: v.x + off_y };
 
-    // Finish: reassemble split edges, restore reversed edges.
+    // Finish: reassemble split edges, place + strip label dummies (the
+    // LABEL_DUMMY_REMOVER slot follows LONG_EDGE_JOINER), restore
+    // reversed edges.
     super::intermediate::long_edge_joiner(arena, graph);
+    if arena.graphs[graph.0].props.graph_properties.center_labels {
+        super::intermediate::label_dummy_remover(arena, graph);
+    }
     super::intermediate::reversed_edge_restorer(arena, graph);
 
     // Real nodes → children (size axes swapped for the transpose).
@@ -631,6 +662,24 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
             continue;
         }
         let bends: Vec<json::ElkPoint> = edge.bend_points.iter().map(|&b| tx(b)).collect();
+        // Edge labels: placed positions are internal-frame graph
+        // coordinates (like bend points); extents stay in the user frame.
+        let labels: Vec<json::ElkLabel> = edge
+            .labels
+            .iter()
+            .map(|&l| {
+                let lab = &arena.labels[l.0];
+                let p = tx(lab.position);
+                json::ElkLabel {
+                    text: lab.text.clone(),
+                    x: Some(p.x),
+                    y: Some(p.y),
+                    width: Some(lab.size.x),
+                    height: Some(lab.size.y),
+                    ..Default::default()
+                }
+            })
+            .collect();
         edges.push(json::ElkEdge {
             id: origin,
             sources: vec![arena.nodes[arena.ports[src.0].owner.unwrap().0]
@@ -649,6 +698,7 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
                 bend_points: if bends.is_empty() { None } else { Some(bends) },
                 ..Default::default()
             }]),
+            labels: if labels.is_empty() { None } else { Some(labels) },
             container: Some(root_id.clone()),
             ..Default::default()
         });
@@ -829,6 +879,25 @@ pub fn apply_layout_compound(
                 .iter()
                 .map(|&b| to_container(b, bend_graph))
                 .collect();
+            // Edge labels share the bend points' frame: the postprocessor
+            // normalized cross-hierarchy labels into the reference graph;
+            // plain edges' labels live in their own (source) graph.
+            let labels: Vec<json::ElkLabel> = arena.edges[ledge.0]
+                .labels
+                .iter()
+                .map(|&l| {
+                    let lab = &arena.labels[l.0];
+                    let p = to_container(lab.position, bend_graph);
+                    json::ElkLabel {
+                        text: lab.text.clone(),
+                        x: Some(p.x),
+                        y: Some(p.y),
+                        width: Some(lab.size.x),
+                        height: Some(lab.size.y),
+                        ..Default::default()
+                    }
+                })
+                .collect();
 
             edges.push(json::ElkEdge {
                 id: elkedge.id.clone(),
@@ -840,6 +909,7 @@ pub fn apply_layout_compound(
                     bend_points: if bends.is_empty() { None } else { Some(bends) },
                     ..Default::default()
                 }]),
+                labels: if labels.is_empty() { None } else { Some(labels) },
                 container: Some(input.id.clone()),
                 ..Default::default()
             });

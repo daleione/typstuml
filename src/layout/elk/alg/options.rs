@@ -193,6 +193,18 @@ pub struct GraphPropertiesSet {
     pub partitions: bool,
 }
 
+/// `org.eclipse.elk.core.options.LabelSide` (the `InternalProperties.
+/// LABEL_SIDE` values reachable through the center-label chain).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LabelSide {
+    /// Java `LabelSide.UNKNOWN` (property default).
+    #[default]
+    Unknown,
+    Above,
+    Below,
+    Inline,
+}
+
 /// The layered spacing options the draw-uml scope sets (Java keeps
 /// them as individual `IProperty` entries; defaults from
 /// `LayeredOptions`/`CoreOptions`).
@@ -212,6 +224,12 @@ pub struct SpacingProps {
     pub edge_edge_between_layers: f64,
     /// `elk.spacing.edgeLabel` (default 2)
     pub edge_label: f64,
+    /// `elk.spacing.labelLabel` (default 0)
+    pub label_label: f64,
+    /// `elk.spacing.labelPortVertical` (default 1)
+    pub label_port_vertical: f64,
+    /// `elk.spacing.labelPortHorizontal` (default 1)
+    pub label_port_horizontal: f64,
     /// `elk.spacing.nodeSelfLoop` (default 10)
     pub node_self_loop: f64,
     /// `elk.spacing.componentComponent` (default 20)
@@ -232,6 +250,9 @@ impl Default for SpacingProps {
             edge_edge: 10.0,
             edge_edge_between_layers: 10.0,
             edge_label: 2.0,
+            label_label: 0.0,
+            label_port_vertical: 1.0,
+            label_port_horizontal: 1.0,
             node_self_loop: 10.0,
             component_component: 20.0,
             port_port: 10.0,
@@ -367,6 +388,19 @@ pub struct NodeProps {
     /// reconstruct the routed edge.
     pub long_edge_source: Option<crate::layout::elk::alg::graph::LPortId>,
     pub long_edge_target: Option<crate::layout::elk::alg::graph::LPortId>,
+    /// `InternalProperties.LONG_EDGE_HAS_LABEL_DUMMIES` — the long edge
+    /// this dummy is part of also carries a `LABEL` dummy.
+    pub long_edge_has_label_dummies: bool,
+    /// `InternalProperties.LONG_EDGE_BEFORE_LABEL_DUMMY` — this long-edge
+    /// dummy precedes its edge's label dummy (only the hyperedge dummy
+    /// merger reads it; kept for faithfulness).
+    pub long_edge_before_label_dummy: bool,
+    /// `InternalProperties.REPRESENTED_LABELS` — the center edge labels a
+    /// `LABEL` dummy reserves space for.
+    pub represented_labels: Vec<crate::layout::elk::alg::graph::LLabelId>,
+    /// `InternalProperties.LABEL_SIDE` — which side of its edge a `LABEL`
+    /// dummy's labels are placed on.
+    pub label_side: LabelSide,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -417,6 +451,13 @@ pub struct LabelProps {
     /// `elk.nodeLabels.placement` raw option value for node labels
     /// (only `OUTSIDE V_BOTTOM H_CENTER` occurs in scope).
     pub node_placement: Option<String>,
+    /// `elk.edgeLabels.inline` **on the label element**. draw-uml sets
+    /// the option on the *edge*, which ELK's importer does not propagate
+    /// to labels — elkjs-verified no-op — so this stays false in scope.
+    pub inline: bool,
+    /// `InternalProperties.ORIGINAL_LABEL_EDGE` — the cross-hierarchy
+    /// edge this label was moved off of by the compound preprocessor.
+    pub original_label_edge: Option<crate::layout::elk::alg::graph::LEdgeId>,
 }
 
 /// `org.eclipse.elk.core.options.EdgeLabelPlacement`.

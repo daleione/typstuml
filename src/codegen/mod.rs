@@ -67,6 +67,7 @@ pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
     "cuca-layout",
     "cuca-probe",
     "container-probe",
+    "cuca-edge-label-probe",
     // state diagrams
     "state-layout",
     "state-probe",

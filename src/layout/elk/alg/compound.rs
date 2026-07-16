@@ -49,7 +49,7 @@ pub fn preprocess(
         dummy_node_map: HashMap::new(),
     };
     pre.transform_hierarchy_edges(graph, None);
-    pre.disconnect_original_edges();
+    pre.move_labels_and_remove_original_edges(graph);
     pre.set_sides_of_ports_to_sides_of_dummy_nodes();
     pre.cross_hierarchy_map
 }
@@ -128,16 +128,49 @@ impl Preprocessor<'_> {
         exported_external_ports
     }
 
-    /// Java `moveLabelsAndRemoveOriginalEdges` — labels never occur on
-    /// cross-hierarchy edges in scope (asserted), so only the
-    /// disconnect half remains.
-    fn disconnect_original_edges(&mut self) {
+    /// Java `moveLabelsAndRemoveOriginalEdges`: move every label of a
+    /// cross-hierarchy edge onto one of its dummy segments — CENTER
+    /// labels to the shallowest segment, TAIL to the first, HEAD to the
+    /// last — then disconnect the original edge. The receiving segment's
+    /// graph gets both END_LABELS and CENTER_LABELS (bug-for-bug: Java
+    /// adds both regardless of the placement).
+    fn move_labels_and_remove_original_edges(&mut self, top: LGraphId) {
         let orig_edges: Vec<LEdgeId> = self.cross_hierarchy_map.keys().copied().collect();
         for orig_edge in orig_edges {
-            assert!(
-                self.arena.edges[orig_edge.0].labels.is_empty(),
-                "labels on cross-hierarchy edges are outside the ported scope"
-            );
+            if !self.arena.edges[orig_edge.0].labels.is_empty() {
+                let mut segments: Vec<CrossHierarchyEdge> =
+                    self.cross_hierarchy_map[&orig_edge].clone();
+                segments.sort_by(|a, b| cross_hierarchy_edge_cmp(self.arena, a, b, top));
+
+                let labels = self.arena.edges[orig_edge.0].labels.clone();
+                let mut kept: Vec<super::graph::LLabelId> = Vec::new();
+                for label in labels {
+                    let target_index: Option<usize> =
+                        match self.arena.labels[label.0].props.placement {
+                            super::options::EdgeLabelPlacement::Head => Some(segments.len() - 1),
+                            super::options::EdgeLabelPlacement::Center => {
+                                shallowest_edge_segment(&segments)
+                            }
+                            super::options::EdgeLabelPlacement::Tail => Some(0),
+                        };
+                    match target_index {
+                        Some(idx) => {
+                            let target_edge = segments[idx].edge;
+                            self.arena.edges[target_edge.0].labels.push(label);
+                            let src_node = self.arena.edge_source_node(target_edge).unwrap();
+                            let src_graph = self.arena.nodes[src_node.0].graph;
+                            let gp =
+                                &mut self.arena.graphs[src_graph.0].props.graph_properties;
+                            gp.end_labels = true;
+                            gp.center_labels = true;
+                            self.arena.labels[label.0].props.original_label_edge =
+                                Some(orig_edge);
+                        }
+                        None => kept.push(label),
+                    }
+                }
+                self.arena.edges[orig_edge.0].labels = kept;
+            }
             self.arena.edge_set_source(orig_edge, None);
             self.arena.edge_set_target(orig_edge, None);
         }
@@ -782,6 +815,8 @@ pub fn postprocess(
             last_point = Some(bend_points.last().copied().unwrap_or(source_point));
             arena.edges[orig_edge.0].bend_points.extend(bend_points);
 
+            copy_labels_back(arena, ledge, orig_edge, reference_graph);
+
             dummy_edges.push(ledge);
         }
 
@@ -798,6 +833,53 @@ pub fn postprocess(
     }
 
     reference_graphs
+}
+
+/// Java `CompoundGraphPostprocessor.copyLabelsBack`: move the labels the
+/// preprocessor parked on this hierarchy segment back to their original
+/// edge, converting their positions from the segment's source graph into
+/// the reference graph's frame.
+fn copy_labels_back(
+    arena: &mut LGraphArena,
+    hierarchy_segment: LEdgeId,
+    orig_edge: LEdgeId,
+    reference_graph: LGraphId,
+) {
+    let labels = arena.edges[hierarchy_segment.0].labels.clone();
+    if labels.is_empty() {
+        return;
+    }
+    let src_node = arena.edge_source_node(hierarchy_segment).unwrap();
+    let src_graph = arena.nodes[src_node.0].graph;
+    let mut remaining = Vec::new();
+    for label in labels {
+        if arena.labels[label.0].props.original_label_edge != Some(orig_edge) {
+            remaining.push(label);
+            continue;
+        }
+        let offset = hierarchical::change_coord_system(arena, src_graph, reference_graph);
+        arena.labels[label.0].position.x += offset.x;
+        arena.labels[label.0].position.y += offset.y;
+        arena.edges[orig_edge.0].labels.push(label);
+    }
+    arena.edges[hierarchy_segment.0].labels = remaining;
+}
+
+/// Java `CompoundGraphPreprocessor.getShallowestEdgeSegment`: the last
+/// OUTPUT segment of the sorted chain (the segment right before the
+/// first INPUT one), or the first segment when the chain starts with an
+/// INPUT segment; the last segment when no INPUT segment exists.
+fn shallowest_edge_segment(segments: &[CrossHierarchyEdge]) -> Option<usize> {
+    let mut result: Option<usize> = None;
+    for (index, ch) in segments.iter().enumerate() {
+        if ch.port_type == PortType::Input {
+            result = Some(if index == 0 { 0 } else { index - 1 });
+            break;
+        } else if index == segments.len() - 1 {
+            result = Some(index);
+        }
+    }
+    result
 }
 
 /// Java `CrossHierarchyEdge.getActualSource`: an external-port dummy

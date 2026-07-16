@@ -21,7 +21,7 @@ use super::options::SpacingProps;
 /// node's individual-or-default value; with no individual overrides both
 /// resolve to the same graph option, so this is that option's value.
 pub fn vertical_spacing(spacing: &SpacingProps, t1: NodeType, t2: NodeType) -> f64 {
-    use NodeType::{ExternalPort, LongEdge, Normal};
+    use NodeType::{ExternalPort, Label, LongEdge, Normal};
     match (t1, t2) {
         (Normal, Normal) => spacing.node_node,
         (Normal, LongEdge) | (LongEdge, Normal) => spacing.edge_node,
@@ -30,6 +30,11 @@ pub fn vertical_spacing(spacing: &SpacingProps, t1: NodeType, t2: NodeType) -> f
         (Normal, ExternalPort) | (ExternalPort, Normal) => spacing.edge_node,
         (LongEdge, ExternalPort) | (ExternalPort, LongEdge) => spacing.edge_edge,
         (ExternalPort, ExternalPort) => spacing.port_port,
+        // Center-edge-label dummies:
+        (Normal, Label) | (Label, Normal) => spacing.node_node,
+        (LongEdge, Label) | (Label, LongEdge) => spacing.edge_node,
+        (Label, Label) => spacing.edge_edge,
+        (ExternalPort, Label) | (Label, ExternalPort) => spacing.label_port_vertical,
         _ => panic!(
             "vertical spacing for node types {t1:?}/{t2:?} is outside the ported scope"
         ),
@@ -41,11 +46,17 @@ pub fn vertical_spacing(spacing: &SpacingProps, t1: NodeType, t2: NodeType) -> f
 /// pairs are unreachable: the compactor's spacing handler returns 0 for
 /// them before consulting the table.
 pub fn horizontal_spacing(spacing: &SpacingProps, t1: NodeType, t2: NodeType) -> f64 {
-    use NodeType::{LongEdge, Normal};
+    use NodeType::{ExternalPort, Label, LongEdge, Normal};
     match (t1, t2) {
         (Normal, Normal) => spacing.node_node_between_layers,
         (Normal, LongEdge) | (LongEdge, Normal) => spacing.edge_node_between_layers,
         (LongEdge, LongEdge) => spacing.edge_edge_between_layers,
+        // Center-edge-label dummies (ELK's table: LABEL×LABEL uses the
+        // plain edgeEdge option on the horizontal axis too):
+        (Normal, Label) | (Label, Normal) => spacing.node_node_between_layers,
+        (LongEdge, Label) | (Label, LongEdge) => spacing.edge_node_between_layers,
+        (Label, Label) => spacing.edge_edge,
+        (ExternalPort, Label) | (Label, ExternalPort) => spacing.label_port_horizontal,
         _ => panic!(
             "horizontal spacing for node types {t1:?}/{t2:?} is outside the ported scope"
         ),

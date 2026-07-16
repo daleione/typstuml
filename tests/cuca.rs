@@ -137,6 +137,31 @@ fn golden_emit_typst_class_shapes_desc() {
 }
 
 #[test]
+fn golden_emit_typst_class_desc_edge_labels() {
+    // Edge labels through the ELK engine's LABEL_DUMMY chain: labeled
+    // desc-flavor edges get measured (cuca-edge-label-probe), the engine
+    // reserves their space and the emit carries the engine-placed
+    // `label-pos:` (not the post-hoc trunk midpoint). Covers in-package,
+    // cross-hierarchy and reversed (DB --> API cycle) labeled edges.
+    let actual = emit_typst_path(&fixture_in("class", "desc-edge-labels.puml"));
+    assert_golden_in("class", "desc-edge-labels", &actual);
+}
+
+#[test]
+fn renders_svg_for_class_desc_edge_labels() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("class-desc-edge-labels.svg");
+    Command::cargo_bin("typstuml")
+        .unwrap()
+        .arg(fixture_in("class", "desc-edge-labels.puml"))
+        .arg(&out)
+        .assert()
+        .success();
+    let svg = std::fs::read_to_string(&out).unwrap();
+    assert!(svg.starts_with("<svg") || svg.starts_with("<?xml"));
+}
+
+#[test]
 fn renders_svg_for_class_shapes_desc() {
     // End-to-end: the new actor/database/component/node painters must
     // compile through typst-as-library without errors.

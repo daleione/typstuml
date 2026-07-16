@@ -11,7 +11,8 @@ use std::collections::HashMap;
 
 use crate::ir::{CucaDiagram, USymbol};
 use crate::layout::elk::adapter::{
-    self, AdapterEdge, AdapterGroup, AdapterModel, AdapterNode, AdapterSpacing,
+    self, AdapterEdge, AdapterEdgeLabel, AdapterGroup, AdapterModel, AdapterNode, AdapterSpacing,
+    EdgeLabelPlacement,
 };
 use crate::layout::geometry::Point;
 use crate::layout::ortho;
@@ -29,6 +30,9 @@ pub(super) struct ElkDescLayout {
     pub container_bboxes: Vec<Option<(Point, Point)>>,
     pub entity_container: Vec<Option<usize>>,
     pub edge_points: Vec<Vec<Point>>,
+    /// Engine-placed label center per layout edge (None when the edge's
+    /// label wasn't fed to the engine — unlabeled or unmeasured).
+    pub edge_label_pos: Vec<Option<Point>>,
 }
 
 fn node_id(i: usize) -> String {
@@ -55,11 +59,13 @@ fn container_has_content(diag: &CucaDiagram, ci: usize) -> bool {
 /// Run the ELK engine on a desc-flavor diagram. `layout_edges` are the
 /// oriented (source, target) entity-index pairs; self-loops and couple
 /// edges are the caller's responsibility to exclude (gated in
-/// `cuca::emit`).
+/// `cuca::emit`). `edge_labels` — measured center-label text + extent
+/// per layout edge (same order), `None` for unlabeled/unmeasured edges.
 pub(super) fn layout(
     diag: &CucaDiagram,
     geoms: &[ClassGeom],
     layout_edges: &[(usize, usize)],
+    edge_labels: &[Option<(String, f64, f64)>],
     bands: LabelBands,
 ) -> ElkDescLayout {
     let sp = spacing();
@@ -129,11 +135,20 @@ pub(super) fn layout(
     }
 
     for (k, &(src, dst)) in layout_edges.iter().enumerate() {
+        let labels = match edge_labels.get(k).and_then(Option::as_ref) {
+            Some((text, w, h)) => vec![AdapterEdgeLabel {
+                text: text.clone(),
+                width: *w,
+                height: *h,
+                placement: EdgeLabelPlacement::Center,
+            }],
+            None => Vec::new(),
+        };
         model.edges.push(AdapterEdge {
             id: edge_id(k),
             from: node_id(src),
             to: node_id(dst),
-            labels: Vec::new(),
+            labels,
             inverted: false,
         });
     }
@@ -179,8 +194,17 @@ pub(super) fn layout(
                 .unwrap_or_default()
         })
         .collect();
+    let edge_label_pos: Vec<Option<Point>> = (0..layout_edges.len())
+        .map(|k| {
+            let id = edge_id(k);
+            by_id
+                .get(id.as_str())
+                .and_then(|e| e.label_pos)
+                .map(|(x, y)| Point::new(x, y))
+        })
+        .collect();
 
-    ElkDescLayout { top_lefts, container_bboxes, entity_container, edge_points }
+    ElkDescLayout { top_lefts, container_bboxes, entity_container, edge_points, edge_label_pos }
 }
 
 /// Emit every oriented edge from its engine-routed polyline: sides come
@@ -188,8 +212,10 @@ pub(super) fn layout(
 /// on node faces — the disc for lollipops), the free-axis override pins
 /// the painter's anchor to the engine's exact coordinate, the polyline
 /// rounds through the same `to_rounded_cubics` as the grid router, and
-/// labeled edges get the longest-trunk midpoint. Trunk separation
-/// already happened inside the engine (`separateOverlappingEdges`).
+/// labeled edges get the engine's label center (LABEL-dummy chain), with
+/// the longest-trunk midpoint as the unmeasured-label fallback. Trunk
+/// separation already happened inside the engine
+/// (`separateOverlappingEdges`).
 ///
 /// Actor / use-case endpoints keep the straight-spline look (§3.4 of the
 /// redesign doc: stick figures and ellipses read poorly with orthogonal
@@ -276,8 +302,12 @@ pub(super) fn emit_edges(
             continue;
         }
 
-        let label_pos =
-            oe.relation.label.as_ref().and_then(|_| ortho::longest_trunk_midpoint(pts));
+        // Engine-placed label center when the label went through the
+        // LABEL-dummy chain; trunk-midpoint fallback otherwise (unmeasured
+        // labels — e.g. --no-measure runs).
+        let label_pos = elk.edge_label_pos[k].or_else(|| {
+            oe.relation.label.as_ref().and_then(|_| ortho::longest_trunk_midpoint(pts))
+        });
         let segments = ortho::to_rounded_cubics(pts, arc);
         emit_edge(
             out,

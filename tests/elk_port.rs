@@ -1011,6 +1011,9 @@ fn run_full_layout(
     for comp in components::split(&mut arena, top) {
         let mut random = JavaRandom::new(1);
         p1_cycles::break_cycles(&mut arena, comp, &mut random);
+        if arena.graphs[comp.0].props.graph_properties.center_labels {
+            intermediate::label_dummy_inserter(&mut arena, comp);
+        }
         p2_layers::layer_nodes(&mut arena, comp);
         if arena.graphs[comp.0].props.high_degree_nodes_treatment {
             typstuml::layout::elk::alg::high_degree::process(&mut arena, comp);
@@ -1022,6 +1025,10 @@ fn run_full_layout(
         preserve_order::sort_by_input_model(&mut arena, comp);
         layer_sweep::layer_sweep_crossing_minimizer(&mut arena, comp, &mut random, &mut std::collections::HashMap::new());
         p4nodes::prepare_placement(&mut arena, comp);
+        if arena.graphs[comp.0].props.graph_properties.center_labels {
+            intermediate::label_dummy_switcher(&mut arena, comp);
+            intermediate::label_side_selector(&mut arena, comp);
+        }
         p4nodes::bk::place(&mut arena, comp);
         orthogonal::route_orthogonal(&mut arena, comp, &mut random);
     }
@@ -1511,6 +1518,40 @@ fn check_compound_export(pass: &str) {
     );
 }
 
+/// Edge labels through the compound path: in-group label chains (nested
+/// graphs at two depths), cross-hierarchy labeled edges (2/3/4 segments —
+/// the preprocessor parks the label on the shallowest segment, the
+/// postprocessor copies it back), a labeled reversed edge, plus the flat
+/// root chain — all label positions must match elkjs.
+#[test]
+fn compound_labeled_export_matches_oracle_output() {
+    use typstuml::layout::elk::alg::graph::LGraphArena;
+    use typstuml::layout::elk::alg::{hierarchical, transform};
+    use typstuml::layout::elk::compare::coord_diff;
+
+    let read = |suffix: &str| {
+        std::fs::read_to_string(format!(
+            "{}/tools/elk-oracle/golden/label-compound.{suffix}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap()
+    };
+    let input: ElkNode = serde_json::from_str(&read("input.json")).unwrap();
+    let expected: ElkNode = serde_json::from_str(&read("output.json")).unwrap();
+
+    let mut arena = LGraphArena::default();
+    let top = transform::import_graph(&mut arena, &input);
+    let result = hierarchical::layout_compound(&mut arena, top);
+    let actual = transform::apply_layout_compound(&arena, top, &input, &result.reference_graphs);
+
+    let diffs = coord_diff(&expected, &actual, 0.5);
+    assert!(
+        diffs.is_empty(),
+        "label-compound export deviates from oracle:\n{:#?}",
+        &diffs[..diffs.len().min(20)]
+    );
+}
+
 fn stages_bench() -> Value {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -1527,7 +1568,7 @@ fn stages_bench() -> Value {
 /// `root-flat`, and the pure-DAG `dag-flat`.
 #[test]
 fn flat_export_matches_oracle_output() {
-    for fixture in ["stress-flat", "root-flat", "dag-flat"] {
+    for fixture in ["stress-flat", "root-flat", "dag-flat", "label-flat"] {
         check_flat_export(fixture);
     }
 }
@@ -1570,12 +1611,28 @@ fn check_flat_export(fixture: &str) {
 /// the centered `__title__`.
 #[test]
 fn adapter_stages_match_golden() {
+    check_adapter_stages(stages_bench());
+}
+
+/// Same adapter pipeline over the labeled benchmark (`label-bench.puml`,
+/// dumped by reference.mts): center edge labels ride through both engine
+/// passes (the LABEL_DUMMY chain) and come back as `labelPos`/`labelSize`
+/// on the extracted edges, surviving post-processing unchanged.
+#[test]
+fn adapter_stages_match_golden_labeled() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tools/elk-oracle/golden/label-bench.stages.json"
+    );
+    check_adapter_stages(serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap());
+}
+
+fn check_adapter_stages(stages: Value) {
     use typstuml::layout::elk::adapter::{
-        self, AdapterEdge, AdapterGroup, AdapterModel, AdapterNode,
+        self, AdapterEdge, AdapterEdgeLabel, AdapterGroup, AdapterModel, AdapterNode,
     };
     use typstuml::layout::elk::compare::json_semantic_diff;
 
-    let stages = stages_bench();
     let model_json = &stages["model"];
     let pass1_input = &stages["pass1Input"];
 
@@ -1665,13 +1722,48 @@ fn adapter_stages_match_golden() {
             padding: m.padding.expect("group must carry padding"),
         });
     }
+    // Measured edge labels, indexed from pass1Input (edges are
+    // distributed over their LCA containers).
+    let mut edge_labels: std::collections::HashMap<String, Vec<Value>> =
+        std::collections::HashMap::new();
+    fn index_edge_labels(
+        node: &Value,
+        out: &mut std::collections::HashMap<String, Vec<Value>>,
+    ) {
+        for e in node["edges"].as_array().unwrap_or(&Vec::new()) {
+            if let Some(labels) = e["labels"].as_array() {
+                out.insert(e["id"].as_str().unwrap().to_string(), labels.clone());
+            }
+        }
+        for c in node["children"].as_array().unwrap_or(&Vec::new()) {
+            index_edge_labels(c, out);
+        }
+    }
+    index_edge_labels(pass1_input, &mut edge_labels);
+
     for e in model_json["edges"].as_array().unwrap() {
-        assert!(e["label"].as_str().unwrap_or_default().is_empty());
+        let id = e["id"].as_str().unwrap().to_string();
+        assert!(e["cardFrom"].as_str().unwrap_or_default().is_empty());
+        assert!(e["cardTo"].as_str().unwrap_or_default().is_empty());
+        let labels: Vec<AdapterEdgeLabel> = edge_labels
+            .get(&id)
+            .into_iter()
+            .flatten()
+            .map(|l| {
+                assert_eq!(l["placement"].as_str(), Some("center"));
+                AdapterEdgeLabel {
+                    text: l["text"].as_str().unwrap().to_string(),
+                    width: l["width"].as_f64().unwrap(),
+                    height: l["height"].as_f64().unwrap(),
+                    placement: adapter::EdgeLabelPlacement::Center,
+                }
+            })
+            .collect();
         model.edges.push(AdapterEdge {
-            id: e["id"].as_str().unwrap().to_string(),
+            id,
             from: e["from"].as_str().unwrap().to_string(),
             to: e["to"].as_str().unwrap().to_string(),
-            labels: Vec::new(),
+            labels,
             inverted: matches!(e["direction"].as_str(), Some("left") | Some("up")),
         });
     }
@@ -1744,6 +1836,33 @@ fn adapter_stages_match_golden() {
                     "edge {} pt{i}: {wp} != {gp:?}",
                     got.id
                 );
+            }
+            match want.get("labelPos").filter(|v| !v.is_null()) {
+                Some(lp) => {
+                    let got_pos = got
+                        .label_pos
+                        .unwrap_or_else(|| panic!("edge {} missing labelPos", got.id));
+                    assert!(
+                        (lp["x"].as_f64().unwrap() - got_pos.0).abs() < tol
+                            && (lp["y"].as_f64().unwrap() - got_pos.1).abs() < tol,
+                        "edge {} labelPos: {lp} != {got_pos:?}",
+                        got.id
+                    );
+                    let ls = &want["labelSize"];
+                    let got_size = got.label_size.expect("labelSize with labelPos");
+                    assert!(
+                        (ls["width"].as_f64().unwrap() - got_size.0).abs() < tol
+                            && (ls["height"].as_f64().unwrap() - got_size.1).abs() < tol,
+                        "edge {} labelSize: {ls} != {got_size:?}",
+                        got.id
+                    );
+                }
+                None => assert!(
+                    got.label_pos.is_none(),
+                    "edge {} has unexpected labelPos {:?}",
+                    got.id,
+                    got.label_pos
+                ),
             }
         }
     };

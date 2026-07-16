@@ -395,6 +395,12 @@ pub fn layout_compound(arena: &mut LGraphArena, top: LGraphId) -> CompoundLayout
     for &g in &graphs {
         let mut random = JavaRandom::new(1);
         p1_cycles::break_cycles(arena, g, &mut random);
+        // LABEL_DUMMY_INSERTER precedes LAYER_CONSTRAINT_PREPROCESSOR in
+        // the before-phase-2 slot; activated per graph on CENTER_LABELS
+        // (the compound preprocessor may have moved labels onto segments).
+        if arena.graphs[g.0].props.graph_properties.center_labels {
+            intermediate::label_dummy_inserter(arena, g);
+        }
         let hidden = layer_constraint::preprocess(arena, g);
         p2_layers::layer_nodes(arena, g);
         if arena.graphs[g.0].props.high_degree_nodes_treatment {
@@ -420,6 +426,13 @@ pub fn layout_compound(arena: &mut LGraphArena, top: LGraphId) -> CompoundLayout
     // sees the group-node sizes its children just computed.
     for &g in &graphs {
         p4nodes::prepare_placement(arena, g);
+        // Before-phase-4 tail of the center-label chain: LABEL_DUMMY_
+        // SWITCHER then LABEL_SIDE_SELECTOR, both after the node-size /
+        // margin processors (prepare_placement).
+        if arena.graphs[g.0].props.graph_properties.center_labels {
+            intermediate::label_dummy_switcher(arena, g);
+            intermediate::label_side_selector(arena, g);
+        }
         p4nodes::bk::place(arena, g);
         layer_size_and_graph_height_calculator(arena, g);
         {
@@ -433,9 +446,13 @@ pub fn layout_compound(arena: &mut LGraphArena, top: LGraphId) -> CompoundLayout
         }
         intermediate::long_edge_joiner(arena, g);
         // HORIZONTAL_COMPACTOR sits between the joiner and the reversed-
-        // edge restorer in ELK's after-phase-5 order.
+        // edge restorer in ELK's after-phase-5 order; LABEL_DUMMY_REMOVER
+        // follows the compactor.
         if arena.graphs[g.0].props.post_compaction_left {
             super::compaction::horizontal_graph_compactor_left(arena, g);
+        }
+        if arena.graphs[g.0].props.graph_properties.center_labels {
+            intermediate::label_dummy_remover(arena, g);
         }
         intermediate::reversed_edge_restorer(arena, g);
         hierarchical_node_resizing_processor(arena, g);

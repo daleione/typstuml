@@ -295,6 +295,24 @@ impl LGraphArena {
         }
     }
 
+    /// Java `LNode.setLayer(index, layer)` — like [`Self::node_set_layer`]
+    /// but inserts at a specific position in the layer's node list (the
+    /// label dummy switcher swaps nodes without disturbing the crossing-
+    /// minimized in-layer order).
+    pub fn node_set_layer_at_index(
+        &mut self,
+        graph: LGraphId,
+        node: LNodeId,
+        layer_idx: usize,
+        index: usize,
+    ) {
+        if let Some(old) = self.nodes[node.0].layer {
+            self.graphs[graph.0].layers[old].nodes.retain(|&n| n != node);
+        }
+        self.nodes[node.0].layer = Some(layer_idx);
+        self.graphs[graph.0].layers[layer_idx].nodes.insert(index, node);
+    }
+
     /// Insert an empty layer at `at`, shifting the stored layer index
     /// of every node in layers `at..` (Java layers are stable object
     /// pointers; index-based storage must compensate).

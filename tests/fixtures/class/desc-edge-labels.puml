@@ -1,0 +1,17 @@
+@startuml
+title desc edge labels (engine-placed)
+
+package "Frontend" {
+  component "App Store" as APP
+  component "Scene View" as VIEW
+}
+
+component "API Gateway" as API
+database "MongoDB" as DB
+
+APP --> VIEW : render IR
+APP --> API : REST + SSE
+API ..> VIEW : push events
+API --> DB : persist
+DB --> API : change feed
+@enduml

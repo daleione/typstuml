@@ -170,8 +170,11 @@ pub fn emit(
     // contribute to layout (the couple edges add A→C and B→C virtual
     // dependencies so Sugiyama puts C below the pair).
     let mut oriented: Vec<OrientedEdge> = Vec::with_capacity(diag.relations.len());
+    // Relation index (into `diag.relations`) per oriented edge — keys the
+    // edge-label measurement probes.
+    let mut oriented_rel_idx: Vec<usize> = Vec::with_capacity(diag.relations.len());
     let mut couple_edges: Vec<CoupleEdge> = Vec::new();
-    for rel in &diag.relations {
+    for (ri, rel) in diag.relations.iter().enumerate() {
         if let Some((a, b)) = &rel.from_couple {
             let Some(ai) = diag.entities.iter().position(|e| &e.id == a) else {
                 continue;
@@ -195,6 +198,7 @@ pub fn emit(
             continue;
         };
         oriented.push(oe);
+        oriented_rel_idx.push(ri);
     }
 
     // Layout edges feeding Sugiyama: real oriented edges + two virtual
@@ -240,7 +244,21 @@ pub fn emit(
         && couple_edges.is_empty()
         && layout_edges.iter().all(|&(s, d)| s != d);
     let elk_desc = if use_elk_engine {
-        Some(elk::layout(diag, &geoms, &layout_edges, &label_bands))
+        // Measured edge labels (aligned with `oriented` == `layout_edges`
+        // here, couples being empty): the engine reserves label space via
+        // its LABEL-dummy chain and returns the placed label centers.
+        // Without measurements (--no-measure) the labels stay out of the
+        // engine and fall back to trunk-midpoint placement.
+        let edge_labels: Vec<Option<(String, f64, f64)>> = oriented
+            .iter()
+            .zip(&oriented_rel_idx)
+            .map(|(oe, &ri)| {
+                let label = oe.relation.label.clone().filter(|l| !l.is_empty())?;
+                let m = measurements?.get(&probe::edge_label_id(diagram_idx, ri))?;
+                Some((label, m.width_pt, m.height_pt))
+            })
+            .collect();
+        Some(elk::layout(diag, &geoms, &layout_edges, &edge_labels, &label_bands))
     } else {
         None
     };

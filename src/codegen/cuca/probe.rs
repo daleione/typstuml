@@ -29,6 +29,13 @@ pub fn package_id(diagram_idx: usize, container_idx: usize) -> String {
     format!("mp-{diagram_idx}-{container_idx}")
 }
 
+/// Build the stable probe ID for an edge (relation) label, keyed by the
+/// relation's index in `diag.relations` — stable across both passes
+/// without replicating the edge-orientation logic.
+pub fn edge_label_id(diagram_idx: usize, relation_idx: usize) -> String {
+    format!("me-{diagram_idx}-{relation_idx}")
+}
+
 /// Whether a container is rendered with a label band that needs
 /// measurement. `together` (anonymous) draws no band, so we skip it.
 pub fn has_label_band(c: &Container) -> bool {
@@ -63,6 +70,24 @@ pub fn collect(
         out.push_str(&id);
         out.push_str("\", label: [");
         out.push_str(&creole_to_typst(&c.label));
+        out.push_str("])\n");
+        expected_ids.push(id);
+    }
+    // Edge labels, for the ELK-engine path (label sizes are layout
+    // inputs — the LABEL dummy reserves their space). Probed for every
+    // labeled relation; relations that end up outside the engine path
+    // (couples, self-loops, LR fallback) just leave their measurement
+    // unread.
+    for (ri, rel) in diag.relations.iter().enumerate() {
+        let Some(label) = &rel.label else { continue };
+        if label.is_empty() {
+            continue;
+        }
+        let id = edge_label_id(diagram_idx, ri);
+        out.push_str("#cuca-edge-label-probe(id: \"");
+        out.push_str(&id);
+        out.push_str("\", label: [");
+        out.push_str(&creole_to_typst(label));
         out.push_str("])\n");
         expected_ids.push(id);
     }

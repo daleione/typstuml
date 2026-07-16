@@ -160,6 +160,25 @@ fn diff_node(e: &ElkNode, a: &ElkNode, tol: f64, out: &mut Vec<CoordDiff>) {
 }
 
 fn diff_edge(e: &ElkEdge, a: &ElkEdge, tol: f64, out: &mut Vec<CoordDiff>) {
+    // Edge labels: matched by index (ELK preserves input label order).
+    let empty_l = Vec::new();
+    let el = e.labels.as_ref().unwrap_or(&empty_l);
+    let al = a.labels.as_ref().unwrap_or(&empty_l);
+    if el.len() != al.len() {
+        out.push(CoordDiff {
+            id: e.id.clone(),
+            field: format!("label count {} != {}", el.len(), al.len()),
+            expected: el.len() as f64,
+            actual: al.len() as f64,
+        });
+    }
+    for (i, (le, la)) in el.iter().zip(al.iter()).enumerate() {
+        opt_field(&e.id, &format!("label[{i}].x"), le.x, la.x, tol, out);
+        opt_field(&e.id, &format!("label[{i}].y"), le.y, la.y, tol, out);
+        opt_field(&e.id, &format!("label[{i}].width"), le.width, la.width, tol, out);
+        opt_field(&e.id, &format!("label[{i}].height"), le.height, la.height, tol, out);
+    }
+
     let empty = Vec::new();
     let es = e.sections.as_ref().unwrap_or(&empty);
     let asx = a.sections.as_ref().unwrap_or(&empty);

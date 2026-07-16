@@ -2,7 +2,7 @@
 #import "src/records.typ": record-layout, record-probe
 #import "src/seq-puml.typ": seq-puml
 #import "src/tree.typ": tree, node, mindmap
-#import "src/cuca.typ": cuca-layout, cuca-probe, container-probe
+#import "src/cuca.typ": cuca-layout, cuca-probe, container-probe, cuca-edge-label-probe
 #import "src/states.typ": state-layout, state-probe, state-note-probe, state-edge-label-probe
 #import "src/atoms.typ": process, decision, terminal, junction, edge, flow-node
 #import "src/composites.typ": flow-col, section

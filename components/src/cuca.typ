@@ -281,6 +281,19 @@
         canvas-h = calc.max(canvas-h, p.at(1))
       }
     }
+    // Engine-placed edge labels (absolute `label-pos` centers) can sit
+    // beside the outermost trunk, past every node/package box — the ELK
+    // layout reserves that space, so the canvas must include it. The box
+    // mirrors `_place-edge-label`'s construction (fill doesn't measure).
+    let lbl = e.at("label", default: none)
+    let lpos = e.at("label-pos", default: none)
+    if lbl != none and lpos != none {
+      let m = measure(box(inset: 2pt, text(size: 0.78em, lbl)))
+      canvas-w = calc.max(canvas-w, lpos.at(0) + m.width / 2)
+      canvas-h = calc.max(canvas-h, lpos.at(1) + m.height / 2)
+      canvas-x0 = calc.min(canvas-x0, lpos.at(0) - m.width / 2)
+      canvas-y0 = calc.min(canvas-y0, lpos.at(1) - m.height / 2)
+    }
   }
 
   // If any package extends to negative coords (its outer pad pushes left
@@ -519,5 +532,18 @@
   label: [],
 ) = context {
   let m = measure(text(weight: "bold", size: 0.85em, label))
+  [#metadata((id: id, w: m.width.pt(), h: m.height.pt())) <typstuml_measure>]
+}
+
+// Measure an edge label exactly as `_place-edge-label` renders it (the
+// 2pt-inset box around 0.78em text; fill doesn't affect measurement).
+// The ELK-engine layout feeds this size into the layered pipeline so
+// the label gets its own reserved space (LABEL dummy) instead of being
+// placed post-hoc on the routed polyline.
+#let cuca-edge-label-probe(
+  id: none,
+  label: [],
+) = context {
+  let m = measure(box(inset: 2pt, text(size: 0.78em, label)))
   [#metadata((id: id, w: m.width.pt(), h: m.height.pt())) <typstuml_measure>]
 }

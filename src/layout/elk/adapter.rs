@@ -314,8 +314,11 @@ fn build_root(model: &AdapterModel, full: bool) -> json::ElkNode {
 }
 
 /// Collect edges in model order with layout endpoints (inversion applied)
-/// and measured labels.
-fn collect_edges(model: &AdapterModel) -> Vec<json::ElkEdge> {
+/// and measured labels. `simple` mirrors draw-uml's pass-1 mapping, which
+/// keeps the labels but drops every edge layout option (notably the
+/// `edgeLabels.inline` marker — an elkjs no-op either way, since the
+/// option only acts when set on a label element).
+fn collect_edges(model: &AdapterModel, simple: bool) -> Vec<json::ElkEdge> {
     model
         .edges
         .iter()
@@ -325,22 +328,34 @@ fn collect_edges(model: &AdapterModel) -> Vec<json::ElkEdge> {
             let labels: Vec<json::ElkLabel> = e
                 .labels
                 .iter()
-                .map(|l| json::ElkLabel {
-                    text: l.text.clone(),
-                    width: Some(l.width),
-                    height: Some(l.height),
-                    layout_options: match l.placement {
-                        EdgeLabelPlacement::Center => None,
-                        EdgeLabelPlacement::Tail => opts(&[(
-                            "org.eclipse.elk.edgeLabels.placement",
-                            "TAIL".into(),
-                        )]),
-                        EdgeLabelPlacement::Head => opts(&[(
-                            "org.eclipse.elk.edgeLabels.placement",
-                            "HEAD".into(),
-                        )]),
-                    },
-                    ..Default::default()
+                .map(|l| {
+                    // draw-uml stamps its own raw `placement` field on every
+                    // label and adds the real ELK option for tail/head only.
+                    let placement_str = match l.placement {
+                        EdgeLabelPlacement::Center => "center",
+                        EdgeLabelPlacement::Tail => "tail",
+                        EdgeLabelPlacement::Head => "head",
+                    };
+                    let mut extra = Map::new();
+                    extra.insert("placement".into(), Value::String(placement_str.into()));
+                    json::ElkLabel {
+                        text: l.text.clone(),
+                        width: Some(l.width),
+                        height: Some(l.height),
+                        layout_options: match l.placement {
+                            EdgeLabelPlacement::Center => None,
+                            EdgeLabelPlacement::Tail => opts(&[(
+                                "org.eclipse.elk.edgeLabels.placement",
+                                "TAIL".into(),
+                            )]),
+                            EdgeLabelPlacement::Head => opts(&[(
+                                "org.eclipse.elk.edgeLabels.placement",
+                                "HEAD".into(),
+                            )]),
+                        },
+                        extra,
+                        ..Default::default()
+                    }
                 })
                 .collect();
             let has_labels = !labels.is_empty();
@@ -349,7 +364,7 @@ fn collect_edges(model: &AdapterModel) -> Vec<json::ElkEdge> {
                 sources: vec![from],
                 targets: vec![to],
                 labels: if has_labels { Some(labels) } else { None },
-                layout_options: if has_labels {
+                layout_options: if has_labels && !simple {
                     opts(&[("org.eclipse.elk.edgeLabels.inline", "true".into())])
                 } else {
                     None
@@ -477,7 +492,7 @@ fn distribute_edges(root: &mut json::ElkNode, edges: Vec<json::ElkEdge>) {
 /// Build the pass-1 ("simple", port-free) ELK graph.
 pub fn to_elk_simple(model: &AdapterModel) -> json::ElkNode {
     let mut root = build_root(model, false);
-    let edges = collect_edges(model);
+    let edges = collect_edges(model, true);
     // Pass 1 strips label-free port suffixes — no ports in scope, and
     // labels ride along unchanged.
     let mut edges: Vec<json::ElkEdge> = edges;
@@ -491,7 +506,7 @@ pub fn to_elk_simple(model: &AdapterModel) -> json::ElkNode {
 /// which is outside the current scope; accepted for interface parity.
 pub fn to_elk(model: &AdapterModel, _positions: &HashMap<String, (f64, f64)>) -> json::ElkNode {
     let mut root = build_root(model, true);
-    let mut edges = collect_edges(model);
+    let mut edges = collect_edges(model, false);
     add_compound_edge_proxies(&mut root, &mut edges, model);
     distribute_edges(&mut root, edges);
     root

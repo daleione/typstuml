@@ -12,10 +12,15 @@
 //! - group ordering is `ONLY_WITHIN_GROUP` (not `ENFORCED`), so
 //!   `calculateModelOrderOrGroupModelOrder` is just the raw MODEL_ORDER
 //!   (or -1 if absent).
-//! - `portModelOrder` defaults false; `longEdgeStrategy = DUMMY_NODE_OVER`
+//! - `portModelOrder` defaults false and anonymous ports never carry a
+//!   MODEL_ORDER, so `checkPortModelOrder` is structurally 0;
+//!   `longEdgeStrategy = DUMMY_NODE_OVER`
 //!   (`getModelOrderFromConnectedEdges` falls back to `i32::MAX`).
-//! - a proper layering has no in-layer edges, so no LONG_EDGE dummy is a
-//!   feedback dummy → `handleHelperDummyNodes` always returns 0.
+//! - `handleHelperDummyNodes` orders feedback (in-layer) LONG_EDGE
+//!   dummies — the InvertedPortProcessor creates them whenever a
+//!   reversed edge leaves a fixed-side group port, and two of them
+//!   meeting in one layer must be ordered via their in-layer reference
+//!   nodes (xhs-flow regression; the benchmark only ever had one).
 
 use std::collections::{HashMap, HashSet};
 
@@ -45,8 +50,15 @@ pub fn sort_by_input_model(arena: &mut LGraphArena, graph: LGraphId) {
             if !pc.is_order_fixed() {
                 let target_map = long_edge_target_node_preprocessing(arena, node);
                 let mut ports = arena.nodes[node.0].ports.clone();
-                let mut pcmp =
-                    ModelOrderPortComparator::new(graph, previous_layer.clone(), strategy, target_map);
+                // portModelOrder (CONSIDER_MODEL_ORDER_PORT_MODEL_ORDER)
+                // defaults false and is never set in scope.
+                let mut pcmp = ModelOrderPortComparator::new(
+                    graph,
+                    previous_layer.clone(),
+                    strategy,
+                    Some(target_map),
+                    false,
+                );
                 insertion_sort_ports(arena, &mut ports, &mut pcmp);
                 arena.nodes[node.0].ports = ports;
             }
@@ -105,13 +117,11 @@ fn model_order_or(mo: Option<i32>) -> i32 {
 // ----------------------------------------------------------------------
 
 pub struct ModelOrderNodeComparator {
-    #[allow(dead_code)]
     graph: LGraphId,
     previous_layer: Vec<LNodeId>,
     ordering_strategy: OrderingStrategy,
     bigger_than: HashMap<LNodeId, HashSet<LNodeId>>,
     smaller_than: HashMap<LNodeId, HashSet<LNodeId>>,
-    #[allow(dead_code)]
     before_ports: bool,
 }
 
@@ -201,7 +211,15 @@ impl ModelOrderNodeComparator {
             }
 
             if p1_src.is_some() != p2_src.is_some() {
-                // handleHelperDummyNodes is always 0 in scope (no feedback dummies).
+                let fed = self.handle_helper_dummy_nodes(arena, n1, n2);
+                if fed != 0 {
+                    if fed > 0 {
+                        self.update(n1, n2);
+                    } else {
+                        self.update(n2, n1);
+                    }
+                    return fed;
+                }
                 if !n1_mo || !n2_mo {
                     let n1e = self.model_order_from_connected_edges(arena, n1);
                     let n2e = self.model_order_from_connected_edges(arena, n2);
@@ -214,7 +232,20 @@ impl ModelOrderNodeComparator {
                     }
                 }
             }
-            // Both null, or fall-through: handled by model-order block below.
+
+            // Both nodes are not connected to the previous layer.
+            if p1_src.is_none() && p2_src.is_none() {
+                let fed = self.handle_helper_dummy_nodes(arena, n1, n2);
+                if fed != 0 {
+                    if fed > 0 {
+                        self.update(n1, n2);
+                    } else {
+                        self.update(n2, n1);
+                    }
+                    return fed;
+                }
+            }
+            // Fall through: handled by the model-order block below.
         }
 
         if n1_mo && n2_mo {
@@ -251,6 +282,148 @@ impl ModelOrderNodeComparator {
             }
         }
         None
+    }
+
+    /// Java `ModelOrderNodeComparator.handleHelperDummyNodes`: order
+    /// feedback (in-layer) LONG_EDGE dummies against real nodes and
+    /// against each other via their in-layer reference nodes. Returns 0
+    /// when neither node is a feedback dummy.
+    fn handle_helper_dummy_nodes(
+        &mut self,
+        arena: &LGraphArena,
+        n1: LNodeId,
+        n2: LNodeId,
+    ) -> i32 {
+        let t1 = arena.nodes[n1.0].node_type;
+        let t2 = arena.nodes[n2.0].node_type;
+        if t1 == NodeType::LongEdge && t2 == NodeType::Normal {
+            // n1 could be a long edge feedback node.
+            let dummy_source_port = first_incoming_source_port_of_node(arena, n1);
+            let dummy_source_node = arena.ports[dummy_source_port.0].owner.unwrap();
+            let dummy_target_port = first_outgoing_target_port_of_node(arena, n1);
+            let dummy_target_node = arena.ports[dummy_target_port.0].owner.unwrap();
+            let dummy_layer = arena.nodes[n1.0].layer;
+
+            // Not a feedback source or feedback target — nothing to do.
+            if arena.nodes[dummy_source_node.0].layer != dummy_layer
+                && arena.nodes[dummy_target_node.0].layer != dummy_layer
+            {
+                return 0;
+            }
+            if dummy_source_node == n2 || dummy_target_node == n2 {
+                // The dummy is routed below its own in-layer endpoint.
+                self.update(n1, n2);
+                1
+            } else {
+                self.compare(arena, dummy_source_node, n2)
+            }
+        } else if t1 == NodeType::Normal && t2 == NodeType::LongEdge {
+            // n2 could be a long edge feedback node.
+            let dummy_source_port = first_incoming_source_port_of_node(arena, n2);
+            let dummy_source_node = arena.ports[dummy_source_port.0].owner.unwrap();
+            let dummy_target_port = first_outgoing_target_port_of_node(arena, n2);
+            let dummy_target_node = arena.ports[dummy_target_port.0].owner.unwrap();
+            // (Java reads n1's layer here — same layer while sorting.)
+            let dummy_layer = arena.nodes[n1.0].layer;
+
+            if arena.nodes[dummy_source_node.0].layer != dummy_layer
+                && arena.nodes[dummy_target_node.0].layer != dummy_layer
+            {
+                return 0;
+            }
+            if dummy_source_node == n1 || dummy_target_node == n1 {
+                self.update(n2, n1);
+                -1
+            } else {
+                self.compare(arena, n1, dummy_source_node)
+            }
+        } else if t1 == NodeType::LongEdge && t2 == NodeType::LongEdge {
+            // At least one of them is a feedback dummy; order both via
+            // their in-layer reference nodes.
+            let n1_source_port = first_incoming_source_port_of_node(arena, n1);
+            let n1_target_port = first_outgoing_target_port_of_node(arena, n1);
+            let n1_source_node = arena.ports[n1_source_port.0].owner.unwrap();
+            let n1_target_node = arena.ports[n1_target_port.0].owner.unwrap();
+            let n1_layer = arena.nodes[n1.0].layer;
+            let mut n1_source_feedback = false;
+            let mut n1_target_feedback = false;
+
+            let n2_source_port = first_incoming_source_port_of_node(arena, n2);
+            let n2_target_port = first_outgoing_target_port_of_node(arena, n2);
+            let n2_source_node = arena.ports[n2_source_port.0].owner.unwrap();
+            let n2_target_node = arena.ports[n2_target_port.0].owner.unwrap();
+            let n2_layer = arena.nodes[n2.0].layer;
+            let mut n2_source_feedback = false;
+            let mut n2_target_feedback = false;
+
+            let mut n1_reference = n1;
+            let mut n2_reference = n2;
+            if arena.nodes[n1_source_node.0].layer == n1_layer {
+                n1_source_feedback = true;
+                n1_reference = n1_source_node;
+            } else if arena.nodes[n1_target_node.0].layer == n1_layer {
+                n1_target_feedback = true;
+                n1_reference = n1_target_node;
+            }
+            if arena.nodes[n2_source_node.0].layer == n2_layer {
+                n2_source_feedback = true;
+                n2_reference = n2_source_node;
+            } else if arena.nodes[n2_target_node.0].layer == n2_layer {
+                n2_target_feedback = true;
+                n2_reference = n2_target_node;
+            }
+
+            // Both feedback chains hang off the same in-layer node.
+            if n1_reference == n2_reference {
+                if self.before_ports {
+                    // Port order is not established yet; decide via the
+                    // in-layer source ports' own comparator.
+                    if n1_source_feedback && n2_source_feedback {
+                        let mut pcmp = ModelOrderPortComparator::new(
+                            self.graph,
+                            self.previous_layer.clone(),
+                            self.ordering_strategy,
+                            None,
+                            n2_target_feedback,
+                        );
+                        let return_value = pcmp.compare(arena, n1_source_port, n2_source_port);
+                        if return_value > 0 {
+                            self.update(n2, n1);
+                            return 1;
+                        } else {
+                            self.update(n1, n2);
+                            return -1;
+                        }
+                    } else if n1_source_feedback && n2_target_feedback {
+                        self.update(n2, n1);
+                        return 1;
+                    } else if n1_target_feedback && n2_source_feedback {
+                        self.update(n1, n2);
+                        return -1;
+                    } else if n1_target_feedback && n2_target_feedback {
+                        // Incoming edges will be used for ordering.
+                        return 0;
+                    }
+                } else {
+                    // The (already sorted) port order can just be used.
+                    for &port in &arena.nodes[n1_reference.0].ports {
+                        if port == n1_source_port {
+                            self.update(n2, n1);
+                            return -1;
+                        } else if port == n2_source_port {
+                            self.update(n1, n2);
+                            return 1;
+                        }
+                    }
+                }
+            }
+
+            // Different reference nodes: compare those instead.
+            self.compare(arena, n1_reference, n2_reference)
+        } else {
+            // Two normal nodes — handled by node model order.
+            0
+        }
     }
 
     fn model_order_from_connected_edges(&self, arena: &LGraphArena, n: LNodeId) -> i32 {
@@ -294,6 +467,29 @@ impl ModelOrderNodeComparator {
     }
 }
 
+/// Java `getFirstIncomingSourcePortOfNode`: the source port of the first
+/// incoming edge on the first port that has incoming edges.
+fn first_incoming_source_port_of_node(arena: &LGraphArena, node: LNodeId) -> LPortId {
+    let port = arena.nodes[node.0]
+        .ports
+        .iter()
+        .copied()
+        .find(|&p| !arena.ports[p.0].incoming_edges.is_empty())
+        .expect("feedback candidate has an incoming port");
+    arena.edges[arena.ports[port.0].incoming_edges[0].0].source.unwrap()
+}
+
+/// Java `getFirstOutgoingTargetPortOfNode`.
+fn first_outgoing_target_port_of_node(arena: &LGraphArena, node: LNodeId) -> LPortId {
+    let port = arena.nodes[node.0]
+        .ports
+        .iter()
+        .copied()
+        .find(|&p| !arena.ports[p.0].outgoing_edges.is_empty())
+        .expect("feedback candidate has an outgoing port");
+    arena.edges[arena.ports[port.0].outgoing_edges[0].0].target.unwrap()
+}
+
 // ----------------------------------------------------------------------
 // ModelOrderPortComparator
 // ----------------------------------------------------------------------
@@ -304,7 +500,15 @@ pub struct ModelOrderPortComparator {
     previous_layer: Vec<LNodeId>,
     #[allow(dead_code)]
     strategy: OrderingStrategy,
-    target_node_model_order: HashMap<LNodeId, i32>,
+    /// `None` mirrors Java's null map (the feedback-dummy sub-comparator
+    /// is constructed without one).
+    target_node_model_order: Option<HashMap<LNodeId, i32>>,
+    /// `portModelOrder` — false via options in scope; the feedback-dummy
+    /// sub-comparator passes a flag here (bug-for-bug). Anonymous ports
+    /// never carry a MODEL_ORDER, so `checkPortModelOrder` is 0 either
+    /// way and the branch is not ported.
+    #[allow(dead_code)]
+    port_model_order: bool,
     bigger_than: HashMap<LPortId, HashSet<LPortId>>,
     smaller_than: HashMap<LPortId, HashSet<LPortId>>,
 }
@@ -314,13 +518,15 @@ impl ModelOrderPortComparator {
         graph: LGraphId,
         previous_layer: Vec<LNodeId>,
         strategy: OrderingStrategy,
-        target_node_model_order: HashMap<LNodeId, i32>,
+        target_node_model_order: Option<HashMap<LNodeId, i32>>,
+        port_model_order: bool,
     ) -> Self {
         Self {
             graph,
             previous_layer,
             strategy,
             target_node_model_order,
+            port_model_order,
             bigger_than: HashMap::new(),
             smaller_than: HashMap::new(),
         }
@@ -453,13 +659,11 @@ impl ModelOrderPortComparator {
                     return -reverse_order;
                 }
             }
-            if let Some(t) = p1_target {
-                if let Some(&mo) = self.target_node_model_order.get(&t) {
+            if let Some(map) = &self.target_node_model_order {
+                if let Some(&mo) = p1_target.and_then(|t| map.get(&t)) {
                     p1_order = mo;
                 }
-            }
-            if let Some(t) = p2_target {
-                if let Some(&mo) = self.target_node_model_order.get(&t) {
+                if let Some(&mo) = p2_target.and_then(|t| map.get(&t)) {
                     p2_order = mo;
                 }
             }

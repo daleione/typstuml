@@ -103,6 +103,10 @@ fn has_top_level_swimlane(body: &[ActivityStmt]) -> bool {
 struct SwimlaneNode {
     lane: usize,
     typst_expr: String,
+    /// The node's painter draws its own entry arrowhead at its top
+    /// border (`flow-loop`'s re-entry seam), so the incoming layout
+    /// edge must be headless or two heads stack.
+    supplies_entry: bool,
 }
 
 struct LaneSpec {
@@ -139,6 +143,11 @@ fn linearize_swimlane(body: &[ActivityStmt]) -> (Vec<LaneSpec>, Vec<SwimlaneNode
                 current = Some(idx);
             }
             _ => {
+                if is_invisible_stmt(s) {
+                    // No visual node (break / goto): a `[]` placeholder
+                    // would split the connector into two stacked arrows.
+                    continue;
+                }
                 if current.is_none() {
                     // Implicit unnamed lane for any pre-switch content.
                     current = Some(lanes.len());
@@ -153,6 +162,12 @@ fn linearize_swimlane(body: &[ActivityStmt]) -> (Vec<LaneSpec>, Vec<SwimlaneNode
                 nodes.push(SwimlaneNode {
                     lane,
                     typst_expr: expr,
+                    // While / Repeat emit a `flow-loop`, whose top seam
+                    // already carries the entry arrowhead.
+                    supplies_entry: matches!(
+                        s,
+                        ActivityStmt::While { .. } | ActivityStmt::Repeat { .. }
+                    ),
                 });
             }
         }
@@ -180,6 +195,7 @@ fn emit_swimlane_layout(
         .map(|(i, n)| sw_layout::NodeInput {
             probe_id: format!("sw{diagram_idx}_n{i}"),
             lane: n.lane,
+            supplies_entry: n.supplies_entry,
         })
         .collect();
     let lane_label_probe_ids: Vec<Option<String>> = lanes
@@ -288,8 +304,25 @@ fn emit_swimlane_lanes_legacy(out: &mut String, body: &[ActivityStmt], indent: u
     }
 }
 
+/// Statements with no visual node of their own. Emitting them into a
+/// `flow-col` as `[]` placeholders splits one connector into two — the
+/// painter inserts an arrow before *every* child, so an invisible child
+/// yields two stacked arrowheads. They are skipped instead.
+fn is_invisible_stmt(s: &ActivityStmt) -> bool {
+    matches!(
+        s,
+        ActivityStmt::Break { .. }
+            | ActivityStmt::GotoLabel { .. }
+            | ActivityStmt::Goto { .. }
+            | ActivityStmt::SwimlaneSwitch { .. }
+    )
+}
+
 fn emit_stmts(out: &mut String, body: &[ActivityStmt], indent: usize) {
     for s in body {
+        if is_invisible_stmt(s) {
+            continue;
+        }
         push_indent(out, indent);
         emit_stmt(out, s, indent);
         out.push_str(",\n");

@@ -12,7 +12,6 @@
       process[Read next frame],
       branch-merge([frame == EOF?],
         yes: flow-col(
-          [],
         ),
         no: [],
         no-bypass: true,

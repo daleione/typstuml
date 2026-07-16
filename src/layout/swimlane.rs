@@ -29,6 +29,10 @@ pub struct LaneInput {
 pub struct NodeInput {
     pub probe_id: String,
     pub lane: usize,
+    /// The node's content draws its own entry arrowhead at its top
+    /// border (`flow-loop` compounds), so the incoming connector must
+    /// be a headless line — otherwise two heads stack at the seam.
+    pub supplies_entry: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -152,10 +156,13 @@ pub fn solve(
         let prev_y = prev.y_pt + prev.height_pt;
         let next_x = next.x_pt + next.width_pt / 2.0;
         let next_y = next.y_pt;
+        // Headless line into nodes that draw their own entry arrowhead
+        // (`flow-loop`'s re-entry seam) — a head here would stack on it.
+        let arrow = !nodes_in[i].supplies_entry;
         if prev.lane == next.lane {
             edges.push(EdgePoly {
                 points: vec![(prev_x, prev_y), (next_x, next_y)],
-                arrow: true,
+                arrow,
             });
         } else {
             let mid_y = (prev_y + next_y) / 2.0;
@@ -166,7 +173,7 @@ pub fn solve(
                     (next_x, mid_y),
                     (next_x, next_y),
                 ],
-                arrow: true,
+                arrow,
             });
         }
     }
@@ -202,9 +209,9 @@ mod tests {
             LaneInput { label: "B".into(), color: None },
         ];
         let nodes = vec![
-            NodeInput { probe_id: "n0".into(), lane: 0 },
-            NodeInput { probe_id: "n1".into(), lane: 1 },
-            NodeInput { probe_id: "n2".into(), lane: 0 },
+            NodeInput { probe_id: "n0".into(), lane: 0, supplies_entry: false },
+            NodeInput { probe_id: "n1".into(), lane: 1, supplies_entry: false },
+            NodeInput { probe_id: "n2".into(), lane: 0, supplies_entry: false },
         ];
         let labels = vec![Some("lane0".into()), Some("lane1".into())];
         let layout = solve(&lanes, &nodes, &labels, &ms());
@@ -222,8 +229,8 @@ mod tests {
             LaneInput { label: "B".into(), color: None },
         ];
         let nodes = vec![
-            NodeInput { probe_id: "n0".into(), lane: 0 },
-            NodeInput { probe_id: "n1".into(), lane: 1 },
+            NodeInput { probe_id: "n0".into(), lane: 0, supplies_entry: false },
+            NodeInput { probe_id: "n1".into(), lane: 1, supplies_entry: false },
         ];
         let labels = vec![Some("lane0".into()), Some("lane1".into())];
         let layout = solve(&lanes, &nodes, &labels, &ms());
@@ -235,8 +242,8 @@ mod tests {
     fn intra_lane_edge_is_straight() {
         let lanes = vec![LaneInput { label: "A".into(), color: None }];
         let nodes = vec![
-            NodeInput { probe_id: "n0".into(), lane: 0 },
-            NodeInput { probe_id: "n1".into(), lane: 0 },
+            NodeInput { probe_id: "n0".into(), lane: 0, supplies_entry: false },
+            NodeInput { probe_id: "n1".into(), lane: 0, supplies_entry: false },
         ];
         let labels = vec![Some("lane0".into())];
         let layout = solve(&lanes, &nodes, &labels, &ms());

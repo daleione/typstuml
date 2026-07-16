@@ -14,7 +14,6 @@
     (content: branch-merge([Premium?],
     yes: flow-col(
       process[Apply discount],
-      [],
       process[Priority handling],
     ),
     no: flow-col(
@@ -23,15 +22,15 @@
     yes-label: [yes],
     no-label: [no],
   ), x: 16.00pt, y: 93.00pt),
-    (content: process[Ship], x: 288.57pt, y: 306.00pt),
-    (content: stop-marker(), x: 302.64pt, y: 356.00pt),
+    (content: process[Ship], x: 288.57pt, y: 282.00pt),
+    (content: stop-marker(), x: 302.64pt, y: 332.00pt),
   ),
   edges: (
     (points: ((126.32pt, 21.00pt), (126.32pt, 43.00pt), ), arrow: true),
     (points: ((126.32pt, 71.00pt), (126.32pt, 93.00pt), ), arrow: true),
-    (points: ((126.32pt, 270.00pt), (126.32pt, 288.00pt), (307.64pt, 288.00pt), (307.64pt, 306.00pt), ), arrow: true),
-    (points: ((307.64pt, 334.00pt), (307.64pt, 356.00pt), ), arrow: true),
+    (points: ((126.32pt, 246.00pt), (126.32pt, 264.00pt), (307.64pt, 264.00pt), (307.64pt, 282.00pt), ), arrow: true),
+    (points: ((307.64pt, 310.00pt), (307.64pt, 332.00pt), ), arrow: true),
   ),
   header-height: 28.00pt,
-  body-height: 378.00pt,
+  body-height: 354.00pt,
 ))

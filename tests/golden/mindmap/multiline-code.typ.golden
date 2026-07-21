@@ -1,0 +1,25 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, tree-layout(
+  width: 231.220pt,
+  height: 141.800pt,
+  nodes: (
+    (x: 0.000pt, y: 63.610pt, w: 81.610pt, h: 14.580pt, body: node[Class Templates]),
+    (x: 93.610pt, y: 0.000pt, w: 113.340pt, h: 79.980pt, body: node[Example 1 \
+template \<typename T\> \
+class cname\{ \
+void f1(); \
+... \
+\}]),
+    (x: 93.610pt, y: 87.980pt, w: 137.610pt, h: 53.820pt, body: node[Example 2 \
+other template \<typename T\> \
+class cname\{ \
+...]),
+  ),
+  edges: (
+    (points: ((81.610pt, 70.900pt), (87.610pt, 70.900pt), (87.610pt, 39.990pt), (93.610pt, 39.990pt),),),
+    (points: ((81.610pt, 70.900pt), (87.610pt, 70.900pt), (87.610pt, 114.890pt), (93.610pt, 114.890pt),),),
+  ),
+))

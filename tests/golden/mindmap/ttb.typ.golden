@@ -1,0 +1,25 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, tree-layout(
+  width: 134.600pt,
+  height: 71.740pt,
+  nodes: (
+    (x: 56.975pt, y: 57.160pt, w: 20.650pt, h: 14.580pt, body: node[1]),
+    (x: 21.325pt, y: 30.580pt, w: 20.650pt, h: 14.580pt, body: node[2]),
+    (x: 0.000pt, y: 0.000pt, w: 20.650pt, h: 14.580pt, body: node[4]),
+    (x: 42.650pt, y: 0.000pt, w: 20.650pt, h: 14.580pt, body: node[5]),
+    (x: 92.625pt, y: 30.580pt, w: 20.650pt, h: 14.580pt, body: node[3]),
+    (x: 71.300pt, y: 0.000pt, w: 20.650pt, h: 14.580pt, body: node[6]),
+    (x: 113.950pt, y: 0.000pt, w: 20.650pt, h: 14.580pt, body: node[7]),
+  ),
+  edges: (
+    (points: ((67.300pt, 57.160pt), (67.300pt, 51.160pt), (31.650pt, 51.160pt), (31.650pt, 45.160pt),),),
+    (points: ((31.650pt, 30.580pt), (31.650pt, 22.580pt), (10.325pt, 22.580pt), (10.325pt, 14.580pt),),),
+    (points: ((31.650pt, 30.580pt), (31.650pt, 22.580pt), (52.975pt, 22.580pt), (52.975pt, 14.580pt),),),
+    (points: ((67.300pt, 57.160pt), (67.300pt, 51.160pt), (102.950pt, 51.160pt), (102.950pt, 45.160pt),),),
+    (points: ((102.950pt, 30.580pt), (102.950pt, 22.580pt), (81.625pt, 22.580pt), (81.625pt, 14.580pt),),),
+    (points: ((102.950pt, 30.580pt), (102.950pt, 22.580pt), (124.275pt, 22.580pt), (124.275pt, 14.580pt),),),
+  ),
+))

@@ -1,0 +1,14 @@
+@startwbs
+title Direction markers — < left, > right
+* Root
+** Plans
+***< A-left
+****< A-left-deep
+****> A-right-deep
+***> B-right
+*** C-default
+** Ops
+***< Review
+*** Hiring
+*** Tooling
+@endwbs

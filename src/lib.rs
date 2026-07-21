@@ -10,6 +10,7 @@
 //! wasm builds and other embedders call into.
 
 pub mod codegen;
+pub mod colors;
 pub mod diagnostics;
 pub mod ir;
 pub mod layout;

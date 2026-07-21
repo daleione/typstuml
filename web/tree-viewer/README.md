@@ -41,6 +41,10 @@ Query params:
   subtree; ⌘/Ctrl-click folds recursively. When folded, the circle
   fills dark and shows the hidden-descendant count. (The circle is the
   only click target so node text stays selectable — a markmap lesson.)
+- **Mindmap root** gets one circle per populated side; each folds only
+  its own column (⌘/Ctrl-click additionally collapses every branch
+  inside that column). A WBS root's single circle still collapses the
+  whole tree.
 - **Drag** pans; **⌘/Ctrl + wheel** (or pinch) zooms about the cursor;
   plain wheel pans (macOS convention).
 - **fit** re-centers the diagram; **expand all** clears every fold.

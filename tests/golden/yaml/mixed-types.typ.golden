@@ -3,7 +3,7 @@
 #import "/blockcell/lib.typ": *
 
 #record-layout(
-  title: [Mixed scalar / sequence / null],
+  title: [Mixed scalar \/ sequence \/ null],
   records: (
     (x: 6.00pt, y: 3.00pt, rows: ((key: [title], value: ["Untitled draft"]), (key: [author], value: [␀]), (key: [published], value: [☒ false]), (key: [revisions], value: [0]), (key: [tags], value: []), (key: [collaborators], value: []), (key: [metadata], value: []))),
     (x: 160.25pt, y: 17.65pt, rows: ((key: [0], value: ["alice"]), (key: [1], value: ["bob"]))),

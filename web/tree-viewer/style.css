@@ -102,10 +102,6 @@ aside button {
   stroke: var(--stroke);
   stroke-width: 0.8;
 }
-.tree-node line.underline {
-  stroke: var(--stroke);
-  stroke-width: 0.8;
-}
 
 .tree-edge {
   fill: none;

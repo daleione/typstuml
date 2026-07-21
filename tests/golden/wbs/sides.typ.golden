@@ -1,0 +1,38 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center)[*Direction markers — \< left, \> right*]
+
+#align(center, tree-layout(
+  width: 352.550pt,
+  height: 96.320pt,
+  nodes: (
+    (x: 210.175pt, y: 0.000pt, w: 35.180pt, h: 14.580pt, body: node[Root]),
+    (x: 143.210pt, y: 36.580pt, w: 38.060pt, h: 14.580pt, body: node[Plans]),
+    (x: 54.155pt, y: 59.160pt, w: 39.030pt, h: 14.580pt, body: node[A-left]),
+    (x: 0.000pt, y: 81.740pt, w: 61.670pt, h: 14.580pt, body: node[A-left-deep]),
+    (x: 85.670pt, y: 81.740pt, w: 68.570pt, h: 14.580pt, body: node[A-right-deep]),
+    (x: 174.240pt, y: 59.160pt, w: 45.230pt, h: 14.580pt, body: node[B-right]),
+    (x: 174.240pt, y: 81.740pt, w: 54.150pt, h: 14.580pt, body: node[C-default]),
+    (x: 277.235pt, y: 36.580pt, w: 32.110pt, h: 14.580pt, body: node[Ops]),
+    (x: 235.470pt, y: 59.160pt, w: 45.820pt, h: 14.580pt, body: node[Review]),
+    (x: 305.290pt, y: 59.160pt, w: 42.860pt, h: 14.580pt, body: node[Hiring]),
+    (x: 305.290pt, y: 81.740pt, w: 47.260pt, h: 14.580pt, body: node[Tooling]),
+  ),
+  edges: (
+    (points: ((227.765pt, 14.580pt), (227.765pt, 25.580pt), (162.240pt, 25.580pt), (162.240pt, 36.580pt),),),
+    (points: ((162.240pt, 66.450pt), (93.185pt, 66.450pt),),),
+    (points: ((73.670pt, 89.030pt), (61.670pt, 89.030pt),),),
+    (points: ((73.670pt, 89.030pt), (85.670pt, 89.030pt),),),
+    (points: ((73.670pt, 73.740pt), (73.670pt, 89.030pt),),),
+    (points: ((162.240pt, 66.450pt), (174.240pt, 66.450pt),),),
+    (points: ((162.240pt, 89.030pt), (174.240pt, 89.030pt),),),
+    (points: ((162.240pt, 51.160pt), (162.240pt, 89.030pt),),),
+    (points: ((227.765pt, 14.580pt), (227.765pt, 25.580pt), (293.290pt, 25.580pt), (293.290pt, 36.580pt),),),
+    (points: ((293.290pt, 66.450pt), (281.290pt, 66.450pt),),),
+    (points: ((293.290pt, 66.450pt), (305.290pt, 66.450pt),),),
+    (points: ((293.290pt, 89.030pt), (305.290pt, 89.030pt),),),
+    (points: ((293.290pt, 51.160pt), (293.290pt, 89.030pt),),),
+  ),
+))

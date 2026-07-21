@@ -18,7 +18,17 @@ import init, { treeModel, treeLayout } from "../../crates/typstuml-wasm/pkg/typs
 const EM = 10; // SVG user units per em; font-size matches (style.css).
 const INSET_X = 0.8 * EM;
 const INSET_Y = 0.4 * EM;
+// PlantUML `_` (boxless) nodes hug their text — mirrors tree.typ's
+// "plain" shape insets.
+const PLAIN_INSET_X = 0.4 * EM;
+const PLAIN_INSET_Y = 0.2 * EM;
 const LINE_H = 1.2 * EM;
+
+function insetsOf(node) {
+  return node.shape === "plain"
+    ? [PLAIN_INSET_X, PLAIN_INSET_Y]
+    : [INSET_X, INSET_Y];
+}
 const DEFAULT_FILL = "#90CAF9"; // palettes.pastel.blue
 const DURATION = 300;
 
@@ -41,6 +51,7 @@ let nodesById = new Map();// id -> model node (+ .dir annotation)
 let parentOf = new Map(); // id -> parent id
 let sizes = {};          // id -> [w, h] measured once
 let folded = new Set();  // node ids whose children are pruned
+let foldedSides = new Set(); // "left" / "right": mindmap root columns
 let nodeEls = new Map(); // id -> <g>
 let edgeEls = new Map(); // "from-to" -> <polyline>
 let lastRects = new Map();// id -> {x, y} previous layout (animation origins)
@@ -51,10 +62,17 @@ let edgeAnimFrame = null;
 // Model handling
 // ---------------------------------------------------------------------------
 
+let rootIds = new Set();
+
 function indexModel() {
   nodesById.clear();
   parentOf.clear();
+  rootIds = new Set(model.roots.map((r) => r.id));
   const isMindmap = model.kind === "mindmap";
+  const ttb = model.direction === "ttb";
+  // Branch growth direction per side; transposed for `top to bottom`.
+  const sideDir = (side) =>
+    side === "left" ? (ttb ? "up" : "left") : (ttb ? "down" : "right");
   const walk = (node, parent, dir) => {
     node.dir = dir;
     nodesById.set(node.id, node);
@@ -62,14 +80,14 @@ function indexModel() {
     for (const c of node.children) {
       // Mindmap: the first level fixes the branch direction; deeper
       // levels inherit it. WBS: everything grows down.
-      let childDir = dir;
-      if (isMindmap && node.id === model.root.id) {
-        childDir = c.side === "left" ? "left" : "right";
-      }
+      const childDir =
+        isMindmap && rootIds.has(node.id) ? sideDir(c.side) : dir;
       walk(c, node.id, childDir);
     }
   };
-  walk(model.root, null, isMindmap ? "right" : "down");
+  for (const root of model.roots) {
+    walk(root, null, isMindmap ? sideDir("right") : "down");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +103,10 @@ function measureAll() {
   nodesG.appendChild(probe);
   sizes = {};
   for (const node of nodesById.values()) {
+    if (node.shape === "phantom") {
+      sizes[node.id] = [0, 0];
+      continue;
+    }
     const text = buildText(node, 0);
     probe.appendChild(text);
     let maxW = 0;
@@ -92,8 +114,9 @@ function measureAll() {
       maxW = Math.max(maxW, tspan.getComputedTextLength());
     }
     probe.removeChild(text);
-    const w = maxW + 2 * INSET_X;
-    const h = node.label.length * LINE_H + 2 * INSET_Y;
+    const [ix, iy] = insetsOf(node);
+    const w = maxW + 2 * ix;
+    const h = node.label.length * LINE_H + 2 * iy;
     sizes[node.id] = [w, h];
   }
   nodesG.removeChild(probe);
@@ -106,11 +129,12 @@ function measureAll() {
 function buildText(node, w) {
   const text = document.createElementNS(NS, "text");
   text.setAttribute("text-anchor", "middle");
+  const iy = insetsOf(node)[1];
   node.label.forEach((line, i) => {
     const tspan = document.createElementNS(NS, "tspan");
     tspan.setAttribute("x", w / 2);
     // Vertically center line i inside the box.
-    tspan.setAttribute("y", INSET_Y + (i + 0.5) * LINE_H);
+    tspan.setAttribute("y", iy + (i + 0.5) * LINE_H);
     tspan.setAttribute("dominant-baseline", "central");
     tspan.textContent = line;
     text.appendChild(tspan);
@@ -123,14 +147,10 @@ function buildNodeEl(node, rect) {
   g.setAttribute("class", "tree-node");
   g.dataset.id = node.id;
 
-  if (node.shape === "underline") {
-    const line = document.createElementNS(NS, "line");
-    line.setAttribute("class", "underline");
-    line.setAttribute("x1", 0);
-    line.setAttribute("y1", rect.h);
-    line.setAttribute("x2", rect.w);
-    line.setAttribute("y2", rect.h);
-    g.appendChild(line);
+  if (node.shape === "phantom") {
+    // Removed node: nothing but the fold toggle (appended below).
+  } else if (node.shape === "plain") {
+    // PlantUML `_`: box drawing removed — text only.
   } else {
     const box = document.createElementNS(NS, "rect");
     box.setAttribute("class", "box");
@@ -141,12 +161,36 @@ function buildNodeEl(node, rect) {
     g.appendChild(box);
   }
 
-  g.appendChild(buildText(node, rect.w));
+  if (node.shape !== "phantom") {
+    g.appendChild(buildText(node, rect.w));
+  }
 
-  if (node.children.length > 0) {
+  if (model.kind === "mindmap" && rootIds.has(node.id)) {
+    // A two-sided root folds per side: one toggle on each populated
+    // edge, each pruning only its own column. A single toggle here
+    // would collapse the entire diagram at once — surprising. (With
+    // several stacked maps, a side toggle folds that side of every
+    // map — side fold state is diagram-global.)
+    for (const side of ["left", "right"]) {
+      if (rootSideBranches(node, side).length > 0) {
+        g.appendChild(buildSideToggle(rect, side));
+      }
+    }
+  } else if (node.children.length > 0) {
     g.appendChild(buildToggle(node, rect));
   }
   return g;
+}
+
+function rootSideBranches(rootNode, side) {
+  return rootNode.children.filter(
+    (c) => (c.side === "left") === (side === "left"),
+  );
+}
+
+// All branches on `side` across every root (side folds are global).
+function sideBranches(side) {
+  return model.roots.flatMap((r) => rootSideBranches(r, side));
 }
 
 // Fold affordance: a small circle on the node's outward edge (bottom
@@ -157,6 +201,7 @@ function buildToggle(node, rect) {
   t.setAttribute("class", "fold-toggle");
   const pos =
     node.dir === "down" ? [rect.w / 2, rect.h]
+    : node.dir === "up" ? [rect.w / 2, 0]
     : node.dir === "left" ? [0, rect.h / 2]
     : [rect.w, rect.h / 2];
   const c = document.createElementNS(NS, "circle");
@@ -178,18 +223,67 @@ function buildToggle(node, rect) {
   return t;
 }
 
+/// Side toggle for the mindmap root: sits on the root's left / right
+/// edge and folds only that column.
+function buildSideToggle(rect, side) {
+  const t = document.createElementNS(NS, "g");
+  t.setAttribute("class", "fold-toggle");
+  t.dataset.side = side;
+  // ttb transposes the toggle edges too: left column grows up.
+  const ttb = model.direction === "ttb";
+  const pos =
+    side === "left"
+      ? (ttb ? [rect.w / 2, 0] : [0, rect.h / 2])
+      : (ttb ? [rect.w / 2, rect.h] : [rect.w, rect.h / 2]);
+  const c = document.createElementNS(NS, "circle");
+  c.setAttribute("cx", pos[0]);
+  c.setAttribute("cy", pos[1]);
+  c.setAttribute("r", 3.2);
+  t.appendChild(c);
+  const count = document.createElementNS(NS, "text");
+  count.setAttribute("x", pos[0]);
+  count.setAttribute("y", pos[1] + 2.1);
+  t.appendChild(count);
+  const title = document.createElementNS(NS, "title");
+  t.appendChild(title);
+  t.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    toggleSideFold(side, ev.metaKey || ev.ctrlKey);
+  });
+  t.addEventListener("mousedown", (ev) => ev.stopPropagation());
+  return t;
+}
+
 function refreshToggle(node) {
   const g = nodeEls.get(node.id);
   if (!g) return;
-  const t = g.querySelector(".fold-toggle");
-  if (!t) return;
-  const isFolded = folded.has(node.id);
-  t.classList.toggle("folded", isFolded);
-  const descendants = countDescendants(node);
-  t.querySelector("text").textContent = isFolded ? String(Math.min(descendants, 99)) : "";
-  t.querySelector("title").textContent = isFolded
-    ? `unfold (${descendants} hidden)`
-    : "fold";
+  for (const t of g.querySelectorAll(".fold-toggle")) {
+    const side = t.dataset.side;
+    if (side) {
+      const isFolded = foldedSides.has(side);
+      const hidden = sideBranches(side).reduce(
+        (n, b) => n + 1 + countDescendants(b),
+        0,
+      );
+      t.classList.toggle("folded", isFolded);
+      t.querySelector("text").textContent = isFolded
+        ? String(Math.min(hidden, 99))
+        : "";
+      t.querySelector("title").textContent = isFolded
+        ? `unfold ${side} side (${hidden} hidden)`
+        : `fold ${side} side`;
+    } else {
+      const isFolded = folded.has(node.id);
+      const descendants = countDescendants(node);
+      t.classList.toggle("folded", isFolded);
+      t.querySelector("text").textContent = isFolded
+        ? String(Math.min(descendants, 99))
+        : "";
+      t.querySelector("title").textContent = isFolded
+        ? `unfold (${descendants} hidden)`
+        : "fold";
+    }
+  }
 }
 
 function countDescendants(node) {
@@ -204,8 +298,9 @@ function countDescendants(node) {
 // ---------------------------------------------------------------------------
 
 function relayout() {
+  const foldedPayload = [...folded, ...foldedSides];
   const dl = JSON.parse(
-    treeLayout(modelStr, JSON.stringify(sizes), JSON.stringify([...folded]), EM),
+    treeLayout(modelStr, JSON.stringify(sizes), JSON.stringify(foldedPayload), EM),
   );
   return dl;
 }
@@ -354,6 +449,25 @@ function animateEdges(oldPts) {
 // Interaction
 // ---------------------------------------------------------------------------
 
+function toggleSideFold(side, recursive) {
+  const willFold = !foldedSides.has(side);
+  if (willFold) foldedSides.add(side);
+  else foldedSides.delete(side);
+  if (recursive) {
+    // Also set/clear per-node fold state inside the column so a later
+    // unfold reveals it collapsed (folding) or fully open (unfolding).
+    const walk = (m) => {
+      if (m.children.length > 0) {
+        if (willFold) folded.add(m.id);
+        else folded.delete(m.id);
+      }
+      for (const c of m.children) walk(c);
+    };
+    for (const b of sideBranches(side)) walk(b);
+  }
+  render(relayout(), model.roots[0].id);
+}
+
 function toggleFold(id, recursive) {
   const node = nodesById.get(id);
   if (!node || node.children.length === 0) return;
@@ -447,6 +561,7 @@ function load(source) {
   }
   model = JSON.parse(modelStr);
   folded = new Set();
+  foldedSides = new Set();
   nodesG.replaceChildren();
   edgesG.replaceChildren();
   nodeEls = new Map();
@@ -467,6 +582,7 @@ async function main() {
   document.getElementById("btn-fit").addEventListener("click", fit);
   document.getElementById("btn-expand-all").addEventListener("click", () => {
     folded.clear();
+    foldedSides.clear();
     render(relayout());
   });
   setupPanZoom();
@@ -484,6 +600,17 @@ async function main() {
   }
   load(document.getElementById("source").value);
 
+  // ?fold=7 or ?fold=1,4 — pre-fold nodes by id (handy for sharing a
+  // partially-collapsed view and for headless checks).
+  const foldParam = new URLSearchParams(location.search).get("fold");
+  if (foldParam) {
+    for (const part of foldParam.split(",")) {
+      const id = Number(part);
+      if (Number.isInteger(id)) toggleFold(id, false);
+    }
+    fit();
+  }
+
   // Headless self-test hook (?selftest=1): exercise the fold loop and
   // report element counts into #status for a --dump-dom assertion.
   if (new URLSearchParams(location.search).get("selftest")) {
@@ -496,7 +623,7 @@ async function main() {
     results.push(`initial n=${initial.nodes} e=${initial.edges}`);
     // Fold the first foldable non-root node.
     const target = [...nodesById.values()].find(
-      (n) => n.id !== model.root.id && n.children.length > 0,
+      (n) => !rootIds.has(n.id) && n.children.length > 0,
     );
     toggleFold(target.id, false);
     await new Promise((r) => setTimeout(r, 2 * DURATION));
@@ -506,10 +633,22 @@ async function main() {
     await new Promise((r) => setTimeout(r, 2 * DURATION));
     const back = count();
     results.push(`unfolded n=${back.nodes} e=${back.edges}`);
-    toggleFold(model.root.id, true); // recursive fold-all from root
-    await new Promise((r) => setTimeout(r, 2 * DURATION));
-    const all = count();
-    results.push(`fold-all n=${all.nodes} e=${all.edges}`);
+    if (model.kind === "mindmap" && sideBranches("left").length > 0) {
+      toggleSideFold("left", false);
+      await new Promise((r) => setTimeout(r, 2 * DURATION));
+      const sideF = count();
+      results.push(`fold-left n=${sideF.nodes} e=${sideF.edges}`);
+      toggleSideFold("left", false);
+      await new Promise((r) => setTimeout(r, 2 * DURATION));
+      const sideU = count();
+      results.push(`unfold-left n=${sideU.nodes} e=${sideU.edges}`);
+    }
+    if (model.kind === "wbs") {
+      toggleFold(model.roots[0].id, true); // recursive fold-all from root
+      await new Promise((r) => setTimeout(r, 2 * DURATION));
+      const all = count();
+      results.push(`fold-all n=${all.nodes} e=${all.edges}`);
+    }
     statusEl.textContent = `SELFTEST ${results.join(" | ")}`;
   }
 }

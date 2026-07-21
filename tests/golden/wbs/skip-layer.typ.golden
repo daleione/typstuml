@@ -1,0 +1,33 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, tree-layout(
+  width: 376.465pt,
+  height: 96.320pt,
+  nodes: (
+    (x: 97.005pt, y: 0.000pt, w: 50.100pt, h: 14.580pt, body: node[Director]),
+    (x: 0.000pt, y: 36.580pt, w: 67.310pt, h: 14.580pt, body: node[Team Lead 1 ]),
+    (x: 45.655pt, y: 59.160pt, w: 60.000pt, h: 14.580pt, body: node[Engineer 1]),
+    (x: 45.655pt, y: 81.740pt, w: 60.000pt, h: 14.580pt, body: node[Engineer 2]),
+    (x: 88.400pt, y: 36.580pt, w: 67.310pt, h: 14.580pt, body: node[Team Lead 2 ]),
+    (x: 134.055pt, y: 59.160pt, w: 60.000pt, h: 14.580pt, body: node[Engineer 3]),
+    (x: 134.055pt, y: 81.740pt, w: 60.000pt, h: 14.580pt, body: node[Engineer 4]),
+    (x: 222.455pt, y: 44.980pt, w: 154.010pt, h: 14.580pt, body: node[Engineer 5 (reporting to Director) ]),
+    (x: 222.455pt, y: 67.560pt, w: 154.010pt, h: 14.580pt, body: node[Engineer 6 (reporting to Director)]),
+  ),
+  edges: (
+    (points: ((122.055pt, 14.580pt), (122.055pt, 25.580pt), (33.655pt, 25.580pt), (33.655pt, 36.580pt),),),
+    (points: ((33.655pt, 66.450pt), (45.655pt, 66.450pt),),),
+    (points: ((33.655pt, 89.030pt), (45.655pt, 89.030pt),),),
+    (points: ((33.655pt, 51.160pt), (33.655pt, 89.030pt),),),
+    (points: ((122.055pt, 14.580pt), (122.055pt, 36.580pt),),),
+    (points: ((122.055pt, 66.450pt), (134.055pt, 66.450pt),),),
+    (points: ((122.055pt, 89.030pt), (134.055pt, 89.030pt),),),
+    (points: ((122.055pt, 51.160pt), (122.055pt, 89.030pt),),),
+    (points: ((122.055pt, 14.580pt), (122.055pt, 25.580pt), (210.455pt, 25.580pt), (210.455pt, 36.580pt),),),
+    (points: ((210.455pt, 52.270pt), (222.455pt, 52.270pt),),),
+    (points: ((210.455pt, 74.850pt), (222.455pt, 74.850pt),),),
+    (points: ((210.455pt, 36.980pt), (210.455pt, 74.850pt),),),
+  ),
+))

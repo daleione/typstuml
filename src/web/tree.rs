@@ -3,7 +3,7 @@
 //! Model shape (per node):
 //!
 //! ```json
-//! { "id": 0, "label": ["line1"], "shape": "rect" | "underline",
+//! { "id": 0, "label": ["line1"], "shape": "rect" | "plain",
 //!   "fill": "#RRGGBB" | null, "side": "left" | "right" | "default",
 //!   "children": [ … ] }
 //! ```
@@ -28,8 +28,11 @@ use std::collections::{HashMap, HashSet};
 use serde_json::{json, Value};
 
 use crate::diagnostics::CompatMode;
-use crate::ir::{Diagram, NodeShape, NodeSide, TreeNode};
-use crate::layout::tree::{layout_mindmap, layout_wbs, TreeConfig, TreeLayoutInput};
+use crate::ir::{Diagram, MapDirection, NodeShape, NodeSide, TreeNode};
+use crate::layout::tree::{
+    layout_mindmap, layout_wbs, stack_layouts, transpose_layout, Side, TreeConfig,
+    TreeLayoutInput,
+};
 
 /// Parse `source` and build the model JSON for its first WBS / mind-map
 /// diagram. Errors mirror the render path's diagnostics.
@@ -39,16 +42,27 @@ pub fn model_json(source: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     for diagram in &parsed.document.diagrams {
-        let (kind, title, root) = match diagram {
-            Diagram::Wbs(w) => ("wbs", &w.title, &w.root),
-            Diagram::MindMap(m) => ("mindmap", &m.title, &m.root),
+        let (kind, title, roots, direction) = match diagram {
+            Diagram::Wbs(w) => ("wbs", &w.title, std::slice::from_ref(&w.root), "ltr"),
+            Diagram::MindMap(m) => (
+                "mindmap",
+                &m.title,
+                m.roots.as_slice(),
+                match m.direction {
+                    MapDirection::LeftToRight => "ltr",
+                    MapDirection::TopToBottom => "ttb",
+                },
+            ),
             _ => continue,
         };
         let mut counter = 0;
+        let roots_json: Vec<Value> =
+            roots.iter().map(|r| node_json(r, &mut counter)).collect();
         let model = json!({
             "kind": kind,
             "title": title,
-            "root": node_json(root, &mut counter),
+            "direction": direction,
+            "roots": roots_json,
         });
         return serde_json::to_string(&model).map_err(|e| e.to_string());
     }
@@ -64,9 +78,17 @@ fn node_json(node: &TreeNode, counter: &mut usize) -> Value {
         "label": label_lines(node),
         "shape": match node.shape {
             NodeShape::Box => "rect",
-            NodeShape::Line => "underline",
+            // PlantUML `_`: box drawing removed entirely.
+            NodeShape::Line => "plain",
+            // `_` without a label: node removed (zero-size joint).
+            NodeShape::Phantom => "phantom",
         },
-        "fill": node.fill.as_deref().and_then(css_color),
+        // PlantUML ignores `[#color]` on boxless nodes.
+        "fill": if matches!(node.shape, NodeShape::Line | NodeShape::Phantom) {
+            None
+        } else {
+            node.fill.as_deref().and_then(css_color)
+        },
         "side": match node.side {
             NodeSide::Left => "left",
             NodeSide::Right => "right",
@@ -88,43 +110,12 @@ fn label_lines(node: &TreeNode) -> Vec<String> {
     }
 }
 
-/// Translate a PlantUML `#color` spec to a CSS color. Mirrors
-/// `tree_emit::typst_color`'s accepted forms — same hex passthrough,
-/// same 16 named colors — but resolves the names to the hex values
-/// Typst's built-in color constants use, so both renderers show the
-/// same paint. Unknown forms return `None` (painter default fill),
-/// matching the CLI's silent-fallback behaviour.
+/// Translate a PlantUML `#color` spec to a CSS color via the shared
+/// resolver — the exact same table `tree_emit::typst_color` uses, so
+/// both renderers show identical paint. Unknown forms return `None`
+/// (painter default fill), matching the CLI's silent fallback.
 fn css_color(spec: &str) -> Option<String> {
-    let s = spec.strip_prefix('#')?;
-    if s.is_empty() {
-        return None;
-    }
-    let is_hex = matches!(s.len(), 3 | 4 | 6 | 8) && s.chars().all(|c| c.is_ascii_hexdigit());
-    if is_hex {
-        return Some(format!("#{s}"));
-    }
-    // Typst built-in color constants (not CSS named colors — Typst's
-    // `red` is #FF4136, CSS's is #FF0000).
-    let hex = match s.to_ascii_lowercase().as_str() {
-        "black" => "#000000",
-        "white" => "#FFFFFF",
-        "gray" => "#AAAAAA",
-        "silver" => "#DDDDDD",
-        "red" => "#FF4136",
-        "maroon" => "#85144B",
-        "yellow" => "#FFDC00",
-        "olive" => "#3D9970",
-        "lime" => "#01FF70",
-        "green" => "#2ECC40",
-        "aqua" => "#7FDBFF",
-        "teal" => "#39CCCC",
-        "blue" => "#0074D9",
-        "navy" => "#001F3F",
-        "fuchsia" => "#F012BE",
-        "purple" => "#B10DC9",
-        _ => return None,
-    };
-    Some(hex.to_string())
+    crate::colors::spec_to_hex(spec)
 }
 
 /// Compute the display list for `model_json` (as produced by
@@ -134,8 +125,11 @@ fn css_color(spec: &str) -> Option<String> {
 ///
 /// `sizes_json`: `{"<id>": [w, h], …}`. A missing entry falls back to a
 /// crude estimate so a half-measured tree still lays out.
-/// `folded_json`: `[id, …]` — children of these nodes are pruned before
-/// layout (their sizes need not be present).
+/// `folded_json`: array of node ids and/or the strings `"left"` /
+/// `"right"`. An id prunes that node's children; a side string prunes
+/// the mind-map root's entire left / right column (a side has no single
+/// node to hang per-node fold state on). Side strings are ignored for
+/// WBS.
 pub fn display_list_json(
     model_json: &str,
     sizes_json: &str,
@@ -146,11 +140,24 @@ pub fn display_list_json(
         serde_json::from_str(model_json).map_err(|e| format!("model: {e}"))?;
     let sizes: HashMap<String, (f64, f64)> =
         serde_json::from_str(sizes_json).map_err(|e| format!("sizes: {e}"))?;
-    let folded: HashSet<usize> =
-        serde_json::from_str::<Vec<usize>>(folded_json)
-            .map_err(|e| format!("folded: {e}"))?
-            .into_iter()
-            .collect();
+    let folded_raw: Vec<Value> =
+        serde_json::from_str(folded_json).map_err(|e| format!("folded: {e}"))?;
+    let mut folded: HashSet<usize> = HashSet::new();
+    let mut fold_left = false;
+    let mut fold_right = false;
+    for v in &folded_raw {
+        match v {
+            Value::Number(n) => {
+                let id = n
+                    .as_u64()
+                    .ok_or_else(|| format!("folded: invalid id {n}"))?;
+                folded.insert(id as usize);
+            }
+            Value::String(s) if s == "left" => fold_left = true,
+            Value::String(s) if s == "right" => fold_right = true,
+            other => return Err(format!("folded: unsupported entry {other}")),
+        }
+    }
     if !(em.is_finite() && em > 0.0) {
         return Err(format!("em must be positive and finite, got {em}"));
     }
@@ -160,29 +167,53 @@ pub fn display_list_json(
         .and_then(Value::as_str)
         .ok_or("model: missing kind")?
         .to_string();
-    let root = model.get("root").ok_or("model: missing root")?;
+    let ttb = model.get("direction").and_then(Value::as_str) == Some("ttb");
+    let roots = model
+        .get("roots")
+        .and_then(Value::as_array)
+        .ok_or("model: missing roots array")?;
+    if roots.is_empty() {
+        return Err("model: empty roots".into());
+    }
 
     let cfg = TreeConfig::from_em(em);
     let layout = match kind.as_str() {
         "wbs" => {
-            let input = build_input(root, &sizes, &folded, em)?;
+            let input = build_input(&roots[0], &sizes, &folded, em)?;
             layout_wbs(&input, &cfg)
         }
         "mindmap" => {
-            let root_input = build_input_shallow(root, &sizes, em)?;
-            let mut lefts = Vec::new();
-            let mut rights = Vec::new();
-            if !folded.contains(&root_input.id) {
-                for child in child_array(root)? {
-                    let side = child.get("side").and_then(Value::as_str).unwrap_or("default");
-                    let input = build_input(child, &sizes, &folded, em)?;
-                    match side {
-                        "left" => lefts.push(input),
-                        _ => rights.push(input),
+            let mut layouts = Vec::new();
+            for root in roots {
+                let mut root_input = build_input_shallow(root, &sizes, em)?;
+                let mut lefts = Vec::new();
+                let mut rights = Vec::new();
+                if !folded.contains(&root_input.id) {
+                    for child in child_array(root)? {
+                        let side =
+                            child.get("side").and_then(Value::as_str).unwrap_or("default");
+                        let is_left = side == "left";
+                        if (is_left && fold_left) || (!is_left && fold_right) {
+                            continue;
+                        }
+                        let mut input = build_input(child, &sizes, &folded, em)?;
+                        if ttb {
+                            swap_sizes(&mut input);
+                        }
+                        if is_left {
+                            lefts.push(input);
+                        } else {
+                            rights.push(input);
+                        }
                     }
                 }
+                if ttb {
+                    swap_sizes(&mut root_input);
+                }
+                let l = layout_mindmap(&root_input, &lefts, &rights, &cfg);
+                layouts.push(if ttb { transpose_layout(l) } else { l });
             }
-            layout_mindmap(&root_input, &lefts, &rights, &cfg)
+            stack_layouts(layouts, cfg.y_gap, ttb)
         }
         other => return Err(format!("model: unknown kind {other:?}")),
     };
@@ -232,6 +263,9 @@ fn node_id(node: &Value) -> Result<usize, String> {
 /// uses (max line width + insets) so an unmeasured node still occupies
 /// plausible space.
 fn node_size(node: &Value, sizes: &HashMap<String, (f64, f64)>, em: f64) -> Result<(f64, f64), String> {
+    if node.get("shape").and_then(Value::as_str) == Some("phantom") {
+        return Ok((0.0, 0.0));
+    }
     let id = node_id(node)?;
     if let Some(&(w, h)) = sizes.get(&id.to_string()) {
         if w.is_finite() && h.is_finite() && w >= 0.0 && h >= 0.0 {
@@ -260,6 +294,24 @@ fn node_size(node: &Value, sizes: &HashMap<String, (f64, f64)>, em: f64) -> Resu
     Ok((text_w + 1.6 * em, text_h + 0.8 * em))
 }
 
+/// Recursively swap (w, h) — the transpose trick for `ttb` mind maps.
+fn swap_sizes(input: &mut TreeLayoutInput) {
+    input.size = (input.size.1, input.size.0);
+    for c in &mut input.children {
+        swap_sizes(c);
+    }
+}
+
+/// Model `side` string → layout side (WBS outline column). `left` maps
+/// left; `right` / `default` (and anything unknown) map right, same as
+/// the CLI path.
+fn layout_side(node: &Value) -> Side {
+    match node.get("side").and_then(Value::as_str) {
+        Some("left") => Side::Left,
+        _ => Side::Right,
+    }
+}
+
 /// Build the layout input for one subtree, pruning children of folded
 /// nodes.
 fn build_input(
@@ -278,7 +330,12 @@ fn build_input(
             .map(|c| build_input(c, sizes, folded, em))
             .collect::<Result<Vec<_>, _>>()?
     };
-    Ok(TreeLayoutInput { id, size, children })
+    Ok(TreeLayoutInput {
+        id,
+        size,
+        side: layout_side(node),
+        children,
+    })
 }
 
 /// The mindmap central root participates without its children (they
@@ -291,6 +348,7 @@ fn build_input_shallow(
     Ok(TreeLayoutInput {
         id: node_id(node)?,
         size: node_size(node, sizes, em)?,
+        side: layout_side(node),
         children: Vec::new(),
     })
 }
@@ -299,7 +357,7 @@ fn build_input_shallow(
 mod tests {
     use super::*;
 
-    const MINDMAP_SRC: &str = "@startmindmap\n* Root\n+ R1\n++ R1a\n- L1\n@endmindmap\n";
+    const MINDMAP_SRC: &str = "@startmindmap\n* Root\n** R1\n*** R1a\n-- L1\n@endmindmap\n";
     const WBS_SRC: &str = "@startwbs\n* Root\n** A\n*** A1\n** B\n@endwbs\n";
 
     fn sizes_for(model: &str) -> String {
@@ -312,7 +370,9 @@ mod tests {
                 walk(c, ids);
             }
         }
-        walk(&v["root"], &mut ids);
+        for root in v["roots"].as_array().unwrap() {
+            walk(root, &mut ids);
+        }
         let map: HashMap<String, [f64; 2]> =
             ids.into_iter().map(|i| (i.to_string(), [60.0, 20.0])).collect();
         serde_json::to_string(&map).unwrap()
@@ -323,11 +383,37 @@ mod tests {
         let model = model_json(MINDMAP_SRC).unwrap();
         let v: Value = serde_json::from_str(&model).unwrap();
         assert_eq!(v["kind"], "mindmap");
-        assert_eq!(v["root"]["id"], 0);
-        assert_eq!(v["root"]["children"][0]["id"], 1);
-        assert_eq!(v["root"]["children"][0]["children"][0]["id"], 2);
-        assert_eq!(v["root"]["children"][1]["id"], 3);
-        assert_eq!(v["root"]["children"][1]["side"], "left");
+        assert_eq!(v["direction"], "ltr");
+        let root = &v["roots"][0];
+        assert_eq!(root["id"], 0);
+        assert_eq!(root["children"][0]["id"], 1);
+        assert_eq!(root["children"][0]["children"][0]["id"], 2);
+        assert_eq!(root["children"][1]["id"], 3);
+        assert_eq!(root["children"][1]["side"], "left");
+    }
+
+    #[test]
+    fn multiroot_and_ttb_survive_model_and_layout() {
+        let src = "@startmindmap\ntop to bottom direction\n* R1\n** A\n* R2\n** B\n@endmindmap\n";
+        let model = model_json(src).unwrap();
+        let v: Value = serde_json::from_str(&model).unwrap();
+        assert_eq!(v["direction"], "ttb");
+        assert_eq!(v["roots"].as_array().unwrap().len(), 2);
+        let dl = display_list_json(&model, &sizes_for(&model), "[]", 10.0).unwrap();
+        let d: Value = serde_json::from_str(&dl).unwrap();
+        assert_eq!(d["nodes"].as_array().unwrap().len(), 4);
+        // ttb: children sit below their roots; maps stack horizontally.
+        let pos = |id: u64| -> (f64, f64) {
+            let n = d["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"].as_u64().unwrap() == id)
+                .unwrap();
+            (n["x"].as_f64().unwrap(), n["y"].as_f64().unwrap())
+        };
+        assert!(pos(1).1 > pos(0).1, "A below R1");
+        assert!(pos(2).0 > pos(0).0, "R2 right of R1's map");
     }
 
     #[test]
@@ -336,7 +422,8 @@ mod tests {
         let dl = display_list_json(&model, &sizes_for(&model), "[]", 10.0).unwrap();
         let v: Value = serde_json::from_str(&dl).unwrap();
         assert_eq!(v["nodes"].as_array().unwrap().len(), 4);
-        assert_eq!(v["edges"].as_array().unwrap().len(), 3);
+        // Level-2 elbows (Root→A, Root→B) + A's outline trunk + stub.
+        assert_eq!(v["edges"].as_array().unwrap().len(), 4);
         assert!(v["width"].as_f64().unwrap() > 0.0);
     }
 
@@ -354,6 +441,33 @@ mod tests {
             .collect();
         assert_eq!(ids, vec![0, 1, 3]);
         assert_eq!(v["edges"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn side_fold_prunes_one_mindmap_column() {
+        let model = model_json(MINDMAP_SRC).unwrap();
+        // Fold the left side: L1 (id 3) disappears, right side stays.
+        let dl =
+            display_list_json(&model, &sizes_for(&model), "[\"left\"]", 10.0).unwrap();
+        let v: Value = serde_json::from_str(&dl).unwrap();
+        let ids: Vec<u64> = v["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_u64().unwrap())
+            .collect();
+        assert_eq!(ids, vec![0, 1, 2], "left column pruned: {ids:?}");
+        // Mixed ids + side strings compose.
+        let dl2 =
+            display_list_json(&model, &sizes_for(&model), "[\"left\", 1]", 10.0).unwrap();
+        let v2: Value = serde_json::from_str(&dl2).unwrap();
+        let ids2: Vec<u64> = v2["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_u64().unwrap())
+            .collect();
+        assert_eq!(ids2, vec![0, 1], "R1's child also pruned: {ids2:?}");
     }
 
     #[test]
@@ -384,8 +498,12 @@ mod tests {
     }
 
     #[test]
-    fn named_colors_resolve_to_typst_hex() {
-        assert_eq!(css_color("#red").as_deref(), Some("#FF4136"));
+    fn named_colors_resolve_via_shared_table() {
+        // PlantUML uses the SVG/X11 keywords: `red` is #FF0000 (not
+        // Typst's #FF4136) — both backends resolve through
+        // `crate::colors` so they agree.
+        assert_eq!(css_color("#red").as_deref(), Some("#FF0000"));
+        assert_eq!(css_color("#lightgreen").as_deref(), Some("#90EE90"));
         assert_eq!(css_color("#FF0000").as_deref(), Some("#FF0000"));
         assert_eq!(css_color("#notacolor"), None);
     }

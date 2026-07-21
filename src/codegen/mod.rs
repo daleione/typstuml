@@ -201,10 +201,15 @@ pub fn emit_probes(
                 activity::collect_probes(a, idx, &mut out, &mut expected_ids);
             }
             Diagram::Wbs(w) => {
-                tree_graph::collect_probes(&w.root, idx, &mut out, &mut expected_ids);
+                tree_graph::collect_probes(
+                    std::slice::from_ref(&w.root),
+                    idx,
+                    &mut out,
+                    &mut expected_ids,
+                );
             }
             Diagram::MindMap(m) => {
-                tree_graph::collect_probes(&m.root, idx, &mut out, &mut expected_ids);
+                tree_graph::collect_probes(&m.roots, idx, &mut out, &mut expected_ids);
             }
             _ => {}
         }

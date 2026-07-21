@@ -1,10 +1,10 @@
 @startmindmap
 * Operating system
-+ Engineering
-++ Backend
-++ Frontend
-+ Marketing
-- Long term
--- Vision
--- Roadmap
+** Engineering
+*** Backend
+*** Frontend
+** Marketing
+-- Long term
+--- Vision
+--- Roadmap
 @endmindmap

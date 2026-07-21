@@ -1,30 +1,38 @@
 //! Shared per-node Typst emission used by WBS and mind-map codegen.
 //!
-//! Both diagrams emit `node[…]` / `node(fill: …, shape: "underline")[…]`
+//! Both diagrams emit `node[…]` / `node(fill: …, shape: "plain")[…]`
 //! calls — as probe bodies in pass-1 and as `tree-layout` node bodies in
 //! pass-2 (see [`super::tree_graph`]). This module owns that single-node
 //! emission plus the title helper and the narrow color-spec translation.
 //!
-//! Color spec parsing here is deliberately narrow: `#hex` and a tiny set
-//! of Typst-built-in named colors. Unknown forms degrade silently to the
-//! painter's default fill so we never emit something Typst would reject.
-//! The shared color-spec parser (roadmap P0.3) will replace this with a
-//! fuller mapping.
+//! Color specs resolve through the shared [`crate::colors`] table
+//! (hex + the full SVG/X11 name set PlantUML accepts). Unknown forms
+//! degrade silently to the painter's default fill so we never emit
+//! something Typst would reject.
 
 use crate::ir::{NodeShape, TreeNode};
 
-/// Emit `node[…]` or `node(fill: …, shape: "underline")[…]` for a single
+/// Emit `node[…]` or `node(fill: …, shape: "plain")[…]` for a single
 /// node, including any decoration arguments.
 pub fn emit_node_call(out: &mut String, node: &TreeNode) {
-    let fill_arg = node.fill.as_deref().and_then(typst_color);
-    let needs_underline = matches!(node.shape, NodeShape::Line);
+    // Phantoms are never painted — emitters skip them entirely; this
+    // arm only exists so a stray call degrades to the boxless form.
+    let boxless = matches!(node.shape, NodeShape::Line | NodeShape::Phantom);
+    // PlantUML ignores `[#color]` on `_` (boxless) nodes — skip the
+    // fill arg so the painter doesn't have to.
+    let fill_arg = if boxless {
+        None
+    } else {
+        node.fill.as_deref().and_then(typst_color)
+    };
 
     let mut args: Vec<String> = Vec::new();
     if let Some(fill) = fill_arg {
         args.push(format!("fill: {fill}"));
     }
-    if needs_underline {
-        args.push("shape: \"underline\"".into());
+    if boxless {
+        // `_` = "remove the box drawing" → the painter's bare-text shape.
+        args.push("shape: \"plain\"".into());
     }
 
     if args.is_empty() {
@@ -72,26 +80,13 @@ pub fn emit_title(out: &mut String, title: &str) {
     out.push_str("*]\n\n");
 }
 
-/// Translate a PlantUML `#color` spec to a Typst color expression. Returns
-/// `None` for forms we can't safely lower; the caller falls back to the
-/// painter's default fill instead of emitting something Typst would reject.
+/// Translate a PlantUML `#color` spec (hex or SVG/X11 color name) to a
+/// Typst color expression via the shared resolver ([`crate::colors`]).
+/// Returns `None` for forms we can't safely lower; the caller falls back
+/// to the painter's default fill instead of emitting something Typst
+/// would reject.
 pub fn typst_color(spec: &str) -> Option<String> {
-    let s = spec.strip_prefix('#')?;
-    if s.is_empty() {
-        return None;
-    }
-    let is_hex = matches!(s.len(), 3 | 4 | 6 | 8) && s.chars().all(|c| c.is_ascii_hexdigit());
-    if is_hex {
-        return Some(format!("rgb(\"#{s}\")"));
-    }
-    // Tiny built-in mapping — Typst only provides a small set of named
-    // colors out of the box; anything unrecognised drops to default.
-    let lower = s.to_ascii_lowercase();
-    match lower.as_str() {
-        "black" | "white" | "gray" | "silver" | "red" | "maroon" | "yellow" | "olive" | "lime"
-        | "green" | "aqua" | "teal" | "blue" | "navy" | "fuchsia" | "purple" => Some(lower),
-        _ => None,
-    }
+    crate::colors::spec_to_hex(spec).map(|hex| format!("rgb(\"{hex}\")"))
 }
 
 pub(crate) use crate::codegen::common::escape_markup as typst_markup_escape;

@@ -27,7 +27,7 @@ use crate::diagnostics::{CompatMode, Diagnostic, Result};
 use crate::ir::{Diagram, NodeShape, NodeSide, TreeNode, WbsDiagram};
 use crate::parser::common::strip_keyword_trimmed as strip_keyword;
 use crate::parser::lexer::{BodyLine, UmlBlock};
-use crate::parser::tree::{self, ParsedMarker};
+use crate::parser::tree::{self, ParsedItem, ParsedMarker};
 
 pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagnostic>)> {
     let (root, title, diagnostics) = tree::build_tree(block, compat, "WBS", parse_marker_line)?;
@@ -44,50 +44,65 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
 /// Parse the marker line at `body[start]` plus any continuation lines if it
 /// opens a multi-line `:label;` block. Returns the parsed node and the
 /// number of body lines consumed (>= 1).
-fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(ParsedMarker, usize), String> {
+fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(ParsedItem, usize), String> {
     let line = &body[start];
     let raw = line.text.trim_start_matches([' ', '\t']);
 
-    // 1. Markers.
-    let marker_len = raw
+    // 1. Markers. WBS accepts "arithmetic notation": mixed runs of
+    //    `+` / `-` (and `*`), where depth is the run length and the
+    //    LAST character picks the side — `++-` is a depth-3 node
+    //    hanging left, `----` a depth-4 node hanging left (verified
+    //    against PlantUML 1.2024.7). Leading whitespace adds to the
+    //    raw depth, same as the mind-map form.
+    let indent = line.text.len() - raw.len();
+    let marker: Vec<char> = raw
         .chars()
         .take_while(|c| matches!(c, '*' | '+' | '-'))
-        .count();
+        .collect();
+    let marker_len = marker.len();
     if marker_len == 0 {
         return Err(format!(
             "expected a `*`, `+`, or `-` marker at line {}",
             line.line
         ));
     }
-    let depth = marker_len;
+    let depth = indent + marker_len;
     let mut rest = &raw[marker_len..];
 
     // 2. Optional decorations: `<` / `>` (one of, either side of `_`) and
     //    `_` (shape modifier). PlantUML accepts them in either order. We
     //    tolerate whitespace between the marker and decorations (PlantUML
     //    itself doesn't, but users routinely write `* < Foo` and the
-    //    leniency costs nothing).
-    let mut side = NodeSide::Default;
+    //    leniency costs nothing). An explicit `<` / `>` overrides the
+    //    arithmetic-notation side from the marker run.
+    let mut side = match marker.last() {
+        Some('+') => NodeSide::Right,
+        Some('-') => NodeSide::Left,
+        _ => NodeSide::Default,
+    };
+    let mut explicit_side = false;
     let mut shape = NodeShape::Box;
     loop {
         rest = rest.trim_start();
         if let Some(after) = rest.strip_prefix('<') {
-            if side != NodeSide::Default {
+            if explicit_side {
                 return Err(format!(
                     "duplicate WBS direction marker at line {}",
                     line.line
                 ));
             }
             side = NodeSide::Left;
+            explicit_side = true;
             rest = after;
         } else if let Some(after) = rest.strip_prefix('>') {
-            if side != NodeSide::Default {
+            if explicit_side {
                 return Err(format!(
                     "duplicate WBS direction marker at line {}",
                     line.line
                 ));
             }
             side = NodeSide::Right;
+            explicit_side = true;
             rest = after;
         } else if let Some(after) = rest.strip_prefix('_') {
             if shape != NodeShape::Box {
@@ -155,7 +170,7 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
         }
         let code = after_as.to_string();
         return Ok((
-            ParsedMarker {
+            ParsedItem::Marker(ParsedMarker {
                 depth,
                 node: TreeNode {
                     label: vec![code.clone()],
@@ -166,15 +181,25 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
                     line: line.line,
                     children: Vec::new(),
                 },
-            },
+            }),
             1,
         ));
     }
 
     // 6. Single-line label, or the multi-line `:line1 … ;` form.
     let (label, consumed) = tree::parse_label(body, start, label_part, "WBS")?;
+
+    // PlantUML "skipping a layer": `_` with NO label removes the node
+    // completely — zero-size phantom, children report to the
+    // grandparent visually.
+    let shape = if shape == NodeShape::Line && label.is_empty() && id.is_none() {
+        NodeShape::Phantom
+    } else {
+        shape
+    };
+
     Ok((
-        ParsedMarker {
+        ParsedItem::Marker(ParsedMarker {
             depth,
             node: TreeNode {
                 label,
@@ -185,7 +210,7 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
                 line: line.line,
                 children: Vec::new(),
             },
-        },
+        }),
         consumed,
     ))
 }
@@ -193,7 +218,7 @@ fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(Pa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagnostics::{Error, Level};
+    use crate::diagnostics::Error;
 
     fn block(body: &[&str]) -> UmlBlock {
         UmlBlock {
@@ -298,26 +323,81 @@ mod tests {
     }
 
     #[test]
-    fn warns_on_depth_jump() {
+    fn arithmetic_notation_last_char_picks_side() {
+        // PlantUML WBS "arithmetic notation": mixed `+`/`-` runs, depth
+        // = run length, LAST char picks the side (`++-` → depth 3,
+        // left). Verified against PlantUML 1.2024.7.
+        let (d, diags) = parse(
+            &block(&[
+                "+ Root",
+                "++ A",
+                "+++ A1",
+                "++- B",
+                "+++- B1",
+                "---- deep-left",
+            ]),
+            CompatMode::Warn,
+        )
+        .unwrap();
+        assert!(diags.is_empty(), "arithmetic runs are legal: {diags:?}");
+        let w = wbs(d);
+        assert_eq!(w.root.label, vec!["Root"]);
+        // Depth = run length: `++` → level 2, `++-`/`+++` → level 3, ….
+        let a = &w.root.children[0];
+        assert_eq!(a.side, NodeSide::Right);
+        assert_eq!(a.children[0].side, NodeSide::Right); // +++ A1
+        let b = &a.children[1];
+        assert_eq!(b.label, vec!["B"]);
+        assert_eq!(b.side, NodeSide::Left); // ++-
+        assert_eq!(b.children[0].label, vec!["B1"]);
+        assert_eq!(b.children[0].side, NodeSide::Left); // +++-
+        assert_eq!(b.children[1].label, vec!["deep-left"]);
+        assert_eq!(b.children[1].side, NodeSide::Left); // ----
+    }
+
+    #[test]
+    fn labelless_underscore_becomes_phantom() {
+        // "Skipping a layer": `_` with no label removes the node.
+        let (d, _) = parse(
+            &block(&["* Root", "**_", "*** E5", "*** E6", "**_ labeled"]),
+            CompatMode::Warn,
+        )
+        .unwrap();
+        let w = wbs(d);
+        let phantom = &w.root.children[0];
+        assert_eq!(phantom.shape, NodeShape::Phantom);
+        assert_eq!(phantom.children.len(), 2);
+        assert_eq!(phantom.children[0].label, vec!["E5"]);
+        // With a label, `_` stays a visible boxless node.
+        assert_eq!(w.root.children[1].shape, NodeShape::Line);
+        assert_eq!(w.root.children[1].label, vec!["labeled"]);
+    }
+
+    #[test]
+    fn explicit_angle_overrides_arithmetic_side() {
+        let (d, _) = parse(&block(&["+ Root", "++> right", "++< left"]), CompatMode::Warn)
+            .unwrap();
+        let w = wbs(d);
+        assert_eq!(w.root.children[0].side, NodeSide::Right);
+        // `<` wins over the `+` run's right side.
+        assert_eq!(w.root.children[1].side, NodeSide::Left);
+    }
+
+    #[test]
+    fn depth_jump_clamps_to_child() {
+        // PlantUML attaches a skipped-level node under the nearest
+        // shallower ancestor instead of erroring; the shared driver's
+        // raw-depth stack mirrors that (it also enables the indented
+        // single-`*` syntax).
         let (d, diags) = parse(
             &block(&["* Root", "*** Skipped grandchild"]),
             CompatMode::Warn,
         )
         .unwrap();
         let w = wbs(d);
-        // Root keeps no children — the malformed line was dropped.
-        assert!(w.root.children.is_empty());
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].level, Level::Warning);
-    }
-
-    #[test]
-    fn strict_mode_rejects_depth_jump() {
-        let res = parse(
-            &block(&["* Root", "*** Skipped grandchild"]),
-            CompatMode::Strict,
-        );
-        assert!(matches!(res, Err(Error::Parse { .. })));
+        assert!(diags.is_empty(), "clamps silently: {diags:?}");
+        assert_eq!(w.root.children.len(), 1);
+        assert_eq!(w.root.children[0].label, vec!["Skipped grandchild"]);
     }
 
     #[test]

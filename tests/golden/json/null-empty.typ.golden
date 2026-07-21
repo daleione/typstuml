@@ -3,7 +3,7 @@
 #import "/blockcell/lib.typ": *
 
 #record-layout(
-  title: [Null / empty / boolean leaves],
+  title: [Null \/ empty \/ boolean leaves],
   records: (
     (x: 6.00pt, y: 3.00pt, rows: ((key: [title], value: ["Untitled draft"]), (key: [author], value: [␀]), (key: [published], value: [☒ false]), (key: [tags], value: []), (key: [metadata], value: []), (key: [revisions], value: [0]))),
   ),

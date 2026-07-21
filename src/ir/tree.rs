@@ -13,15 +13,28 @@ pub struct WbsDiagram {
     pub root: TreeNode,
 }
 
-/// Mind-map diagram (`@startmindmap`). Same `TreeNode` shape as WBS; codegen
-/// classifies each first-level child by its [`NodeSide`] and emits a
-/// `mindmap(root, lefts: (...), rights: (...))` call. Deeper levels stay in
-/// the chosen direction via `tree.typ`'s direction-state inheritance.
+/// Mind-map diagram (`@startmindmap`). Same `TreeNode` shape as WBS.
+/// Codegen classifies each root's first-level children by [`NodeSide`]
+/// and lays the two columns out around the central root.
+///
+/// `roots`: PlantUML allows several depth-1 nodes in one block; each
+/// becomes its own mind map, stacked vertically in the render (always
+/// at least one entry). `direction` mirrors the `top to bottom
+/// direction` directive — the whole diagram transposes, so `left`-side
+/// branches grow upward and `right`-side branches grow downward.
 #[derive(Clone, Debug)]
 pub struct MindMapDiagram {
     pub name: Option<String>,
     pub title: Option<String>,
-    pub root: TreeNode,
+    pub roots: Vec<TreeNode>,
+    pub direction: MapDirection,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+pub enum MapDirection {
+    #[default]
+    LeftToRight,
+    TopToBottom,
 }
 
 #[derive(Clone, Debug)]
@@ -60,8 +73,14 @@ pub enum NodeSide {
 pub enum NodeShape {
     /// Default filled rounded box.
     Box,
-    /// PlantUML's `_` modifier — single underline, no fill / no border.
-    /// v1 codegen still emits a default node here; the M3 painter will add
-    /// the `"underline"` shape variant to `node()`.
+    /// PlantUML's `_` modifier — "remove the box drawing": bare text,
+    /// no border, no fill (an explicit `[#color]` is ignored, matching
+    /// PlantUML). Codegen maps this to the painter's `"plain"` shape.
     Line,
+    /// PlantUML's `_` **without a label** (WBS "skipping a layer"):
+    /// the node is removed completely — zero size, never painted — and
+    /// its children hang off a trunk dropped straight from the point
+    /// where the node would have been, visually reporting to the
+    /// grandparent.
+    Phantom,
 }

@@ -31,7 +31,10 @@ pub(crate) fn escape_markup(s: &str) -> String {
     for c in s.chars() {
         match c {
             '\\' => out.push_str("\\\\"),
-            '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' => {
+            // `/` is escaped because `//` opens a Typst line comment
+            // inside markup — an unescaped `//italics//` label would
+            // swallow the rest of its line.
+            '*' | '_' | '#' | '$' | '`' | '~' | '@' | '<' | '>' | '[' | ']' | '{' | '}' | '/' => {
                 out.push('\\');
                 out.push(c);
             }

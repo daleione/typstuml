@@ -60,10 +60,13 @@
 /// #node(fill: palettes.pastel.yellow)[dir/]
 /// ```
 ///
-/// - `shape`: `"rect"` (default), `"circle"`, `"stadium"`, or `"underline"`.
-///   The `"underline"` variant draws only a bottom rule and skips fill —
-///   PlantUML's `_` modifier on mind-map / WBS nodes maps here.
-/// - `fill`: defaults to `palettes.pastel.blue`. Ignored by `"underline"`.
+/// - `shape`: `"rect"` (default), `"circle"`, `"stadium"`, `"plain"`, or
+///   `"underline"`. `"plain"` is bare text — no box, no fill, tight
+///   insets — matching PlantUML's `_` modifier ("remove the box
+///   drawing") on mind-map / WBS nodes. `"underline"` (text + bottom
+///   rule) stays available for hand-written documents.
+/// - `fill`: defaults to `palettes.pastel.blue`. Ignored by `"plain"`
+///   and `"underline"` (PlantUML ignores `[#color]` on boxless nodes).
 /// - `size`: for circle, the diameter; for rect/stadium/underline, the width.
 ///   `auto` fits the body; circles additionally floor at `2.8em` so BST /
 ///   heap siblings line up without manual sizing.
@@ -94,6 +97,16 @@
     } else {
       render(size)
     }
+  } else if shape == "plain" {
+    // PlantUML's `_` modifier: bare text, no box drawing at all.
+    // Tighter insets than boxed nodes so the connector still gets a
+    // little clearance without the text looking padded.
+    let w = if size == auto { auto } else { size }
+    box(
+      width: w, fill: none, stroke: none, radius: 0pt,
+      inset: (x: 0.4em, y: 0.2em), baseline: 40%,
+      align(center + horizon, body),
+    )
   } else if shape == "underline" {
     let w = if size == auto { auto } else { size }
     box(

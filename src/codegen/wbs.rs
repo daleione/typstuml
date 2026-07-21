@@ -7,7 +7,7 @@
 //! falling back to a heuristic estimator.
 //!
 //! v1 ignores [`crate::ir::NodeSide`] (children stack horizontally below
-//! their parent); `NodeShape::Line` maps to `node(shape: "underline")`.
+//! their parent); `NodeShape::Line` (PlantUML `_`, boxless) maps to `node(shape: "plain")`.
 
 use crate::codegen::tree_emit::emit_title;
 use crate::codegen::tree_graph;
@@ -80,7 +80,8 @@ mod tests {
             root: n("Root", vec![n("A", vec![n("A1", vec![])]), n("B", vec![])]),
         });
         assert_eq!(s.matches("body: node[").count(), 4, "got: {s}");
-        assert_eq!(s.matches("(points: (").count(), 3, "got: {s}");
+        // Level-2 elbows (Root→A, Root→B) + A's outline trunk + stub.
+        assert_eq!(s.matches("(points: (").count(), 4, "got: {s}");
     }
 
     #[test]
@@ -108,17 +109,36 @@ mod tests {
     }
 
     #[test]
-    fn underline_and_fill_decorations_survive() {
-        let mut colored = n("C", vec![]);
-        colored.fill = Some("#FF0000".into());
-        let mut lined = n("L", vec![]);
-        lined.shape = NodeShape::Line;
+    fn phantom_node_emits_no_body_but_children_stay() {
+        let mut phantom = n(" ", vec![n("E5", vec![]), n("E6", vec![])]);
+        phantom.shape = NodeShape::Phantom;
         let s = render(&WbsDiagram {
             name: None,
             title: None,
-            root: n("Root", vec![colored, lined]),
+            root: n("Root", vec![phantom]),
+        });
+        // Root + E5 + E6 painted; the phantom itself is not.
+        assert_eq!(s.matches("body: node[").count(), 3, "got: {s}");
+        assert!(s.contains("node[E5]"), "got: {s}");
+        // Structure edges still flow through it: root elbow + trunk + 2 stubs.
+        assert_eq!(s.matches("(points: (").count(), 4, "got: {s}");
+    }
+
+    #[test]
+    fn boxless_and_fill_decorations_survive() {
+        let mut colored = n("C", vec![]);
+        colored.fill = Some("#FF0000".into());
+        let mut boxless = n("L", vec![]);
+        boxless.shape = NodeShape::Line;
+        // A fill on a boxless node is ignored (PlantUML semantics).
+        boxless.fill = Some("#00FF00".into());
+        let s = render(&WbsDiagram {
+            name: None,
+            title: None,
+            root: n("Root", vec![colored, boxless]),
         });
         assert!(s.contains("node(fill: rgb(\"#FF0000\"))[C]"), "got: {s}");
-        assert!(s.contains("node(shape: \"underline\")[L]"), "got: {s}");
+        assert!(s.contains("node(shape: \"plain\")[L]"), "got: {s}");
+        assert!(!s.contains("#00FF00"), "boxless fill must be dropped: {s}");
     }
 }

@@ -13,8 +13,8 @@
 //! `1em`, from which every gap constant is derived.
 
 use crate::codegen::tree_emit::emit_node_call;
-use crate::ir::TreeNode;
-use crate::layout::tree::{TreeLayout, TreeLayoutInput};
+use crate::ir::{NodeSide, TreeNode};
+use crate::layout::tree::{Side, TreeLayout, TreeLayoutInput};
 use crate::runtime::MeasurementSet;
 
 /// Fallback font size when no measurement set is available. Matches the
@@ -39,10 +39,11 @@ pub(crate) fn tree_em_id(diagram_idx: usize) -> String {
     format!("te-{diagram_idx}")
 }
 
-/// Emit pass-1 probes for every node of `root`'s tree, plus the em
-/// probe. IDs and order match what the emitters consume.
+/// Emit pass-1 probes for every node of a forest, plus the em probe.
+/// IDs run pre-order across the roots in order — the same contract the
+/// emitters and the web model use.
 pub(crate) fn collect_probes(
-    root: &TreeNode,
+    roots: &[TreeNode],
     diagram_idx: usize,
     out: &mut String,
     expected_ids: &mut Vec<String>,
@@ -53,8 +54,12 @@ pub(crate) fn collect_probes(
     out.push_str("\")\n");
     expected_ids.push(em_id);
 
-    let flat = flatten(root);
-    for (i, node) in flat.iter().enumerate() {
+    for (i, node) in flatten_forest(roots).iter().enumerate() {
+        // Phantom nodes (WBS layer-skipping) have no rendered content —
+        // no probe; their size is pinned to zero at layout time.
+        if node.shape == crate::ir::NodeShape::Phantom {
+            continue;
+        }
         let id = tree_node_id(diagram_idx, i);
         out.push_str("#tree-probe(id: \"");
         out.push_str(&id);
@@ -79,6 +84,20 @@ pub(crate) fn flatten(root: &TreeNode) -> Vec<&TreeNode> {
     flat
 }
 
+/// [`flatten`] across every root in order.
+pub(crate) fn flatten_forest(roots: &[TreeNode]) -> Vec<&TreeNode> {
+    roots.iter().flat_map(flatten).collect()
+}
+
+/// Recursively swap every node's (w, h) — feeds the transpose trick for
+/// `top to bottom direction` mind maps.
+pub(crate) fn swap_input_sizes(input: &mut TreeLayoutInput) {
+    input.size = (input.size.1, input.size.0);
+    for c in &mut input.children {
+        swap_input_sizes(c);
+    }
+}
+
 /// Resolved `1em` in pt: measured when available, `10pt` otherwise.
 pub(crate) fn resolve_em(measurements: Option<&MeasurementSet>, diagram_idx: usize) -> f64 {
     measurements
@@ -97,6 +116,11 @@ pub(crate) fn resolve_node_size(
     diagram_idx: usize,
     em: f64,
 ) -> (f64, f64) {
+    if node.shape == crate::ir::NodeShape::Phantom {
+        // Removed node: occupies no space; its outline trunk drops
+        // straight from where it would have been.
+        return (0.0, 0.0);
+    }
     if let Some(set) = measurements {
         if let Some(m) = set.get(&tree_node_id(diagram_idx, node_idx)) {
             return (m.width_pt, m.height_pt);
@@ -150,7 +174,21 @@ pub(crate) fn build_input(
         .iter()
         .map(|c| build_input(c, counter, measurements, diagram_idx, em))
         .collect();
-    TreeLayoutInput { id, size, children }
+    TreeLayoutInput {
+        id,
+        size,
+        side: layout_side(node.side),
+        children,
+    }
+}
+
+/// IR side → layout side. PlantUML's `<` marker hangs a WBS outline
+/// node on the left; `>` and unmarked hang right.
+pub(crate) fn layout_side(side: NodeSide) -> Side {
+    match side {
+        NodeSide::Left => Side::Left,
+        NodeSide::Right | NodeSide::Default => Side::Right,
+    }
 }
 
 /// Emit the `#tree-layout(...)` call for a finished layout. `flat` maps
@@ -168,6 +206,10 @@ pub(crate) fn emit_layout_call(out: &mut String, layout: &TreeLayout, flat: &[&T
     let mut nodes = layout.nodes.clone();
     nodes.sort_by_key(|n| n.id);
     for n in &nodes {
+        // Phantom nodes are pure structure — nothing to paint.
+        if flat[n.id].shape == crate::ir::NodeShape::Phantom {
+            continue;
+        }
         out.push_str(&format!(
             "    (x: {:.3}pt, y: {:.3}pt, w: {:.3}pt, h: {:.3}pt, body: ",
             n.x, n.y, n.w, n.h
@@ -192,7 +234,7 @@ pub(crate) fn emit_layout_call(out: &mut String, layout: &TreeLayout, flat: &[&T
     }
     out.push_str("  ),\n");
 
-    out.push_str(")");
+    out.push(')');
 }
 
 #[cfg(test)]
@@ -234,13 +276,15 @@ mod tests {
 
     #[test]
     fn probes_cover_every_node_plus_em() {
-        let root = n("R", vec![n("A", vec![]), n("B", vec![])]);
+        let roots = vec![n("R", vec![n("A", vec![])]), n("R2", vec![])];
         let mut out = String::new();
         let mut ids = Vec::new();
-        collect_probes(&root, 2, &mut out, &mut ids);
+        collect_probes(&roots, 2, &mut out, &mut ids);
+        // Pre-order across roots: R, A, R2.
         assert_eq!(ids, vec!["te-2", "tn-2-0", "tn-2-1", "tn-2-2"]);
         assert!(out.contains("#tree-em-probe(id: \"te-2\")"));
         assert!(out.contains("#tree-probe(id: \"tn-2-1\", node[A])"));
+        assert!(out.contains("#tree-probe(id: \"tn-2-2\", node[R2])"));
     }
 
     #[test]

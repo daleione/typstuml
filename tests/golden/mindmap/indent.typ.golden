@@ -1,0 +1,21 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, tree-layout(
+  width: 306.400pt,
+  height: 73.740pt,
+  nodes: (
+    (x: 0.000pt, y: 29.580pt, w: 55.510pt, h: 14.580pt, body: node[root node]),
+    (x: 67.510pt, y: 18.290pt, w: 100.290pt, h: 14.580pt, body: node[some first level node]),
+    (x: 183.800pt, y: 0.000pt, w: 88.340pt, h: 14.580pt, body: node[second level node]),
+    (x: 183.800pt, y: 36.580pt, w: 122.600pt, h: 14.580pt, body: node[another second level node]),
+    (x: 67.510pt, y: 59.160pt, w: 110.740pt, h: 14.580pt, body: node[another first level node]),
+  ),
+  edges: (
+    (points: ((55.510pt, 36.870pt), (61.510pt, 36.870pt), (61.510pt, 25.580pt), (67.510pt, 25.580pt),),),
+    (points: ((167.800pt, 25.580pt), (175.800pt, 25.580pt), (175.800pt, 7.290pt), (183.800pt, 7.290pt),),),
+    (points: ((167.800pt, 25.580pt), (175.800pt, 25.580pt), (175.800pt, 43.870pt), (183.800pt, 43.870pt),),),
+    (points: ((55.510pt, 36.870pt), (61.510pt, 36.870pt), (61.510pt, 66.450pt), (67.510pt, 66.450pt),),),
+  ),
+))

@@ -2,32 +2,33 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#align(center)[*Pseudo-node — split children left/right of root*]
+#align(center)[*Pseudo-node — split children left\/right of root*]
 
 #align(center, tree-layout(
-  width: 428.505pt,
-  height: 87.740pt,
+  width: 271.235pt,
+  height: 96.320pt,
   nodes: (
-    (x: 180.107pt, y: 0.000pt, w: 68.290pt, h: 14.580pt, body: node[Quarter plan]),
-    (x: 60.612pt, y: 36.580pt, w: 16.000pt, h: 8.000pt, body: node(shape: "underline")[ ]),
-    (x: 0.000pt, y: 66.580pt, w: 65.980pt, h: 14.580pt, body: node[Engineering]),
-    (x: 81.980pt, y: 66.580pt, w: 44.510pt, h: 14.580pt, body: node[Design]),
-    (x: 206.252pt, y: 36.580pt, w: 16.000pt, h: 8.000pt, body: node(shape: "underline")[ ]),
-    (x: 153.225pt, y: 66.580pt, w: 58.560pt, h: 14.580pt, body: node[Marketing]),
-    (x: 227.785pt, y: 66.580pt, w: 36.430pt, h: 14.580pt, body: node[Sales]),
-    (x: 314.805pt, y: 36.580pt, w: 61.270pt, h: 14.580pt, body: node[Operations]),
-    (x: 293.480pt, y: 73.160pt, w: 42.860pt, h: 14.580pt, body: node[Hiring]),
-    (x: 352.340pt, y: 73.160pt, w: 47.260pt, h: 14.580pt, body: node[Tooling]),
+    (x: 72.043pt, y: 0.000pt, w: 68.290pt, h: 14.580pt, body: node[Quarter plan]),
+    (x: 12.400pt, y: 44.980pt, w: 65.980pt, h: 14.580pt, body: node[Engineering]),
+    (x: 12.400pt, y: 67.560pt, w: 44.510pt, h: 14.580pt, body: node[Design]),
+    (x: 106.780pt, y: 44.980pt, w: 58.560pt, h: 14.580pt, body: node[Marketing]),
+    (x: 106.780pt, y: 67.560pt, w: 36.430pt, h: 14.580pt, body: node[Sales]),
+    (x: 181.340pt, y: 36.580pt, w: 61.270pt, h: 14.580pt, body: node[Operations]),
+    (x: 223.975pt, y: 59.160pt, w: 42.860pt, h: 14.580pt, body: node[Hiring]),
+    (x: 223.975pt, y: 81.740pt, w: 47.260pt, h: 14.580pt, body: node[Tooling]),
   ),
   edges: (
-    (points: ((214.252pt, 14.580pt), (214.252pt, 25.580pt), (68.612pt, 25.580pt), (68.612pt, 36.580pt),),),
-    (points: ((68.612pt, 44.580pt), (68.612pt, 55.580pt), (32.990pt, 55.580pt), (32.990pt, 66.580pt),),),
-    (points: ((68.612pt, 44.580pt), (68.612pt, 55.580pt), (104.235pt, 55.580pt), (104.235pt, 66.580pt),),),
-    (points: ((214.252pt, 14.580pt), (214.252pt, 36.580pt),),),
-    (points: ((214.252pt, 44.580pt), (214.252pt, 55.580pt), (182.505pt, 55.580pt), (182.505pt, 66.580pt),),),
-    (points: ((214.252pt, 44.580pt), (214.252pt, 55.580pt), (246.000pt, 55.580pt), (246.000pt, 66.580pt),),),
-    (points: ((214.252pt, 14.580pt), (214.252pt, 25.580pt), (345.440pt, 25.580pt), (345.440pt, 36.580pt),),),
-    (points: ((345.440pt, 51.160pt), (345.440pt, 62.160pt), (314.910pt, 62.160pt), (314.910pt, 73.160pt),),),
-    (points: ((345.440pt, 51.160pt), (345.440pt, 62.160pt), (375.970pt, 62.160pt), (375.970pt, 73.160pt),),),
+    (points: ((106.188pt, 14.580pt), (106.188pt, 25.580pt), (0.400pt, 25.580pt), (0.400pt, 36.580pt),),),
+    (points: ((0.400pt, 52.270pt), (12.400pt, 52.270pt),),),
+    (points: ((0.400pt, 74.850pt), (12.400pt, 74.850pt),),),
+    (points: ((0.400pt, 36.980pt), (0.400pt, 74.850pt),),),
+    (points: ((106.188pt, 14.580pt), (106.188pt, 25.580pt), (94.780pt, 25.580pt), (94.780pt, 36.580pt),),),
+    (points: ((94.780pt, 52.270pt), (106.780pt, 52.270pt),),),
+    (points: ((94.780pt, 74.850pt), (106.780pt, 74.850pt),),),
+    (points: ((94.780pt, 36.980pt), (94.780pt, 74.850pt),),),
+    (points: ((106.188pt, 14.580pt), (106.188pt, 25.580pt), (211.975pt, 25.580pt), (211.975pt, 36.580pt),),),
+    (points: ((211.975pt, 66.450pt), (223.975pt, 66.450pt),),),
+    (points: ((211.975pt, 89.030pt), (223.975pt, 89.030pt),),),
+    (points: ((211.975pt, 51.160pt), (211.975pt, 89.030pt),),),
   ),
 ))

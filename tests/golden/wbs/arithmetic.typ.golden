@@ -1,0 +1,48 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#align(center, tree-layout(
+  width: 469.290pt,
+  height: 164.060pt,
+  nodes: (
+    (x: 189.752pt, y: 0.000pt, w: 50.550pt, h: 14.580pt, body: node[New Job]),
+    (x: 65.075pt, y: 36.580pt, w: 131.640pt, h: 14.580pt, body: node[Decide on Job Requirements]),
+    (x: 142.895pt, y: 59.160pt, w: 69.260pt, h: 14.580pt, body: node[Identity gaps]),
+    (x: 142.895pt, y: 81.740pt, w: 62.450pt, h: 14.580pt, body: node[Review JDs]),
+    (x: 186.120pt, y: 104.320pt, w: 96.640pt, h: 14.580pt, body: node[Sign-Up for courses]),
+    (x: 186.120pt, y: 126.900pt, w: 56.020pt, h: 14.580pt, body: node[Volunteer]),
+    (x: 186.120pt, y: 149.480pt, w: 49.100pt, h: 14.580pt, body: node[Reading]),
+    (x: 64.705pt, y: 59.160pt, w: 54.190pt, h: 14.580pt, body: node[Checklist]),
+    (x: 0.000pt, y: 81.740pt, w: 79.800pt, h: 14.580pt, body: node[Responsibilities]),
+    (x: 28.230pt, y: 104.320pt, w: 51.570pt, h: 14.580pt, body: node[Location]),
+    (x: 256.645pt, y: 36.580pt, w: 85.030pt, h: 14.580pt, body: node[CV Upload Done]),
+    (x: 324.150pt, y: 59.160pt, w: 65.740pt, h: 14.580pt, body: node[CV Updated]),
+    (x: 369.020pt, y: 81.740pt, w: 100.270pt, h: 14.580pt, body: node[Spelling & Grammar]),
+    (x: 369.020pt, y: 104.320pt, w: 65.440pt, h: 14.580pt, body: node[Check dates]),
+    (x: 307.160pt, y: 81.740pt, w: 37.860pt, h: 14.580pt, body: node[Skills]),
+    (x: 324.150pt, y: 126.900pt, w: 118.170pt, h: 14.580pt, body: node[Recruitment sites chosen]),
+  ),
+  edges: (
+    (points: ((215.027pt, 14.580pt), (215.027pt, 25.580pt), (130.895pt, 25.580pt), (130.895pt, 36.580pt),),),
+    (points: ((130.895pt, 66.450pt), (118.895pt, 66.450pt),),),
+    (points: ((91.800pt, 89.030pt), (79.800pt, 89.030pt),),),
+    (points: ((91.800pt, 111.610pt), (79.800pt, 111.610pt),),),
+    (points: ((91.800pt, 73.740pt), (91.800pt, 111.610pt),),),
+    (points: ((130.895pt, 66.450pt), (142.895pt, 66.450pt),),),
+    (points: ((130.895pt, 89.030pt), (142.895pt, 89.030pt),),),
+    (points: ((174.120pt, 111.610pt), (186.120pt, 111.610pt),),),
+    (points: ((174.120pt, 134.190pt), (186.120pt, 134.190pt),),),
+    (points: ((174.120pt, 156.770pt), (186.120pt, 156.770pt),),),
+    (points: ((174.120pt, 96.320pt), (174.120pt, 156.770pt),),),
+    (points: ((130.895pt, 51.160pt), (130.895pt, 89.030pt),),),
+    (points: ((215.027pt, 14.580pt), (215.027pt, 25.580pt), (299.160pt, 25.580pt), (299.160pt, 36.580pt),),),
+    (points: ((299.160pt, 66.450pt), (324.150pt, 66.450pt),),),
+    (points: ((357.020pt, 89.030pt), (345.020pt, 89.030pt),),),
+    (points: ((357.020pt, 89.030pt), (369.020pt, 89.030pt),),),
+    (points: ((357.020pt, 111.610pt), (369.020pt, 111.610pt),),),
+    (points: ((357.020pt, 73.740pt), (357.020pt, 111.610pt),),),
+    (points: ((299.160pt, 134.190pt), (324.150pt, 134.190pt),),),
+    (points: ((299.160pt, 51.160pt), (299.160pt, 134.190pt),),),
+  ),
+))

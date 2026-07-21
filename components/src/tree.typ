@@ -574,3 +574,73 @@
     }
   })
 }
+
+// ============================================================================
+// Rust-layout painter path (measure protocol + dumb painter)
+//
+// TypstUML's codegen computes tree / mind-map geometry in Rust
+// (src/layout/tree.rs — a faithful port of the layout math above) and
+// emits a `tree-layout(...)` call carrying absolute coordinates. The
+// probes below feed the pass-1 measure protocol; `tree-layout` is the
+// pass-2 painter and does no layout work of its own. The interactive
+// `tree()` / `mindmap()` entry points above remain for hand-written
+// Typst documents.
+// ============================================================================
+
+/// Measure protocol: report the natural size of one tree node's rendered
+/// content. `body` is the full `node(...)` call so shape-specific sizing
+/// (circle floor, insets) is captured exactly.
+#let tree-probe(id: none, body) = context {
+  let m = measure(body)
+  [#metadata((
+    id: id,
+    w: m.width.pt(),
+    h: m.height.pt(),
+  )) <typstuml_measure>]
+}
+
+/// Measure protocol: report the resolved size of `1em` under the active
+/// text style. Rust-side layout derives every gap constant (`x-gap:
+/// 1.6em`, …) from this so a theme that changes the font size keeps the
+/// same proportions the Typst-side layout had.
+#let tree-em-probe(id: none) = context {
+  let em = 1em.to-absolute()
+  [#metadata((
+    id: id,
+    w: em.pt(),
+    h: em.pt(),
+  )) <typstuml_measure>]
+}
+
+/// Dumb painter for Rust-precomputed tree layouts. Mirrors
+/// `record-layout`'s contract: absolute coordinates in, no layout work
+/// done here.
+///
+/// - `nodes`: array of `(x:, y:, w:, h:, body:)` dicts. `body` is placed
+///   inside a `(w × h)` box, centered — with exact pass-1 measurements
+///   the box equals the body's natural size and the centering is a
+///   no-op; with heuristic fallback sizes it keeps the label centered
+///   on the slot the layout reserved.
+/// - `edges`: array of `(points: ((x, y), …))` polylines. Segments are
+///   drawn in order; connectors paint before nodes so node fills mask
+///   the endpoints (same convention as `tree()` above).
+#let tree-layout(
+  width: 0pt,
+  height: 0pt,
+  nodes: (),
+  edges: (),
+  edge-stroke: 0.8pt + palettes.base.border,
+) = block(width: width, height: height, breakable: false, {
+  for e in edges {
+    let pts = e.points
+    for i in range(pts.len() - 1) {
+      place(top + left, line(
+        start: pts.at(i), end: pts.at(i + 1),
+        stroke: edge-stroke))
+    }
+  }
+  for nd in nodes {
+    place(top + left, dx: nd.x, dy: nd.y,
+      box(width: nd.w, height: nd.h, align(center + horizon, nd.body)))
+  }
+})

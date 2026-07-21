@@ -1,99 +1,66 @@
 //! Mind-map diagram codegen.
 //!
-//! Splits the root's first-level children by [`NodeSide`] and emits
-//!
-//! ```text
-//! mindmap(
-//!   <root node>,
-//!   lefts:  ( <subtree>, <subtree>, … ),
-//!   rights: ( <subtree>, <subtree>, … ),
-//! )
-//! ```
-//!
-//! Each first-level subtree is wrapped in `tree(direction: "left"|"right",
-//! …)`; deeper levels rely on `tree.typ`'s direction-state inheritance and
-//! drop the `direction:` arg.
+//! Splits the root's first-level children by [`NodeSide`], computes the
+//! two-column mind-map geometry in Rust ([`crate::layout::tree`], a
+//! faithful port of `tree.typ`'s `mindmap()` composition), and emits a
+//! `#tree-layout(...)` call carrying absolute coordinates. Node sizes
+//! come from the pass-1 measure protocol via [`super::tree_graph`].
 //!
 //! v1 simplification (per `docs/mindmap-wbs-plan.md` §3.2): a child whose
 //! parsed side is `Default` (no explicit `+`/`-`, e.g. plain `**` markers)
 //! is treated as right-side. PlantUML's auto-balance heuristic is left for
 //! a follow-up.
 
-use crate::codegen::tree_emit::{emit_node_call, emit_subtree, emit_title, indent_spaces};
-use crate::ir::{MindMapDiagram, NodeSide, TreeNode};
+use crate::codegen::tree_emit::emit_title;
+use crate::codegen::tree_graph;
+use crate::ir::{MindMapDiagram, NodeSide};
+use crate::layout::tree::{layout_mindmap, TreeConfig, TreeLayoutInput};
+use crate::runtime::MeasurementSet;
 
-pub fn emit(out: &mut String, mm: &MindMapDiagram) {
+pub fn emit(
+    out: &mut String,
+    mm: &MindMapDiagram,
+    measurements: Option<&MeasurementSet>,
+    diagram_idx: usize,
+) {
     if let Some(title) = &mm.title {
         emit_title(out, title);
     }
 
-    let (lefts, rights) = partition_children(&mm.root.children);
+    let em = tree_graph::resolve_em(measurements, diagram_idx);
+    let cfg = TreeConfig::from_em(em);
 
-    out.push_str("#align(center, mindmap(\n");
-    indent_spaces(out, 1);
-    emit_node_call(out, &mm.root);
-    out.push_str(",\n");
+    // IDs are assigned in pre-order over the ORIGINAL child order (the
+    // same order `flatten` / `collect_probes` walk); the side partition
+    // below only affects which column a subtree lands in.
+    let mut counter = 0;
+    let root_id = counter;
+    counter += 1;
+    let root_size =
+        tree_graph::resolve_node_size(&mm.root, root_id, measurements, diagram_idx, em);
+    let root_input = TreeLayoutInput {
+        id: root_id,
+        size: root_size,
+        children: Vec::new(),
+    };
 
-    indent_spaces(out, 1);
-    out.push_str("lefts: (\n");
-    for child in &lefts {
-        indent_spaces(out, 2);
-        emit_branch(out, child, "left", 2);
-        out.push_str(",\n");
-    }
-    indent_spaces(out, 1);
-    out.push_str("),\n");
-
-    indent_spaces(out, 1);
-    out.push_str("rights: (\n");
-    for child in &rights {
-        indent_spaces(out, 2);
-        emit_branch(out, child, "right", 2);
-        out.push_str(",\n");
-    }
-    indent_spaces(out, 1);
-    out.push_str("),\n");
-
-    out.push_str("))\n");
-}
-
-/// Wrap a first-level subtree in `tree(direction: "left|right", …)` so its
-/// root anchor lands on the inner edge facing `mindmap`. Leaves with no
-/// children are emitted bare — they have no internal layout for a direction
-/// to influence, so the wrapper would just add noise.
-fn emit_branch(out: &mut String, node: &TreeNode, direction: &str, indent: usize) {
-    if node.children.is_empty() {
-        emit_node_call(out, node);
-        return;
-    }
-    out.push_str("tree(direction: \"");
-    out.push_str(direction);
-    out.push_str("\",\n");
-    indent_spaces(out, indent + 1);
-    emit_node_call(out, node);
-    out.push_str(",\n");
-    for child in &node.children {
-        indent_spaces(out, indent + 1);
-        emit_subtree(out, child, indent + 1);
-        out.push_str(",\n");
-    }
-    indent_spaces(out, indent);
-    out.push(')');
-}
-
-fn partition_children(children: &[TreeNode]) -> (Vec<&TreeNode>, Vec<&TreeNode>) {
-    let mut lefts = Vec::new();
-    let mut rights = Vec::new();
-    for c in children {
-        match c.side {
-            NodeSide::Left => lefts.push(c),
-            // Right and Default both map to the right column in v1. PlantUML
-            // auto-balances `*`-form nodes; we simplify to "all right" until
-            // someone produces a fixture where it matters.
-            NodeSide::Right | NodeSide::Default => rights.push(c),
+    let mut lefts: Vec<TreeLayoutInput> = Vec::new();
+    let mut rights: Vec<TreeLayoutInput> = Vec::new();
+    for child in &mm.root.children {
+        let input = tree_graph::build_input(child, &mut counter, measurements, diagram_idx, em);
+        match child.side {
+            NodeSide::Left => lefts.push(input),
+            // Right and Default both map to the right column in v1.
+            NodeSide::Right | NodeSide::Default => rights.push(input),
         }
     }
-    (lefts, rights)
+
+    let layout = layout_mindmap(&root_input, &lefts, &rights, &cfg);
+    let flat = tree_graph::flatten(&mm.root);
+
+    out.push_str("#align(center, ");
+    tree_graph::emit_layout_call(out, &layout, &flat);
+    out.push_str(")\n");
 }
 
 #[cfg(test)]
@@ -115,24 +82,24 @@ mod tests {
 
     fn render(mm: &MindMapDiagram) -> String {
         let mut s = String::new();
-        emit(&mut s, mm);
+        emit(&mut s, mm, None, 0);
         s
     }
 
     #[test]
-    fn root_only_emits_empty_branches() {
+    fn root_only_emits_single_node_layout() {
         let s = render(&MindMapDiagram {
             name: None,
             title: None,
             root: n("Root", NodeSide::Default, vec![]),
         });
-        assert!(s.contains("mindmap("));
-        assert!(s.contains("lefts: (\n"));
-        assert!(s.contains("rights: (\n"));
+        assert!(s.contains("tree-layout("), "got: {s}");
+        assert_eq!(s.matches("body: node[").count(), 1, "got: {s}");
+        assert_eq!(s.matches("(points: (").count(), 0, "got: {s}");
     }
 
     #[test]
-    fn classifies_children_by_side() {
+    fn left_children_sit_left_of_root_right_children_right() {
         let mm = MindMapDiagram {
             name: None,
             title: None,
@@ -148,16 +115,26 @@ mod tests {
             ),
         };
         let s = render(&mm);
-        let left_block = &s[s.find("lefts: (").unwrap()..s.find("),\n  rights: (").unwrap()];
-        let right_block = &s[s.find("rights: (").unwrap()..];
-        assert!(left_block.contains("node[L1]"), "left block: {left_block}");
-        assert!(!left_block.contains("node[R1]"));
-        assert!(right_block.contains("node[R1]"));
-        assert!(right_block.contains("node[D1]"));
+        assert_eq!(s.matches("body: node[").count(), 4, "got: {s}");
+        assert_eq!(s.matches("(points: (").count(), 3, "got: {s}");
+
+        // Parse each node line's x back out and compare column order.
+        let x_of = |label: &str| -> f64 {
+            let line = s
+                .lines()
+                .find(|l| l.contains(&format!("body: node[{label}]")))
+                .unwrap_or_else(|| panic!("node {label} missing: {s}"));
+            let start = line.find("(x: ").unwrap() + 4;
+            let end = line[start..].find("pt").unwrap() + start;
+            line[start..end].parse().unwrap()
+        };
+        assert!(x_of("L1") < x_of("Root"), "left child left of root: {s}");
+        assert!(x_of("R1") > x_of("Root"), "right child right of root: {s}");
+        assert!(x_of("D1") > x_of("Root"), "default child right of root: {s}");
     }
 
     #[test]
-    fn multilevel_branch_emits_directional_outer_tree() {
+    fn multilevel_branch_children_extend_outward() {
         let mm = MindMapDiagram {
             name: None,
             title: None,
@@ -172,36 +149,22 @@ mod tests {
             ),
         };
         let s = render(&mm);
-        assert!(
-            s.contains("tree(direction: \"right\","),
-            "expected directional outer wrap: {s}"
-        );
-        assert!(s.contains("node[B1]"));
-    }
-
-    #[test]
-    fn leaf_branch_emits_bare_node_no_wrapper() {
-        let mm = MindMapDiagram {
-            name: None,
-            title: None,
-            root: n(
-                "Root",
-                NodeSide::Default,
-                vec![n("Solo", NodeSide::Right, vec![])],
-            ),
+        assert_eq!(s.matches("body: node[").count(), 3, "got: {s}");
+        // Grandchild further right than its branch root.
+        let x_of = |label: &str| -> f64 {
+            let line = s
+                .lines()
+                .find(|l| l.contains(&format!("body: node[{label}]")))
+                .unwrap();
+            let start = line.find("(x: ").unwrap() + 4;
+            let end = line[start..].find("pt").unwrap() + start;
+            line[start..end].parse().unwrap()
         };
-        let s = render(&mm);
-        // No tree(direction: …) wrapper around the leaf.
-        let right_block = &s[s.find("rights: (").unwrap()..];
-        assert!(!right_block.contains("tree(direction:"), "got: {right_block}");
-        assert!(right_block.contains("node[Solo]"));
+        assert!(x_of("B1") > x_of("B"), "got: {s}");
     }
 
     #[test]
-    fn deeper_levels_skip_explicit_direction() {
-        // Three levels deep. Only the FIRST level of children carries the
-        // direction wrapper; the inner tree() call inherits direction via
-        // tree.typ's _tree-direction state.
+    fn left_branch_grandchildren_extend_leftward() {
         let mm = MindMapDiagram {
             name: None,
             title: None,
@@ -210,20 +173,22 @@ mod tests {
                 NodeSide::Default,
                 vec![n(
                     "B",
-                    NodeSide::Right,
-                    vec![n(
-                        "B1",
-                        NodeSide::Default,
-                        vec![n("B1a", NodeSide::Default, vec![])],
-                    )],
+                    NodeSide::Left,
+                    vec![n("B1", NodeSide::Default, vec![])],
                 )],
             ),
         };
         let s = render(&mm);
-        let direction_count = s.matches("direction:").count();
-        assert_eq!(
-            direction_count, 1,
-            "should only emit direction once (outer wrap), got {direction_count}: {s}"
-        );
+        let x_of = |label: &str| -> f64 {
+            let line = s
+                .lines()
+                .find(|l| l.contains(&format!("body: node[{label}]")))
+                .unwrap();
+            let start = line.find("(x: ").unwrap() + 4;
+            let end = line[start..].find("pt").unwrap() + start;
+            line[start..end].parse().unwrap()
+        };
+        assert!(x_of("B1") < x_of("B"), "got: {s}");
+        assert!(x_of("B") < x_of("Root"), "got: {s}");
     }
 }

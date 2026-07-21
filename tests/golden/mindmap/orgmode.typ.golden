@@ -2,17 +2,22 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#align(center, mindmap(
-  node[Brain],
-  lefts: (
+#align(center, tree-layout(
+  width: 177.020pt,
+  height: 96.320pt,
+  nodes: (
+    (x: 0.000pt, y: 40.870pt, w: 38.300pt, h: 14.580pt, body: node[Brain]),
+    (x: 50.300pt, y: 18.290pt, w: 50.820pt, h: 14.580pt, body: node[Memory]),
+    (x: 117.120pt, y: 0.000pt, w: 59.900pt, h: 14.580pt, body: node[Short term]),
+    (x: 117.120pt, y: 36.580pt, w: 58.490pt, h: 14.580pt, body: node[Long term]),
+    (x: 50.300pt, y: 59.160pt, w: 42.300pt, h: 14.580pt, body: node[Vision]),
+    (x: 50.300pt, y: 81.740pt, w: 49.190pt, h: 14.580pt, body: node[Hearing]),
   ),
-  rights: (
-    tree(direction: "right",
-      node[Memory],
-      node[Short term],
-      node[Long term],
-    ),
-    node[Vision],
-    node[Hearing],
+  edges: (
+    (points: ((38.300pt, 48.160pt), (44.300pt, 48.160pt), (44.300pt, 25.580pt), (50.300pt, 25.580pt),),),
+    (points: ((101.120pt, 25.580pt), (109.120pt, 25.580pt), (109.120pt, 7.290pt), (117.120pt, 7.290pt),),),
+    (points: ((101.120pt, 25.580pt), (109.120pt, 25.580pt), (109.120pt, 43.870pt), (117.120pt, 43.870pt),),),
+    (points: ((38.300pt, 48.160pt), (44.300pt, 48.160pt), (44.300pt, 66.450pt), (50.300pt, 66.450pt),),),
+    (points: ((38.300pt, 48.160pt), (44.300pt, 48.160pt), (44.300pt, 89.030pt), (50.300pt, 89.030pt),),),
   ),
 ))

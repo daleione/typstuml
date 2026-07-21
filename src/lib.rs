@@ -17,6 +17,7 @@ pub mod parser;
 pub mod render;
 pub mod runtime;
 pub mod theme;
+pub mod web;
 
 // The CLI pulls in clap, file-watching, and stdio — none of which exist on
 // wasm32. Embedders there go through [`render`] instead. It also depends

@@ -86,6 +86,41 @@ pub fn add_font(data: &[u8]) -> Result<usize, JsError> {
     typstuml::runtime::add_font(data.to_vec()).map_err(|e| JsError::new(&e))
 }
 
+/// Parse PlantUML `source` and return the structural tree model (JSON)
+/// for its first `@startmindmap` / `@startwbs` diagram — labels, shapes,
+/// colors, and stable pre-order node IDs, no geometry.
+///
+/// This is the one-time half of the interactive tree pipeline: the JS
+/// side measures each node's rendered size once (its own font engine is
+/// the ground truth), then calls [`tree_layout`] for coordinates. See
+/// `docs/mindmap-web-interactive-design.md` §4.
+#[wasm_bindgen(js_name = treeModel)]
+pub fn tree_model(source: &str) -> Result<String, JsError> {
+    typstuml::web::tree::model_json(source).map_err(|e| JsError::new(&e))
+}
+
+/// Compute the display list (JSON: canvas size + per-node x/y/w/h +
+/// connector polylines) for a tree model produced by [`tree_model`].
+///
+/// - `model`: the model JSON, unchanged.
+/// - `sizes`: `{"<id>": [w, h], …}` measured node boxes, in px.
+/// - `folded`: `[id, …]` — children of these nodes are pruned.
+/// - `em`: the renderer's font size in px; every gap constant scales
+///   from it (the web analogue of the CLI path's `1em` probe).
+///
+/// Pure arithmetic — no Typst compile — so calling this on every
+/// fold/unfold stays comfortably within a frame.
+#[wasm_bindgen(js_name = treeLayout)]
+pub fn tree_layout(
+    model: &str,
+    sizes: &str,
+    folded: &str,
+    em: f64,
+) -> Result<String, JsError> {
+    typstuml::web::tree::display_list_json(model, sizes, folded, em)
+        .map_err(|e| JsError::new(&e))
+}
+
 /// Collapse a [`typstuml::diagnostics::Error`] into a JS `Error`. The
 /// `Display` impl already produces a human-readable, line-annotated message.
 fn to_js(err: typstuml::diagnostics::Error) -> JsError {

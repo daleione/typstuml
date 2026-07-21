@@ -1627,6 +1627,19 @@ fn adapter_stages_match_golden_labeled() {
     check_adapter_stages(serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap());
 }
 
+/// The xiaohongshu flow example (examples/xiaohongshu-typst-flow.puml):
+/// actor icon node (graphic + outside label), three groups, labeled
+/// edges everywhere, a 2-cycle (FE ↔ Typst) — regression for the
+/// draw-uml parity questions raised while eyeballing the example.
+#[test]
+fn adapter_stages_match_golden_xhs_flow() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tools/elk-oracle/golden/xhs-flow.stages.json"
+    );
+    check_adapter_stages(serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap());
+}
+
 fn check_adapter_stages(stages: Value) {
     use typstuml::layout::elk::adapter::{
         self, AdapterEdge, AdapterEdgeLabel, AdapterGroup, AdapterModel, AdapterNode,

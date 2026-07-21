@@ -4,16 +4,24 @@
 
 #align(center)[*Engineering org*]
 
-#align(center, tree(
-  node[CTO],
-  tree(
-    node[Platform],
-    node[Storage],
-    node[Compute],
+#align(center, tree-layout(
+  width: 245.213pt,
+  height: 87.740pt,
+  nodes: (
+    (x: 104.906pt, y: 0.000pt, w: 35.400pt, h: 14.580pt, body: node[CTO]),
+    (x: 34.020pt, y: 36.580pt, w: 51.660pt, h: 14.580pt, body: node[Platform]),
+    (x: 3.360pt, y: 73.160pt, w: 46.810pt, h: 14.580pt, body: node[Storage]),
+    (x: 66.170pt, y: 73.160pt, w: 53.530pt, h: 14.580pt, body: node[Compute]),
+    (x: 161.377pt, y: 36.580pt, w: 47.970pt, h: 14.580pt, body: node[Product]),
+    (x: 140.735pt, y: 73.160pt, w: 34.110pt, h: 14.580pt, body: node[Web]),
+    (x: 190.845pt, y: 73.160pt, w: 44.180pt, h: 14.580pt, body: node[Mobile]),
   ),
-  tree(
-    node[Product],
-    node[Web],
-    node[Mobile],
+  edges: (
+    (points: ((122.606pt, 14.580pt), (122.606pt, 25.580pt), (59.850pt, 25.580pt), (59.850pt, 36.580pt),),),
+    (points: ((59.850pt, 51.160pt), (59.850pt, 62.160pt), (26.765pt, 62.160pt), (26.765pt, 73.160pt),),),
+    (points: ((59.850pt, 51.160pt), (59.850pt, 62.160pt), (92.935pt, 62.160pt), (92.935pt, 73.160pt),),),
+    (points: ((122.606pt, 14.580pt), (122.606pt, 25.580pt), (185.363pt, 25.580pt), (185.363pt, 36.580pt),),),
+    (points: ((185.363pt, 51.160pt), (185.363pt, 62.160pt), (157.790pt, 62.160pt), (157.790pt, 73.160pt),),),
+    (points: ((185.363pt, 51.160pt), (185.363pt, 62.160pt), (212.935pt, 62.160pt), (212.935pt, 73.160pt),),),
   ),
 ))

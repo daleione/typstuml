@@ -2,12 +2,21 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#align(center, tree(
-  node[Migration program \
-Q3 → Q4 2026],
-  node[Schema cutover \
+#align(center, tree-layout(
+  width: 240.230pt,
+  height: 90.400pt,
+  nodes: (
+    (x: 72.975pt, y: 0.000pt, w: 94.280pt, h: 27.660pt, body: node[Migration program \
+Q3 → Q4 2026]),
+    (x: 0.000pt, y: 49.660pt, w: 80.750pt, h: 40.740pt, body: node[Schema cutover \
 zero-downtime \
-required],
-  node[Backfill],
-  node[Validation],
+required]),
+    (x: 96.750pt, y: 49.660pt, w: 46.730pt, h: 14.580pt, body: node[Backfill]),
+    (x: 159.480pt, y: 49.660pt, w: 57.800pt, h: 14.580pt, body: node[Validation]),
+  ),
+  edges: (
+    (points: ((120.115pt, 27.660pt), (120.115pt, 38.660pt), (40.375pt, 38.660pt), (40.375pt, 49.660pt),),),
+    (points: ((120.115pt, 27.660pt), (120.115pt, 49.660pt),),),
+    (points: ((120.115pt, 27.660pt), (120.115pt, 38.660pt), (188.380pt, 38.660pt), (188.380pt, 49.660pt),),),
+  ),
 ))

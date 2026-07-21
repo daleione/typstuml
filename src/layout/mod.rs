@@ -22,3 +22,4 @@ pub mod pathplan;
 pub mod spacing;
 pub mod sugiyama;
 pub mod swimlane;
+pub mod tree;

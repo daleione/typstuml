@@ -4,21 +4,30 @@
 
 #align(center)[*Pseudo-node — split children left/right of root*]
 
-#align(center, tree(
-  node[Quarter plan],
-  tree(
-    node(shape: "underline")[ ],
-    node[Engineering],
-    node[Design],
+#align(center, tree-layout(
+  width: 428.505pt,
+  height: 87.740pt,
+  nodes: (
+    (x: 180.107pt, y: 0.000pt, w: 68.290pt, h: 14.580pt, body: node[Quarter plan]),
+    (x: 60.612pt, y: 36.580pt, w: 16.000pt, h: 8.000pt, body: node(shape: "underline")[ ]),
+    (x: 0.000pt, y: 66.580pt, w: 65.980pt, h: 14.580pt, body: node[Engineering]),
+    (x: 81.980pt, y: 66.580pt, w: 44.510pt, h: 14.580pt, body: node[Design]),
+    (x: 206.252pt, y: 36.580pt, w: 16.000pt, h: 8.000pt, body: node(shape: "underline")[ ]),
+    (x: 153.225pt, y: 66.580pt, w: 58.560pt, h: 14.580pt, body: node[Marketing]),
+    (x: 227.785pt, y: 66.580pt, w: 36.430pt, h: 14.580pt, body: node[Sales]),
+    (x: 314.805pt, y: 36.580pt, w: 61.270pt, h: 14.580pt, body: node[Operations]),
+    (x: 293.480pt, y: 73.160pt, w: 42.860pt, h: 14.580pt, body: node[Hiring]),
+    (x: 352.340pt, y: 73.160pt, w: 47.260pt, h: 14.580pt, body: node[Tooling]),
   ),
-  tree(
-    node(shape: "underline")[ ],
-    node[Marketing],
-    node[Sales],
-  ),
-  tree(
-    node[Operations],
-    node[Hiring],
-    node[Tooling],
+  edges: (
+    (points: ((214.252pt, 14.580pt), (214.252pt, 25.580pt), (68.612pt, 25.580pt), (68.612pt, 36.580pt),),),
+    (points: ((68.612pt, 44.580pt), (68.612pt, 55.580pt), (32.990pt, 55.580pt), (32.990pt, 66.580pt),),),
+    (points: ((68.612pt, 44.580pt), (68.612pt, 55.580pt), (104.235pt, 55.580pt), (104.235pt, 66.580pt),),),
+    (points: ((214.252pt, 14.580pt), (214.252pt, 36.580pt),),),
+    (points: ((214.252pt, 44.580pt), (214.252pt, 55.580pt), (182.505pt, 55.580pt), (182.505pt, 66.580pt),),),
+    (points: ((214.252pt, 44.580pt), (214.252pt, 55.580pt), (246.000pt, 55.580pt), (246.000pt, 66.580pt),),),
+    (points: ((214.252pt, 14.580pt), (214.252pt, 25.580pt), (345.440pt, 25.580pt), (345.440pt, 36.580pt),),),
+    (points: ((345.440pt, 51.160pt), (345.440pt, 62.160pt), (314.910pt, 62.160pt), (314.910pt, 73.160pt),),),
+    (points: ((345.440pt, 51.160pt), (345.440pt, 62.160pt), (375.970pt, 62.160pt), (375.970pt, 73.160pt),),),
   ),
 ))

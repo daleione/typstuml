@@ -1,11 +1,9 @@
-//! Shared Typst-tree emission used by WBS and mind-map codegen.
+//! Shared per-node Typst emission used by WBS and mind-map codegen.
 //!
-//! Both diagrams flatten an IR [`TreeNode`] into a Typst expression tree
-//! built from `tree(node[…], …)` and bare `node[…]` calls. The wrappers
-//! around that expression differ — WBS just centers the whole tree,
-//! mind-map splits the root's first level into two columns and wraps with
-//! `mindmap` — so the wrappers stay in their own modules and call
-//! into here for the per-node emission.
+//! Both diagrams emit `node[…]` / `node(fill: …, shape: "underline")[…]`
+//! calls — as probe bodies in pass-1 and as `tree-layout` node bodies in
+//! pass-2 (see [`super::tree_graph`]). This module owns that single-node
+//! emission plus the title helper and the narrow color-spec translation.
 //!
 //! Color spec parsing here is deliberately narrow: `#hex` and a tiny set
 //! of Typst-built-in named colors. Unknown forms degrade silently to the
@@ -14,27 +12,6 @@
 //! fuller mapping.
 
 use crate::ir::{NodeShape, TreeNode};
-
-/// Emit a `node[…]` for a leaf or `tree(node[…], child1, child2, …)` for an
-/// internal node. `indent` is the column the opening `tree(` sits at; the
-/// emitted block uses `indent + 1` for its body.
-pub fn emit_subtree(out: &mut String, node: &TreeNode, indent: usize) {
-    if node.children.is_empty() {
-        emit_node_call(out, node);
-        return;
-    }
-    out.push_str("tree(\n");
-    indent_spaces(out, indent + 1);
-    emit_node_call(out, node);
-    out.push_str(",\n");
-    for child in &node.children {
-        indent_spaces(out, indent + 1);
-        emit_subtree(out, child, indent + 1);
-        out.push_str(",\n");
-    }
-    indent_spaces(out, indent);
-    out.push(')');
-}
 
 /// Emit `node[…]` or `node(fill: …, shape: "underline")[…]` for a single
 /// node, including any decoration arguments.
@@ -94,8 +71,6 @@ pub fn emit_title(out: &mut String, title: &str) {
     out.push_str(&typst_markup_escape(title));
     out.push_str("*]\n\n");
 }
-
-pub(crate) use crate::codegen::common::indent as indent_spaces;
 
 /// Translate a PlantUML `#color` spec to a Typst color expression. Returns
 /// `None` for forms we can't safely lower; the caller falls back to the

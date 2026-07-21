@@ -23,6 +23,7 @@ mod record_graph;
 mod sequence;
 mod state;
 mod tree_emit;
+mod tree_graph;
 mod wbs;
 mod yaml;
 
@@ -59,10 +60,14 @@ pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
     "record-probe",
     // sequence
     "seq-puml",
-    // tree / wbs / mindmap
+    // tree / wbs / mindmap (Rust-layout painter + probes; `tree` and
+    // `mindmap` stay exported for hand-written Typst documents)
     "tree",
     "node",
     "mindmap",
+    "tree-layout",
+    "tree-probe",
+    "tree-em-probe",
     // cuca (class / use-case / component painters + their probes)
     "cuca-layout",
     "cuca-probe",
@@ -131,8 +136,8 @@ pub fn emit(
             Diagram::Sequence(seq) => sequence::emit(&mut out, seq),
             Diagram::Json(j) => json::emit(&mut out, j, measurements, idx),
             Diagram::Yaml(y) => yaml::emit(&mut out, y, measurements, idx),
-            Diagram::Wbs(w) => wbs::emit(&mut out, w),
-            Diagram::MindMap(m) => mindmap::emit(&mut out, m),
+            Diagram::Wbs(w) => wbs::emit(&mut out, w, measurements, idx),
+            Diagram::MindMap(m) => mindmap::emit(&mut out, m, measurements, idx),
             Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
             Diagram::Activity(a) => activity::emit(&mut out, a, measurements, idx),
             Diagram::State(s) => state::emit(&mut out, s, measurements, idx),
@@ -165,6 +170,9 @@ pub fn emit_probes(
         // Activity needs probes only for the swimlane layout pipeline;
         // ordinary flow-col activities self-measure on the Typst side.
         Diagram::Activity(a) => activity::has_swimlane_probes(a),
+        // Tree diagrams always probe: every node's size feeds the
+        // Rust-side tree layout.
+        Diagram::Wbs(_) | Diagram::MindMap(_) => true,
         _ => false,
     });
     if !any_probes {
@@ -191,6 +199,12 @@ pub fn emit_probes(
             }
             Diagram::Activity(a) if activity::has_swimlane_probes(a) => {
                 activity::collect_probes(a, idx, &mut out, &mut expected_ids);
+            }
+            Diagram::Wbs(w) => {
+                tree_graph::collect_probes(&w.root, idx, &mut out, &mut expected_ids);
+            }
+            Diagram::MindMap(m) => {
+                tree_graph::collect_probes(&m.root, idx, &mut out, &mut expected_ids);
             }
             _ => {}
         }

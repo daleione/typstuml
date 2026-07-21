@@ -2,21 +2,26 @@
 #set text(size: 10pt)
 #import "/blockcell/lib.typ": *
 
-#align(center, mindmap(
-  node[Operating system],
-  lefts: (
-    tree(direction: "left",
-      node[Long term],
-      node[Vision],
-      node[Roadmap],
-    ),
+#align(center, tree-layout(
+  width: 376.040pt,
+  height: 73.740pt,
+  nodes: (
+    (x: 140.690pt, y: 29.580pt, w: 88.310pt, h: 14.580pt, body: node[Operating system]),
+    (x: 241.000pt, y: 18.290pt, w: 65.980pt, h: 14.580pt, body: node[Engineering]),
+    (x: 322.980pt, y: 0.000pt, w: 50.800pt, h: 14.580pt, body: node[Backend]),
+    (x: 322.980pt, y: 36.580pt, w: 53.060pt, h: 14.580pt, body: node[Frontend]),
+    (x: 241.000pt, y: 59.160pt, w: 58.560pt, h: 14.580pt, body: node[Marketing]),
+    (x: 70.200pt, y: 29.580pt, w: 58.490pt, h: 14.580pt, body: node[Long term]),
+    (x: 0.000pt, y: 11.290pt, w: 42.300pt, h: 14.580pt, body: node[Vision]),
+    (x: 0.000pt, y: 47.870pt, w: 54.200pt, h: 14.580pt, body: node[Roadmap]),
   ),
-  rights: (
-    tree(direction: "right",
-      node[Engineering],
-      node[Backend],
-      node[Frontend],
-    ),
-    node[Marketing],
+  edges: (
+    (points: ((140.690pt, 36.870pt), (128.690pt, 36.870pt),),),
+    (points: ((70.200pt, 36.870pt), (62.200pt, 36.870pt), (62.200pt, 18.580pt), (42.300pt, 18.580pt),),),
+    (points: ((70.200pt, 36.870pt), (62.200pt, 36.870pt), (62.200pt, 55.160pt), (54.200pt, 55.160pt),),),
+    (points: ((229.000pt, 36.870pt), (235.000pt, 36.870pt), (235.000pt, 25.580pt), (241.000pt, 25.580pt),),),
+    (points: ((306.980pt, 25.580pt), (314.980pt, 25.580pt), (314.980pt, 7.290pt), (322.980pt, 7.290pt),),),
+    (points: ((306.980pt, 25.580pt), (314.980pt, 25.580pt), (314.980pt, 43.870pt), (322.980pt, 43.870pt),),),
+    (points: ((229.000pt, 36.870pt), (235.000pt, 36.870pt), (235.000pt, 66.450pt), (241.000pt, 66.450pt),),),
   ),
 ))

@@ -14,22 +14,29 @@
 //! of the working CLI from the embed path.
 
 use crate::diagnostics::{CompatMode, Error, Result};
-use crate::ir::Document;
 #[cfg(feature = "embed-typst")]
-use crate::runtime::{self, Format, Rendered};
+use crate::runtime;
 use crate::theme::Theme;
 
+#[cfg(feature = "embed-typst")]
+pub use crate::runtime::{Format, RenderSize, Rendered};
+
 /// Parse PlantUML `source` and render every diagram it contains to `format`,
-/// returning the encoded bytes plus any Typst-side warnings.
+/// returning the encoded bytes plus structured parser, measure, and renderer
+/// warnings.
 ///
 /// Pure in-memory: `!include` directives won't resolve (they surface as parse
 /// warnings) and no user preamble is applied. For filesystem-aware rendering
 /// use the CLI.
 #[cfg(feature = "embed-typst")]
 pub fn render_source(source: &str, format: Format) -> Result<Rendered> {
-    let doc = parse(source)?;
-    let typst_source = build_typst_source(&doc)?;
-    runtime::render(typst_source, None, format)
+    let parsed = parse(source)?;
+    let (typst_source, mut warnings) = build_typst_source(&parsed.document)?;
+    warnings.splice(0..0, parsed.diagnostics);
+    let mut rendered = runtime::render(typst_source, None, format)?;
+    warnings.append(&mut rendered.warnings);
+    rendered.warnings = warnings;
+    Ok(rendered)
 }
 
 /// Emit the generated Typst source for `source` without rendering it — the
@@ -37,46 +44,57 @@ pub fn render_source(source: &str, format: Format) -> Result<Rendered> {
 /// codegen output from an embedder.
 #[cfg(feature = "embed-typst")]
 pub fn emit_typst(source: &str) -> Result<String> {
-    let doc = parse(source)?;
-    build_typst_source(&doc)
+    let parsed = parse(source)?;
+    build_typst_source(&parsed.document).map(|(source, _warnings)| source)
 }
 
 /// Parse `source` in `Warn` compat mode with no include paths or source dir.
-fn parse(source: &str) -> Result<Document> {
+fn parse(source: &str) -> Result<crate::parser::ParseOutput> {
     let config = crate::parser::Config::default();
     let parsed = crate::parser::parse(source, CompatMode::Warn, &config)?;
     if parsed.document.diagrams.is_empty() {
         return Err(Error::Cli("no supported diagrams found in input".into()));
     }
-    Ok(parsed.document)
+    Ok(parsed)
 }
 
 /// Build the pass-2 Typst source for `doc`, running the measure double-pass
 /// when the document has measurement-aware diagrams.
 ///
-/// Unlike `cli::build_typst_source` this uses the default (empty) theme and a
-/// throwaway project root — there is no on-disk preamble to inject and no
-/// local `#image()` paths to resolve. A measure-pass failure is non-fatal:
-/// codegen falls back to the Rust-side heuristic estimator silently.
+/// Unlike `cli::build_typst_source` this uses the default (empty) theme and no
+/// project root — there is no on-disk preamble to inject and local
+/// `#image()`/`#read()` paths are denied. A measure-pass failure is non-fatal:
+/// codegen falls back to the Rust-side heuristic and returns a warning.
 #[cfg(feature = "embed-typst")]
-fn build_typst_source(doc: &Document) -> Result<String> {
+fn build_typst_source(
+    doc: &crate::ir::Document,
+) -> Result<(String, Vec<crate::diagnostics::Diagnostic>)> {
     use crate::codegen::ImportStrategy;
+    use crate::diagnostics::Diagnostic;
     let theme = Theme::default();
 
     let Some((probe_source, expected_ids)) =
         crate::codegen::emit_probes(doc, &theme, ImportStrategy::VirtualFs)?
     else {
         // No measurement-aware diagrams — skip pass-1 entirely.
-        return crate::codegen::emit(doc, &theme, None, ImportStrategy::VirtualFs);
+        return crate::codegen::emit(doc, &theme, None, ImportStrategy::VirtualFs)
+            .map(|source| (source, Vec::new()));
     };
 
     let expected_refs: Vec<&str> = expected_ids.iter().map(String::as_str).collect();
-    // `root` only resolves local `#image()` / `#read()` references during the
-    // measure compile; embedders have no project root, so "." is a fine stand-in.
-    let root = std::path::PathBuf::from(".");
-    match runtime::measure::run(probe_source, root, &expected_refs) {
-        Ok(set) => crate::codegen::emit(doc, &theme, Some(&set), ImportStrategy::VirtualFs),
-        Err(_) => crate::codegen::emit(doc, &theme, None, ImportStrategy::VirtualFs),
+    match runtime::measure::run(probe_source, None, &expected_refs) {
+        Ok(set) => crate::codegen::emit(doc, &theme, Some(&set), ImportStrategy::VirtualFs)
+            .map(|source| (source, Vec::new())),
+        Err(error) => {
+            crate::codegen::emit(doc, &theme, None, ImportStrategy::VirtualFs).map(|source| {
+                (
+                    source,
+                    vec![Diagnostic::warning(format!(
+                        "measure pass failed ({error}); falling back to heuristic"
+                    ))],
+                )
+            })
+        }
     }
 }
 
@@ -96,10 +114,9 @@ fn build_typst_source(doc: &Document) -> Result<String> {
 /// document has no measurement-aware diagrams (skip the round-trip).
 pub fn emit_probes_for_plugin(source: &str) -> Result<Option<String>> {
     use crate::codegen::ImportStrategy;
-    let doc = parse(source)?;
+    let doc = parse(source)?.document;
     let theme = Theme::default();
-    Ok(crate::codegen::emit_probes(&doc, &theme, ImportStrategy::EvalScope)?
-        .map(|(s, _ids)| s))
+    Ok(crate::codegen::emit_probes(&doc, &theme, ImportStrategy::EvalScope)?.map(|(s, _ids)| s))
 }
 
 /// Plugin pass-2: build the final Typst source using `measurements`
@@ -109,7 +126,7 @@ pub fn emit_layout_for_plugin(
     measurements: &crate::runtime::MeasurementSet,
 ) -> Result<String> {
     use crate::codegen::ImportStrategy;
-    let doc = parse(source)?;
+    let doc = parse(source)?.document;
     let theme = Theme::default();
     crate::codegen::emit(&doc, &theme, Some(measurements), ImportStrategy::EvalScope)
 }
@@ -119,7 +136,7 @@ pub fn emit_layout_for_plugin(
 /// round-trip.
 pub fn emit_layout_no_measure(source: &str) -> Result<String> {
     use crate::codegen::ImportStrategy;
-    let doc = parse(source)?;
+    let doc = parse(source)?.document;
     let theme = Theme::default();
     crate::codegen::emit(&doc, &theme, None, ImportStrategy::EvalScope)
 }

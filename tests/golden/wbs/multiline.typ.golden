@@ -4,19 +4,19 @@
 
 #align(center, tree-layout(
   width: 217.280pt,
-  height: 90.400pt,
+  height: 96.600pt,
   nodes: (
-    (x: 67.237pt, y: 0.000pt, w: 94.280pt, h: 27.660pt, body: node[Migration program \
+    (x: 67.237pt, y: 0.000pt, w: 94.280pt, h: 28.144pt, body: node[Migration program \
 Q3 → Q4 2026]),
-    (x: 0.000pt, y: 49.660pt, w: 80.750pt, h: 40.740pt, body: node[Schema cutover \
+    (x: 0.000pt, y: 50.144pt, w: 80.750pt, h: 46.456pt, body: node[Schema cutover \
 zero-downtime \
 required]),
-    (x: 96.750pt, y: 49.660pt, w: 46.730pt, h: 14.580pt, body: node[Backfill]),
-    (x: 159.480pt, y: 49.660pt, w: 57.800pt, h: 14.580pt, body: node[Validation]),
+    (x: 96.750pt, y: 50.144pt, w: 46.730pt, h: 14.580pt, body: node[Backfill]),
+    (x: 159.480pt, y: 50.144pt, w: 57.800pt, h: 14.580pt, body: node[Validation]),
   ),
   edges: (
-    (points: ((114.377pt, 27.660pt), (114.377pt, 38.660pt), (40.375pt, 38.660pt), (40.375pt, 49.660pt),),),
-    (points: ((114.377pt, 27.660pt), (114.377pt, 38.660pt), (120.115pt, 38.660pt), (120.115pt, 49.660pt),),),
-    (points: ((114.377pt, 27.660pt), (114.377pt, 38.660pt), (188.380pt, 38.660pt), (188.380pt, 49.660pt),),),
+    (points: ((114.377pt, 28.144pt), (114.377pt, 39.144pt), (40.375pt, 39.144pt), (40.375pt, 50.144pt),),),
+    (points: ((114.377pt, 28.144pt), (114.377pt, 39.144pt), (120.115pt, 39.144pt), (120.115pt, 50.144pt),),),
+    (points: ((114.377pt, 28.144pt), (114.377pt, 39.144pt), (188.380pt, 39.144pt), (188.380pt, 50.144pt),),),
   ),
 ))

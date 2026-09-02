@@ -509,10 +509,7 @@ fn build_typst_source(
     source_dir: Option<&Path>,
     global: &GlobalCtx,
 ) -> Result<String> {
-    let measurement_root = source_dir
-        .map(Path::to_path_buf)
-        .or_else(|| std::env::current_dir().ok())
-        .unwrap_or_else(|| PathBuf::from("."));
+    let measurement_root = source_dir.map(Path::to_path_buf);
 
     use crate::codegen::ImportStrategy;
 
@@ -571,6 +568,10 @@ fn parse_input(input: &Path, global: &GlobalCtx) -> Result<Parsed> {
     let config = parser::Config {
         include_paths: global.include.clone(),
         source_dir: source_dir.clone(),
+        project_root: source_dir.clone(),
+        // A real input file establishes a project root. Stdin stays isolated
+        // unless the caller explicitly supplies an include search path.
+        allow_filesystem: source_dir.is_some() || !global.include.is_empty(),
     };
     let parsed = parser::parse(&source_text, global.compat, &config)?;
     for diag in &parsed.diagnostics {
@@ -685,4 +686,3 @@ impl ValueEnum for Format {
         })
     }
 }
-

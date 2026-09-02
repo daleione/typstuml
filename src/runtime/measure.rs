@@ -19,9 +19,11 @@ use std::path::PathBuf;
 #[cfg(feature = "embed-typst")]
 use typst::foundations::{Label, Selector, Value};
 #[cfg(feature = "embed-typst")]
-use typst::layout::PagedDocument;
+use typst::introspection::Introspector;
 #[cfg(feature = "embed-typst")]
 use typst::utils::PicoStr;
+#[cfg(feature = "embed-typst")]
+use typst_layout::PagedDocument;
 
 #[cfg(feature = "embed-typst")]
 use crate::diagnostics::{Error, Result};
@@ -85,9 +87,10 @@ impl MeasurementSet {
 /// `TypstWorld` (which shares the process-wide font cache), then walk
 /// every `<typstuml_measure>` metadata element in the resulting document.
 ///
-/// `root` is the document root passed to `TypstWorld` for resolving local
-/// `#image()` / `#read()` references in the user's preamble — same
-/// meaning as in [`super::render`]. `expected_ids` is an optional sanity
+/// `root` is the optional document root passed to `TypstWorld` for resolving
+/// local `#image()` / `#read()` references in the user's preamble — same
+/// meaning as in [`super::render`]. `None` denies real-file access.
+/// `expected_ids` is an optional sanity
 /// check: any ID listed here that's missing from the returned set
 /// surfaces as an `Error::MeasureProtocol`, catching codegen bugs where a
 /// probe was emitted but not consumed (or vice versa).
@@ -100,14 +103,14 @@ impl MeasurementSet {
 #[cfg(feature = "embed-typst")]
 pub fn run(
     probe_source: String,
-    root: PathBuf,
+    root: Option<PathBuf>,
     expected_ids: &[&str],
 ) -> Result<MeasurementSet> {
     let world = TypstWorld::new(root, probe_source);
     let warned = typst::compile::<PagedDocument>(&world);
-    let document = warned.output.map_err(|errors| {
-        Error::TypstCompile(super::format_typst_diagnostics(&world, &errors))
-    })?;
+    let document = warned
+        .output
+        .map_err(|errors| super::typst_compile_error(&world, &errors))?;
 
     let label = Label::new(PicoStr::intern("typstuml_measure")).ok_or_else(|| {
         Error::MeasureProtocol(
@@ -115,7 +118,7 @@ pub fn run(
         )
     })?;
     let selector = Selector::Label(label);
-    let elements = document.introspector.query(&selector);
+    let elements = document.introspector().query(&selector);
 
     let mut set = MeasurementSet::default();
     for content in &elements {
@@ -228,8 +231,7 @@ mod tests {
 #import "/blockcell/lib.typ": cuca-probe
 #cuca-probe(id: "test-class", spec: (kind: "class", name: [Animal]))
 "#;
-        let set = run(source.to_string(), std::env::current_dir().unwrap(), &["test-class"])
-            .expect("measure pass succeeds");
+        let set = run(source.to_string(), None, &["test-class"]).expect("measure pass succeeds");
         let m = set.get("test-class").expect("test-class probe present");
         // Width / height are font-dependent; just sanity check positivity.
         assert!(m.width_pt > 0.0, "got width {}", m.width_pt);
@@ -242,19 +244,27 @@ mod tests {
 #import "/blockcell/lib.typ": cuca-probe
 #cuca-probe(id: "present", spec: (kind: "class", name: [A]))
 "#;
-        let err = run(
-            source.to_string(),
-            std::env::current_dir().unwrap(),
-            &["present", "absent"],
-        )
-        .expect_err("missing id should fail");
+        let err = run(source.to_string(), None, &["present", "absent"])
+            .expect_err("missing id should fail");
         assert!(matches!(err, Error::MeasureProtocol(_)), "got {err:?}");
     }
 
     #[test]
     fn empty_source_yields_empty_set() {
-        let set = run(String::new(), std::env::current_dir().unwrap(), &[])
-            .expect("empty source compiles");
+        let set = run(String::new(), None, &[]).expect("empty source compiles");
         assert!(set.is_empty());
+    }
+
+    #[test]
+    fn no_root_denies_files_during_measure_compile() {
+        use std::io::Write;
+
+        let mut file = tempfile::NamedTempFile::new().expect("create sentinel");
+        file.write_all(b"not visible to measure")
+            .expect("write sentinel");
+        let path = file.path().to_string_lossy().replace('\\', "\\\\");
+        let error = run(format!("#read(\"{path}\")"), None, &[])
+            .expect_err("measure pass without a root must deny real files");
+        assert!(error.to_string().contains("access denied"));
     }
 }

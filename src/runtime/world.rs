@@ -18,14 +18,14 @@ use std::sync::{Arc, Mutex, OnceLock};
 use include_dir::{include_dir, Dir};
 
 use typst::diag::{FileError, FileResult, PackageError};
-use typst::foundations::{Bytes, Datetime};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::foundations::{Bytes, Datetime, Duration};
+use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt};
 
 #[cfg(not(target_arch = "wasm32"))]
-use typst_kit::fonts::{FontSearcher, FontSlot};
+use typst_kit::fonts::FontStore;
 
 /// `components/` (a hand-curated subset of daleione/blockcell), baked
 /// into the binary at compile time and mounted at `/blockcell/`.
@@ -61,14 +61,13 @@ impl FileEntry {
 /// expensive part and only needs to run once per process, so the cache lives
 /// behind a shared `Arc`.
 ///
-/// On native targets the fonts come from `typst-kit`'s `FontSearcher` (system
-/// fonts plus the embedded defaults), held as lazily-loaded `FontSlot`s. On
+/// On native targets the fonts come from `typst-kit`'s `FontStore` (system
+/// fonts plus the embedded defaults), with file-backed faces loaded lazily. On
 /// wasm32 there is no filesystem to search, so we eagerly decode Typst's
 /// embedded default fonts from `typst-assets` instead.
 #[cfg(not(target_arch = "wasm32"))]
 struct FontCache {
-    book: LazyHash<FontBook>,
-    fonts: Vec<FontSlot>,
+    store: FontStore,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -91,11 +90,10 @@ static FONTS: OnceLock<RwLock<Arc<FontCache>>> = OnceLock::new();
 fn shared_fonts() -> Arc<FontCache> {
     FONTS
         .get_or_init(|| {
-            let f = FontSearcher::new().include_system_fonts(true).search();
-            Arc::new(FontCache {
-                book: LazyHash::new(f.book),
-                fonts: f.fonts,
-            })
+            let mut store = FontStore::new();
+            store.extend(typst_kit::fonts::embedded());
+            store.extend(typst_kit::fonts::system());
+            Arc::new(FontCache { store })
         })
         .clone()
 }
@@ -160,7 +158,9 @@ pub fn add_font(data: Vec<u8>) -> Result<usize, String> {
     let count = new_fonts.len();
 
     let lock = init_wasm_fonts();
-    let mut guard = lock.write().map_err(|_| "font cache poisoned".to_string())?;
+    let mut guard = lock
+        .write()
+        .map_err(|_| "font cache poisoned".to_string())?;
 
     // LazyHash captures a hash on construction, so a fresh LazyHash::new
     // makes Typst's font index re-scan the new entries on the next compile.
@@ -179,27 +179,33 @@ pub fn add_font(data: Vec<u8>) -> Result<usize, String> {
 }
 
 pub struct TypstWorld {
-    root: PathBuf,
+    root: Option<PathBuf>,
+    canonical_root: Option<PathBuf>,
     main: Source,
     library: LazyHash<Library>,
     fonts: Arc<FontCache>,
     files: Mutex<HashMap<FileId, FileEntry>>,
-    // wasm32 has no wall clock available to `time`; `today()` returns `None`
-    // there instead (no diagram type depends on the document date).
-    #[cfg(not(target_arch = "wasm32"))]
-    time: time::OffsetDateTime,
 }
 
 impl TypstWorld {
-    pub fn new(root: PathBuf, source: String) -> Self {
+    /// Create a world for one compilation.
+    ///
+    /// With `root = None`, only the main source and embedded `/blockcell/`
+    /// resources are visible. A supplied root enables real-file access, but
+    /// only after canonicalization and only for descendants of that root.
+    pub fn new(root: Option<PathBuf>, source: String) -> Self {
+        let canonical_root = root.as_ref().and_then(|path| path.canonicalize().ok());
+        let main_id = FileId::unique(RootedPath::new(
+            VirtualRoot::Project,
+            VirtualPath::new("/main.typ").expect("valid main source path"),
+        ));
         Self {
             root,
-            main: Source::detached(source),
+            canonical_root,
+            main: Source::new(main_id, source),
             library: LazyHash::new(Library::default()),
             fonts: shared_fonts(),
             files: Mutex::new(HashMap::new()),
-            #[cfg(not(target_arch = "wasm32"))]
-            time: time::OffsetDateTime::now_utc(),
         }
     }
 
@@ -209,17 +215,25 @@ impl TypstWorld {
             return Ok(entry.clone());
         }
 
-        if let Some(pkg) = id.package() {
+        if let VirtualRoot::Package(pkg) = id.root() {
             return Err(FileError::Package(PackageError::NotFound(pkg.clone())));
         }
 
         let bytes = if let Some(content) = read_embedded(id.vpath()) {
             content
         } else {
-            let path = id
-                .vpath()
-                .resolve(&self.root)
+            let root = self.root.as_ref().ok_or(FileError::AccessDenied)?;
+            let canonical_root = self
+                .canonical_root
+                .as_ref()
                 .ok_or(FileError::AccessDenied)?;
+            let unresolved = id.vpath().realize(root).map_err(FileError::Realize)?;
+            let path = unresolved
+                .canonicalize()
+                .map_err(|error| FileError::from_io(error, &unresolved))?;
+            if !path.starts_with(canonical_root) {
+                return Err(FileError::AccessDenied);
+            }
             std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))?
         };
 
@@ -236,7 +250,7 @@ impl TypstWorld {
 /// remainder up inside the embedded `Dir` (which uses forward slashes
 /// regardless of host OS).
 fn read_embedded(vpath: &VirtualPath) -> Option<Vec<u8>> {
-    let mut comps = vpath.as_rooted_path().components();
+    let mut comps = std::path::Path::new(vpath.get_with_slash()).components();
     if !matches!(comps.next(), Some(Component::RootDir)) {
         return None;
     }
@@ -260,7 +274,14 @@ impl typst::World for TypstWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        &self.fonts.book
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.fonts.store.book()
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            &self.fonts.book
+        }
     }
 
     fn main(&self) -> FileId {
@@ -287,7 +308,7 @@ impl typst::World for TypstWorld {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn font(&self, id: usize) -> Option<Font> {
-        self.fonts.fonts.get(id)?.get()
+        self.fonts.store.font(id)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -295,16 +316,7 @@ impl typst::World for TypstWorld {
         self.fonts.fonts.get(id).cloned()
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        let offset = offset.unwrap_or(0);
-        let offset = time::UtcOffset::from_hms(offset.try_into().ok()?, 0, 0).ok()?;
-        let time = self.time.checked_to_offset(offset)?;
-        Some(Datetime::Date(time.date()))
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
+    fn today(&self, _offset: Option<Duration>) -> Option<Datetime> {
         None
     }
 }

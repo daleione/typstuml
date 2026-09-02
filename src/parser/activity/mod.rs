@@ -17,7 +17,7 @@
 //! Errors degrade to warnings under `--compat warn` (default) and become
 //! `Error::Parse` under `--compat strict`, matching the mindmap / cuca parser.
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Error, Result};
 use crate::ir::{
     ActionKind, ActivityDiagram, ActivityStmt, Diagram, LayoutDirection, NoteAttach, Skinparam,
 };
@@ -92,11 +92,8 @@ impl<'a> Parser<'a> {
     }
 
     fn warn(&mut self, line: usize, msg: impl Into<String>) {
-        self.diagnostics.push(Diagnostic {
-            level: Level::Warning,
-            line: Some(line),
-            message: msg.into(),
-        });
+        self.diagnostics
+            .push(Diagnostic::warning_at(line, msg.into()));
     }
 
     /// Run the small directive head before the first statement. Handles

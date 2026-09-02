@@ -13,7 +13,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-typstuml = { path = "../.." }
+typstuml = { path = "../..", default-features = false, features = ["embed-typst"] }
 wasm-bindgen = "0.2"
 console_error_panic_hook = "0.1"
 

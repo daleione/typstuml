@@ -23,6 +23,12 @@ use std::path::PathBuf;
 use typst::diag::{Severity, SourceDiagnostic};
 #[cfg(feature = "embed-typst")]
 use typst::ecow::EcoVec;
+#[cfg(feature = "embed-typst")]
+use typst::utils::Scalar;
+#[cfg(feature = "embed-typst")]
+use typst::WorldExt;
+#[cfg(feature = "embed-typst")]
+use typst_layout::PagedDocument;
 
 #[cfg(feature = "embed-typst")]
 use crate::diagnostics::{Diagnostic, Error, Level, Result};
@@ -44,7 +50,9 @@ pub enum Format {
     /// argument typst's renderer takes directly. 2.0 (= 144 DPI) is the
     /// sweet spot for retina screens and matches the historical default;
     /// the playground exposes 1×/2×/3×/4× to the user.
-    Png { scale: f32 },
+    Png {
+        scale: f32,
+    },
 }
 
 /// Default pixels-per-pt for PNG rendering: ~144 DPI. Path-based callers
@@ -61,7 +69,9 @@ impl Format {
         {
             Some("svg") => Some(Self::Svg),
             Some("pdf") => Some(Self::Pdf),
-            Some("png") => Some(Self::Png { scale: DEFAULT_PNG_SCALE }),
+            Some("png") => Some(Self::Png {
+                scale: DEFAULT_PNG_SCALE,
+            }),
             _ => None,
         }
     }
@@ -72,61 +82,105 @@ impl Format {
 // runs inside an existing Typst process — Typst is the renderer there)
 // stays free of these crates.
 
+/// Natural page dimensions in typographic points.
+#[cfg(feature = "embed-typst")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RenderSize {
+    pub width_pt: f32,
+    pub height_pt: f32,
+}
+
 /// Outcome of a [`render`] call.
 #[cfg(feature = "embed-typst")]
+#[derive(Clone, Debug)]
 pub struct Rendered {
     pub bytes: Vec<u8>,
-    /// Typst-side warnings collected during compilation. The CLI surfaces
-    /// these on stderr.
+    /// Structured warnings collected during compilation and encoding. The CLI
+    /// decides whether and where to display them.
     pub warnings: Vec<Diagnostic>,
+    /// Natural size when the result contains exactly one page.
+    pub size: Option<RenderSize>,
+    /// Natural size of every page, in document order.
+    pub page_sizes: Vec<RenderSize>,
 }
 
 /// Render `typst_source` to `format` and return the encoded bytes plus any
 /// warnings produced during Typst compilation.
 ///
 /// `root` is the project root used to resolve local `#image()` / `read()`
-/// calls in user templates. Pass `None` to use the current working dir.
+/// calls in user templates. `None` disables real-filesystem access entirely.
 #[cfg(feature = "embed-typst")]
 pub fn render(typst_source: String, root: Option<PathBuf>, format: Format) -> Result<Rendered> {
-    let root = root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ".".into()));
     let world = TypstWorld::new(root, typst_source);
 
-    let warned = typst::compile(&world);
-    let warnings = lift_diagnostics(&world, &warned.warnings);
+    let warned = typst::compile::<PagedDocument>(&world);
+    let mut warnings = lift_diagnostics(&world, &warned.warnings);
     let document = warned
         .output
-        .map_err(|errors| Error::TypstCompile(format_typst_diagnostics(&world, &errors)))?;
+        .map_err(|errors| typst_compile_error(&world, &errors))?;
+
+    let page_sizes = document
+        .pages()
+        .iter()
+        .map(|page| {
+            let size = page.frame.size();
+            RenderSize {
+                width_pt: size.x.to_pt() as f32,
+                height_pt: size.y.to_pt() as f32,
+            }
+        })
+        .collect::<Vec<_>>();
+    let size = (page_sizes.len() == 1).then(|| page_sizes[0]);
 
     let bytes = match format {
-        Format::Svg => typst_svg::svg_merged(&document, typst::layout::Abs::pt(2.0)).into_bytes(),
+        Format::Svg => typst_svg::svg_merged(
+            &document,
+            &typst_svg::SvgOptions::default(),
+            typst::layout::Abs::pt(2.0),
+        )
+        .into_bytes(),
         Format::Pdf => typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default())
-            .map_err(|errors| Error::TypstCompile(format_typst_diagnostics(&world, &errors)))?,
-        Format::Png { scale } => render_png(&document, scale)?,
+            .map_err(|errors| typst_compile_error(&world, &errors))?,
+        Format::Png { scale } => render_png(&document, scale, &mut warnings)?,
     };
 
-    Ok(Rendered { bytes, warnings })
+    Ok(Rendered {
+        bytes,
+        warnings,
+        size,
+        page_sizes,
+    })
 }
 
 #[cfg(feature = "embed-typst")]
-fn render_png(document: &typst::layout::PagedDocument, scale: f32) -> Result<Vec<u8>> {
-    let pages = &document.pages;
+fn render_png(
+    document: &PagedDocument,
+    scale: f32,
+    warnings: &mut Vec<Diagnostic>,
+) -> Result<Vec<u8>> {
+    let pages = document.pages();
     let first = pages
         .first()
-        .ok_or_else(|| Error::TypstCompile("document has no pages".to_string()))?;
+        .ok_or_else(|| render_error("document has no pages"))?;
     if pages.len() > 1 {
-        eprintln!(
-            "typstuml: warning: PNG output only renders the first of {} pages; \
-             use SVG or PDF for multi-diagram inputs",
+        warnings.push(Diagnostic::warning(format!(
+            "PNG output only renders the first of {} pages; use SVG or PDF for multi-diagram inputs",
             pages.len()
-        );
+        )));
     }
     // Clamp to a sane range: <0.5 is illegible; >16 is multi-GB-pixmap
     // territory and just wastes memory before typst-render OOMs.
-    let scale = scale.clamp(0.5, 16.0);
-    let pixmap = typst_render::render(first, scale);
+    if !scale.is_finite() {
+        return Err(render_error("PNG scale must be a finite number"));
+    }
+    let options = typst_render::RenderOptions {
+        pixel_per_pt: Scalar::new(f64::from(scale.clamp(0.5, 16.0))),
+        render_bleed: false,
+    };
+    let pixmap = typst_render::render(first, &options);
     pixmap
         .encode_png()
-        .map_err(|e| Error::TypstCompile(format!("PNG encode failed: {e}")))
+        .map_err(|e| render_error(format!("PNG encode failed: {e}")))
 }
 
 #[cfg(feature = "embed-typst")]
@@ -136,23 +190,47 @@ fn lift_diagnostics<W: typst::World>(
 ) -> Vec<Diagnostic> {
     diags
         .iter()
-        .map(|d| Diagnostic {
-            level: match d.severity {
-                Severity::Warning => Level::Warning,
-                Severity::Error => Level::Error,
-            },
-            line: span_line(world, d.span),
-            message: d.message.to_string(),
+        .map(|d| {
+            let (path, line, column) = diagnostic_location(world, d.span);
+            Diagnostic {
+                level: match d.severity {
+                    Severity::Warning => Level::Warning,
+                    Severity::Error => Level::Error,
+                },
+                path,
+                line,
+                column,
+                message: d.message.to_string(),
+                hints: d.hints.iter().map(|hint| hint.v.to_string()).collect(),
+            }
         })
         .collect()
 }
 
 #[cfg(feature = "embed-typst")]
-fn span_line<W: typst::World>(world: &W, span: typst::syntax::Span) -> Option<usize> {
-    let id = span.id()?;
-    let source = world.source(id).ok()?;
-    let range = source.range(span)?;
-    Some(source.lines().byte_to_line(range.start)? + 1)
+fn diagnostic_location<W: typst::World>(
+    world: &W,
+    span: typst::syntax::DiagSpan,
+) -> (Option<String>, Option<usize>, Option<usize>) {
+    let Some(id) = span.id() else {
+        return (None, None, None);
+    };
+    let path = Some(id.vpath().get_with_slash().to_string());
+    let Some(source) = world.source(id).ok() else {
+        return (path, None, None);
+    };
+    let Some(range) = world.range(span) else {
+        return (path, None, None);
+    };
+    let line = source
+        .lines()
+        .byte_to_line(range.start)
+        .map(|line| line + 1);
+    let column = source
+        .lines()
+        .byte_to_column(range.start)
+        .map(|column| column + 1);
+    (path, line, column)
 }
 
 #[cfg(feature = "embed-typst")]
@@ -164,11 +242,11 @@ pub(crate) fn format_typst_diagnostics<W: typst::World>(
     for diag in errors {
         if let Some(id) = diag.span.id() {
             if let Ok(source) = world.source(id) {
-                if let Some(range) = source.range(diag.span) {
+                if let Some(range) = world.range(diag.span) {
                     let lines = source.lines();
                     let line = lines.byte_to_line(range.start).map(|l| l + 1);
                     let col = lines.byte_to_column(range.start).map(|c| c + 1);
-                    let path = id.vpath().as_rooted_path().display();
+                    let path = id.vpath().get_with_slash();
                     if let (Some(l), Some(c)) = (line, col) {
                         out.push_str(&format!("{path}:{l}:{c}: "));
                     }
@@ -181,11 +259,31 @@ pub(crate) fn format_typst_diagnostics<W: typst::World>(
         };
         out.push_str(&format!("{sev}: {}\n", diag.message));
         for hint in &diag.hints {
-            out.push_str(&format!("  hint: {hint}\n"));
+            out.push_str(&format!("  hint: {}\n", hint.v));
         }
     }
     if out.is_empty() {
         out.push_str("(no further detail)");
     }
     out
+}
+
+#[cfg(feature = "embed-typst")]
+pub(crate) fn typst_compile_error<W: typst::World>(
+    world: &W,
+    errors: &EcoVec<SourceDiagnostic>,
+) -> Error {
+    Error::TypstCompile {
+        message: format_typst_diagnostics(world, errors),
+        diagnostics: lift_diagnostics(world, errors),
+    }
+}
+
+#[cfg(feature = "embed-typst")]
+fn render_error(message: impl Into<String>) -> Error {
+    let message = message.into();
+    Error::TypstCompile {
+        diagnostics: vec![Diagnostic::error(message.clone())],
+        message,
+    }
 }

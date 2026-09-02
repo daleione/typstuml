@@ -4,22 +4,22 @@
 
 #align(center, tree-layout(
   width: 231.220pt,
-  height: 141.800pt,
+  height: 174.160pt,
   nodes: (
-    (x: 0.000pt, y: 63.610pt, w: 81.610pt, h: 14.580pt, body: node[Class Templates]),
-    (x: 93.610pt, y: 0.000pt, w: 113.340pt, h: 79.980pt, body: node[Example 1 \
+    (x: 0.000pt, y: 79.790pt, w: 81.610pt, h: 14.580pt, body: node[Class Templates]),
+    (x: 93.610pt, y: 0.000pt, w: 113.340pt, h: 101.392pt, body: node[Example 1 \
 template \<typename T\> \
 class cname\{ \
 void f1(); \
 ... \
 \}]),
-    (x: 93.610pt, y: 87.980pt, w: 137.610pt, h: 53.820pt, body: node[Example 2 \
+    (x: 93.610pt, y: 109.392pt, w: 137.610pt, h: 64.768pt, body: node[Example 2 \
 other template \<typename T\> \
 class cname\{ \
 ...]),
   ),
   edges: (
-    (points: ((81.610pt, 70.900pt), (87.610pt, 70.900pt), (87.610pt, 39.990pt), (93.610pt, 39.990pt),),),
-    (points: ((81.610pt, 70.900pt), (87.610pt, 70.900pt), (87.610pt, 114.890pt), (93.610pt, 114.890pt),),),
+    (points: ((81.610pt, 87.080pt), (87.610pt, 87.080pt), (87.610pt, 50.696pt), (93.610pt, 50.696pt),),),
+    (points: ((81.610pt, 87.080pt), (87.610pt, 87.080pt), (87.610pt, 141.776pt), (93.610pt, 141.776pt),),),
   ),
 ))

@@ -12,7 +12,7 @@
 
 use std::collections::HashMap;
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Error, Result};
 use crate::ir::{
     Diagram, LayoutDirection, RegionGroup, RegionOrient, Skinparam, StateDiagram, StateKind,
     StateNode,
@@ -145,11 +145,8 @@ impl<'a> Parser<'a> {
     }
 
     fn warn(&mut self, line: usize, msg: impl Into<String>) {
-        self.diagnostics.push(Diagnostic {
-            level: Level::Warning,
-            line: Some(line),
-            message: msg.into(),
-        });
+        self.diagnostics
+            .push(Diagnostic::warning_at(line, msg.into()));
     }
 
     /// Report an unsupported / malformed construct: hard error under

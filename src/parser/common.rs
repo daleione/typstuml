@@ -33,11 +33,7 @@ pub(crate) fn warn_or_err(
     if compat == CompatMode::Loose {
         return Ok(());
     }
-    diagnostics.push(Diagnostic {
-        level,
-        line,
-        message,
-    });
+    diagnostics.push(Diagnostic::new(level, line, message));
     Ok(())
 }
 

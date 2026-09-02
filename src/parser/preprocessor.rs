@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use crate::parser::common::{is_ident_continue, is_ident_start};
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Error, Result};
 
 #[derive(Clone, Debug, Default)]
 pub struct Preprocessed {
@@ -30,6 +30,14 @@ pub struct Preprocessed {
 pub struct Config {
     pub include_paths: Vec<PathBuf>,
     pub source_dir: Option<PathBuf>,
+    /// Root established by the original input file. Nested includes update
+    /// `source_dir`, but must remain inside this root. Explicit include paths
+    /// are additional roots deliberately granted by the CLI caller.
+    pub project_root: Option<PathBuf>,
+    /// Whether `!include` may read real files. The default is deliberately
+    /// false so in-memory callers cannot reach the process working directory
+    /// (including through absolute include paths).
+    pub allow_filesystem: bool,
 }
 
 pub fn run(source: &str, compat: CompatMode) -> Result<Preprocessed> {
@@ -86,11 +94,7 @@ fn run_inner(
                     message: msg,
                 });
             }
-            state.diagnostics.push(Diagnostic {
-                level: Level::Warning,
-                line: Some(line_no),
-                message: msg,
-            });
+            state.diagnostics.push(Diagnostic::warning_at(line_no, msg));
             continue;
         }
 
@@ -110,11 +114,10 @@ fn handle_define(rest: &str, line_no: usize, state: &mut State) {
                 .insert(name.trim().to_string(), value.trim().to_string());
         }
         None => {
-            state.diagnostics.push(Diagnostic {
-                level: Level::Warning,
-                line: Some(line_no),
-                message: format!("malformed !define: {rest:?}"),
-            });
+            state.diagnostics.push(Diagnostic::warning_at(
+                line_no,
+                format!("malformed !define: {rest:?}"),
+            ));
         }
     }
 }
@@ -128,20 +131,46 @@ fn handle_include(
     out: &mut String,
 ) -> Result<()> {
     let path = raw.trim().trim_matches('"');
-    let Some(resolved) = resolve_include(path, config) else {
-        let msg = format!("could not resolve !include {path:?}");
+    if !config.allow_filesystem {
+        let msg = format!(
+            "filesystem access is disabled; cannot resolve !include {path:?} in memory mode"
+        );
         if compat == CompatMode::Strict {
             return Err(Error::Parse {
                 line: line_no,
                 message: msg,
             });
         }
-        state.diagnostics.push(Diagnostic {
-            level: Level::Warning,
-            line: Some(line_no),
-            message: msg,
-        });
+        state.diagnostics.push(Diagnostic::warning_at(line_no, msg));
         return Ok(());
+    }
+
+    let resolved = match resolve_include(path, config) {
+        IncludeResolution::Found(path) => path,
+        IncludeResolution::Missing => {
+            let msg = format!("could not resolve !include {path:?}");
+            if compat == CompatMode::Strict {
+                return Err(Error::Parse {
+                    line: line_no,
+                    message: msg,
+                });
+            }
+            state.diagnostics.push(Diagnostic::warning_at(line_no, msg));
+            return Ok(());
+        }
+        IncludeResolution::Denied => {
+            let msg = format!(
+                "filesystem access denied: !include {path:?} escapes the project/include roots"
+            );
+            if compat == CompatMode::Strict {
+                return Err(Error::Parse {
+                    line: line_no,
+                    message: msg,
+                });
+            }
+            state.diagnostics.push(Diagnostic::warning_at(line_no, msg));
+            return Ok(());
+        }
     };
 
     let canonical = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
@@ -163,6 +192,8 @@ fn handle_include(
     let nested_config = Config {
         source_dir: resolved.parent().map(Path::to_path_buf),
         include_paths: config.include_paths.clone(),
+        project_root: config.project_root.clone(),
+        allow_filesystem: config.allow_filesystem,
     };
     let nested = run_inner(&content, compat, &nested_config, state)?;
     out.push_str(&nested);
@@ -190,22 +221,47 @@ fn is_unsupported_directive(trimmed: &str) -> bool {
     TOKENS.iter().any(|tok| trimmed.starts_with(tok))
 }
 
-fn resolve_include(path: &str, config: &Config) -> Option<PathBuf> {
+enum IncludeResolution {
+    Found(PathBuf),
+    Missing,
+    Denied,
+}
+
+fn resolve_include(path: &str, config: &Config) -> IncludeResolution {
     let p = PathBuf::from(path);
-    if p.is_absolute() && p.exists() {
-        return Some(p);
+    let mut candidates = Vec::new();
+    if p.is_absolute() {
+        candidates.push(p.clone());
     }
     if let Some(dir) = &config.source_dir {
-        let candidate = dir.join(&p);
-        if candidate.exists() {
-            return Some(candidate);
-        }
+        candidates.push(dir.join(&p));
     }
-    config
-        .include_paths
+    candidates.extend(config.include_paths.iter().map(|dir| dir.join(&p)));
+
+    let roots = config
+        .project_root
         .iter()
-        .map(|d| d.join(&p))
-        .find(|c| c.exists())
+        .chain(config.include_paths.iter())
+        .filter_map(|root| root.canonicalize().ok())
+        .collect::<Vec<_>>();
+    let mut denied = false;
+    for candidate in candidates {
+        if !candidate.exists() {
+            continue;
+        }
+        let Ok(canonical) = candidate.canonicalize() else {
+            continue;
+        };
+        if roots.iter().any(|root| canonical.starts_with(root)) {
+            return IncludeResolution::Found(canonical);
+        }
+        denied = true;
+    }
+    if denied {
+        IncludeResolution::Denied
+    } else {
+        IncludeResolution::Missing
+    }
 }
 
 /// Replace `!define`d names with their values, but only at identifier

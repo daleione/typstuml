@@ -22,7 +22,7 @@
 
 use std::collections::HashMap;
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Error, Result};
 use crate::ir::{MapDirection, NodeSide, TreeNode};
 use crate::parser::common::strip_keyword_trimmed;
 use crate::parser::lexer::{BodyLine, UmlBlock};
@@ -113,11 +113,10 @@ pub(crate) fn build_forest(
             continue;
         }
         if strip_keyword_trimmed(trimmed, "skinparam").is_some() {
-            diagnostics.push(Diagnostic {
-                level: Level::Warning,
-                line: Some(line.line),
-                message: format!("skinparam is not yet honoured for {kind} diagrams"),
-            });
+            diagnostics.push(Diagnostic::warning_at(
+                line.line,
+                format!("skinparam is not yet honoured for {kind} diagrams"),
+            ));
             i += 1;
             continue;
         }
@@ -360,11 +359,7 @@ fn report_or_push(
     if compat == CompatMode::Strict {
         return Err(Error::Parse { line, message });
     }
-    diagnostics.push(Diagnostic {
-        level: Level::Warning,
-        line: Some(line),
-        message,
-    });
+    diagnostics.push(Diagnostic::warning_at(line, message));
     Ok(())
 }
 

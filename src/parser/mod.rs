@@ -34,7 +34,7 @@ pub mod yaml;
 
 use std::path::PathBuf;
 
-use crate::diagnostics::{CompatMode, Diagnostic, Error, Level, Result};
+use crate::diagnostics::{CompatMode, Diagnostic, Error, Result};
 use crate::ir::Document;
 
 pub use preprocessor::Config;
@@ -76,11 +76,7 @@ pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseO
                         detail,
                     });
                 }
-                diagnostics.push(Diagnostic {
-                    level: Level::Warning,
-                    line: Some(block.start_line),
-                    message: detail,
-                });
+                diagnostics.push(Diagnostic::warning_at(block.start_line, detail));
             }
         }
     }

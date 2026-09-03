@@ -278,13 +278,7 @@ mod tests {
     #[test]
     fn side_directives_reassign_neutral_markers() {
         let (d, _) = parse(
-            &block(&[
-                "+ root",
-                "** r1",
-                "left side",
-                "-- l1",
-                "** l2",
-            ]),
+            &block(&["+ root", "** r1", "left side", "-- l1", "** l2"]),
             CompatMode::Warn,
         )
         .unwrap();
@@ -325,7 +319,12 @@ mod tests {
     #[test]
     fn parses_color_names_and_underscore_shape() {
         let (d, _) = parse(
-            &block(&["* Root", "**_ thin", "**[#FFAA88] hexed", "**[#lightgreen] named"]),
+            &block(&[
+                "* Root",
+                "**_ thin",
+                "**[#FFAA88] hexed",
+                "**[#lightgreen] named",
+            ]),
             CompatMode::Warn,
         )
         .unwrap();
@@ -416,7 +415,11 @@ mod tests {
 
     #[test]
     fn extracts_title() {
-        let (d, _) = parse(&block(&["title Cognitive map", "* Brain"]), CompatMode::Warn).unwrap();
+        let (d, _) = parse(
+            &block(&["title Cognitive map", "* Brain"]),
+            CompatMode::Warn,
+        )
+        .unwrap();
         let m = mm(d);
         assert_eq!(m.title.as_deref(), Some("Cognitive map"));
     }

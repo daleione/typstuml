@@ -53,7 +53,11 @@ pub fn use_bottom_up(arena: &LGraphArena, graph: LGraphId, bary_deterministic: b
     let Some(parent) = parent else {
         return true; // rootNode
     };
-    if arena.nodes[parent.0].props.port_constraints.is_order_fixed() {
+    if arena.nodes[parent.0]
+        .props
+        .port_constraints
+        .is_order_fixed()
+    {
         return true; // fixedPortOrder
     }
     if port_side_count(arena, parent, PortSide::East) < 2
@@ -68,8 +72,10 @@ pub fn use_bottom_up(arena: &LGraphArena, graph: LGraphId, bary_deterministic: b
     // Path-ratio. NodeInfo indexed [layer][pos]; node.id must be the
     // node's position in its layer (set by the sweep's initialize).
     let layers = &arena.graphs[graph.0].layers;
-    let mut info: Vec<Vec<NodeInfo>> =
-        layers.iter().map(|l| vec![NodeInfo::default(); l.nodes.len()]).collect();
+    let mut info: Vec<Vec<NodeInfo>> = layers
+        .iter()
+        .map(|l| vec![NodeInfo::default(); l.nodes.len()])
+        .collect();
 
     let mut paths_to_random: i64 = 0;
     let mut paths_to_hierarchical: i64 = 0;

@@ -277,4 +277,3 @@ pub fn segment_rect_intersection(seg: (Point, Point), rect: (Point, Point)) -> b
     let y1 = a * rect.1.x + b;
     !((y0 < rect.0.y && y1 < rect.0.y) || (y0 > rect.1.y && y1 > rect.1.y))
 }
-

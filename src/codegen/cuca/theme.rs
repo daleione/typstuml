@@ -36,10 +36,7 @@ pub(super) struct PaintOverrides {
     pub(super) line_mode: Option<LineMode>,
 }
 
-pub(super) fn emit_skinparam_preamble(
-    out: &mut String,
-    params: &[Skinparam],
-) -> PaintOverrides {
+pub(super) fn emit_skinparam_preamble(out: &mut String, params: &[Skinparam]) -> PaintOverrides {
     let mut text_args: Vec<String> = Vec::new();
     let mut page_fill: Option<String> = None;
     let mut overrides = PaintOverrides::default();

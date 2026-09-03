@@ -67,7 +67,13 @@ fn parses_unspaced_arrow() {
     ]);
     assert_eq!(s.steps.len(), 2, "expected both messages parsed");
     match &s.steps[0] {
-        Step::Message { from, to, arrow, label, .. } => {
+        Step::Message {
+            from,
+            to,
+            arrow,
+            label,
+            ..
+        } => {
             assert_eq!(from, "Alice");
             assert_eq!(to, "Bob");
             assert_eq!(arrow, "->");
@@ -84,7 +90,9 @@ fn identifier_ending_in_letter_does_not_swallow_arrow_head() {
     // when separated by whitespace.
     let s = parse_ok(&["Otto->Alice : hi"]);
     match &s.steps[0] {
-        Step::Message { from, to, arrow, .. } => {
+        Step::Message {
+            from, to, arrow, ..
+        } => {
             assert_eq!(from, "Otto");
             assert_eq!(arrow, "->");
             assert_eq!(to, "Alice");
@@ -227,8 +235,7 @@ fn divider_and_autonumber() {
 
 #[test]
 fn unrecognized_line_emits_warning() {
-    let (_diagram, diags) =
-        parse(&block(&["frobnicate the foozle"]), CompatMode::Warn).unwrap();
+    let (_diagram, diags) = parse(&block(&["frobnicate the foozle"]), CompatMode::Warn).unwrap();
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].level, Level::Warning);
 }

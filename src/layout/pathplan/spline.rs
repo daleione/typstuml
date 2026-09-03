@@ -57,7 +57,13 @@ pub fn route_spline(
 
     let edges = polygon_edges(polygon);
     let mut out = Vec::new();
-    really_route(&edges, &inps, normv(src_tangent), normv(dst_tangent), &mut out);
+    really_route(
+        &edges,
+        &inps,
+        normv(src_tangent),
+        normv(dst_tangent),
+        &mut out,
+    );
     out
 }
 
@@ -199,12 +205,7 @@ fn splinefits(
     let mut b = 4.0;
     let mut first = true;
     loop {
-        let sps = [
-            pa,
-            pa.add(va.scale(a / 3.0)),
-            pb.sub(vb.scale(b / 3.0)),
-            pb,
-        ];
+        let sps = [pa, pa.add(va.scale(a / 3.0)), pb.sub(vb.scale(b / 3.0)), pb];
 
         // Reject "shortcuts": candidate spline shorter than the polyline
         // means it's cutting through the polygon. Only checked once.

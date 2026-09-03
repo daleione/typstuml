@@ -31,9 +31,7 @@ pub fn break_cycles(
     let mut mark = vec![0i32; n];
     // Java reuses `LNode.id` as the index; the port keeps a local map
     // (arena ids are global, `mark` is per-graph).
-    let index_of = |arena: &LGraphArena, node: LNodeId| -> usize {
-        arena.nodes[node.0].id
-    };
+    let index_of = |arena: &LGraphArena, node: LNodeId| -> usize { arena.nodes[node.0].id };
     for (index, &node) in nodes.iter().enumerate() {
         arena.nodes[node.0].id = index;
     }
@@ -43,7 +41,11 @@ pub fn break_cycles(
 
     let weight = |arena: &LGraphArena, edge: super::graph::LEdgeId| -> i32 {
         let priority = arena.edges[edge.0].props.priority;
-        if priority > 0 { priority + 1 } else { 1 }
+        if priority > 0 {
+            priority + 1
+        } else {
+            1
+        }
     };
 
     for (index, &node) in nodes.iter().enumerate() {
@@ -127,14 +129,28 @@ pub fn break_cycles(
         while let Some(sink) = sinks.pop_front() {
             mark[index_of(arena, sink)] = next_right;
             next_right -= 1;
-            update_neighbors(arena, sink, &mark, &mut indeg, &mut outdeg, &mut sources, &mut sinks);
+            update_neighbors(
+                arena,
+                sink,
+                &mark,
+                &mut indeg,
+                &mut outdeg,
+                &mut sources,
+                &mut sinks,
+            );
             unprocessed_node_count -= 1;
         }
         while let Some(source) = sources.pop_front() {
             mark[index_of(arena, source)] = next_left;
             next_left += 1;
             update_neighbors(
-                arena, source, &mark, &mut indeg, &mut outdeg, &mut sources, &mut sinks,
+                arena,
+                source,
+                &mark,
+                &mut indeg,
+                &mut outdeg,
+                &mut sources,
+                &mut sinks,
             );
             unprocessed_node_count -= 1;
         }
@@ -159,7 +175,13 @@ pub fn break_cycles(
             mark[index_of(arena, max_node)] = next_left;
             next_left += 1;
             update_neighbors(
-                arena, max_node, &mark, &mut indeg, &mut outdeg, &mut sources, &mut sinks,
+                arena,
+                max_node,
+                &mark,
+                &mut indeg,
+                &mut outdeg,
+                &mut sources,
+                &mut sinks,
             );
             unprocessed_node_count -= 1;
         }

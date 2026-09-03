@@ -80,7 +80,13 @@ const UNAMBIGUOUS_SEQ: &[&str] = &["participant", "autonumber"];
 /// Keywords ambiguous between sequence (participant kind) and cuca
 /// (desc-family leaf shape). Need other evidence to disambiguate.
 const SHARED_SEQ_CUCA: &[&str] = &[
-    "actor", "boundary", "control", "entity", "database", "collections", "queue",
+    "actor",
+    "boundary",
+    "control",
+    "entity",
+    "database",
+    "collections",
+    "queue",
 ];
 
 /// Strong cuca signals: anything from this list locks in DiagramKind::Cuca.
@@ -186,10 +192,7 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         // Java-style annotations sit above class declarations. Treat
         // them as transparent so a body that begins with
         // `@Entity\nclass Foo` is still recognized as a cuca diagram.
-        if t.starts_with('@')
-            && !t.starts_with("@start")
-            && !t.starts_with("@end")
-        {
+        if t.starts_with('@') && !t.starts_with("@start") && !t.starts_with("@end") {
             continue;
         }
 
@@ -219,14 +222,22 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         // Sequence-only fragment openers: locking in Sequence stops the
         // activity branch below from misreading a bare `end` as the
         // activity terminator.
-        if t.starts_with("alt ") || t == "alt"
-            || t.starts_with("else ") || t == "else"
-            || t.starts_with("opt ") || t == "opt"
-            || t.starts_with("loop ") || t == "loop"
-            || t.starts_with("par ") || t == "par"
-            || t.starts_with("group ") || t == "group"
-            || t.starts_with("critical ") || t == "critical"
-            || t.starts_with("break ") || t == "break"
+        if t.starts_with("alt ")
+            || t == "alt"
+            || t.starts_with("else ")
+            || t == "else"
+            || t.starts_with("opt ")
+            || t == "opt"
+            || t.starts_with("loop ")
+            || t == "loop"
+            || t.starts_with("par ")
+            || t == "par"
+            || t.starts_with("group ")
+            || t == "group"
+            || t.starts_with("critical ")
+            || t == "critical"
+            || t.starts_with("break ")
+            || t == "break"
         {
             seen_seq_strong = true;
         }
@@ -268,7 +279,9 @@ fn sniff_body(body: &[BodyLine]) -> DiagramKind {
         if t.starts_with(':') && t.contains(';') && !seen_cuca_strong {
             return DiagramKind::Activity;
         }
-        if !seen_cuca_strong && (t.starts_with('*') || t.starts_with('+') || t == "-" || t.starts_with("- ")) {
+        if !seen_cuca_strong
+            && (t.starts_with('*') || t.starts_with('+') || t == "-" || t.starts_with("- "))
+        {
             return DiagramKind::MindMap;
         }
         if t.starts_with('{') {
@@ -335,7 +348,11 @@ mod tests {
     fn line_leading_actor_shorthand_with_arrow_is_cuca() {
         let b = block(
             "uml",
-            &[":Bob: --> (Login)", ":Admin: --> (Configure)", ":Admin: --> (Login)"],
+            &[
+                ":Bob: --> (Login)",
+                ":Admin: --> (Configure)",
+                ":Admin: --> (Login)",
+            ],
         );
         assert_eq!(detect(&b), DiagramKind::Cuca);
     }

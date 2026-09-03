@@ -81,5 +81,7 @@ fn file_input_include_cannot_escape_the_project_root() {
         .arg("-")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("escapes the project/include roots"));
+        .stderr(predicate::str::contains(
+            "escapes the project/include roots",
+        ));
 }

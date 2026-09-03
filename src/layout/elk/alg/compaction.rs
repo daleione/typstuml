@@ -95,7 +95,12 @@ impl VerticalSegment {
         let new_y = self.hitbox.y.min(other.hitbox.y);
         let max_x = (self.hitbox.x + self.hitbox.width).max(other.hitbox.x + other.hitbox.width);
         let max_y = (self.hitbox.y + self.hitbox.height).max(other.hitbox.y + other.hitbox.height);
-        self.hitbox = Rect { x: new_x, y: new_y, width: max_x - new_x, height: max_y - new_y };
+        self.hitbox = Rect {
+            x: new_x,
+            y: new_y,
+            width: max_x - new_x,
+            height: max_y - new_y,
+        };
         self.ignore_spacing_up |= other.ignore_spacing_up;
         self.ignore_spacing_down |= other.ignore_spacing_down;
     }
@@ -173,12 +178,8 @@ pub fn horizontal_graph_compactor_left(arena: &mut LGraphArena, graph: LGraphId)
                 while it < bends.len() {
                     let bend2 = bends[it];
                     if !fuzzy_eq(bend1.y, bend2.y) {
-                        let vs = VerticalSegment::new(
-                            bend1,
-                            bend2,
-                            vec![(edge, i1), (edge, it)],
-                            edge,
-                        );
+                        let vs =
+                            VerticalSegment::new(bend1, bend2, vec![(edge, i1), (edge, it)], edge);
                         segments.push(vs);
                         last_segment = Some(segments.len() - 1);
                         if first {
@@ -251,7 +252,9 @@ pub fn horizontal_graph_compactor_left(arena: &mut LGraphArena, graph: LGraphId)
     // Phase 1: vertical segments only.
     let spacing_vs = 0.0f64.max(vertical_edge_edge_spacing / 2.0 - EPSILON);
     alter_segment_hitboxes(&mut cnodes, spacing_vs, 1.0);
-    sweep(arena, &mut cnodes, |c| matches!(c.origin, Origin::Segment(_)));
+    sweep(arena, &mut cnodes, |c| {
+        matches!(c.origin, Origin::Segment(_))
+    });
     alter_segment_hitboxes(&mut cnodes, spacing_vs, -1.0);
 
     // Phase 2: nodes only (edge-edge spacing on purpose, see Java note).
@@ -431,7 +434,11 @@ fn horizontal_spacing_handler(
 ) -> f64 {
     // Vertical segments of the same edge join at spacing 0.
     if let (Origin::Segment(v1), Origin::Segment(v2)) = (&cnodes[a].origin, &cnodes[b].origin) {
-        if v1.represented_ledges.iter().any(|e| v2.represented_ledges.contains(e)) {
+        if v1
+            .represented_ledges
+            .iter()
+            .any(|e| v2.represented_ledges.contains(e))
+        {
             return 0.0;
         }
     }
@@ -471,12 +478,19 @@ fn sweep(arena: &LGraphArena, cnodes: &mut [CNode], filter: impl Fn(&CNode) -> b
     for (i, c) in cnodes.iter().enumerate() {
         if filter(c) {
             points.push(Timestamp { node: i, low: true });
-            points.push(Timestamp { node: i, low: false });
+            points.push(Timestamp {
+                node: i,
+                low: false,
+            });
         }
     }
     let y_of = |cnodes: &[CNode], p: &Timestamp| {
         let b = cnodes[p.node].hitbox;
-        if p.low { b.y } else { b.y + b.height }
+        if p.low {
+            b.y
+        } else {
+            b.y + b.height
+        }
     };
     points.sort_by(|p1, p2| {
         let c = y_of(cnodes, p1).total_cmp(&y_of(cnodes, p2));

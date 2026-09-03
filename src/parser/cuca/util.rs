@@ -219,10 +219,7 @@ mod tests {
             Some("Table(name=\"orders\")".into())
         );
         // Quoted ) inside the args list must not terminate.
-        assert_eq!(
-            parse_annotation("@A(s=\")\")"),
-            Some("A(s=\")\")".into())
-        );
+        assert_eq!(parse_annotation("@A(s=\")\")"), Some("A(s=\")\")".into()));
         // Trailing junk after the annotation rejects it.
         assert!(parse_annotation("@Entity foo").is_none());
         assert!(parse_annotation("@Table(name=\"x\") extra").is_none());

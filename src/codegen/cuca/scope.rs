@@ -128,8 +128,7 @@ mod tests {
             Some((Point::new(20.0, 0.0), Point::new(30.0, 10.0))),
         ];
 
-        let obstacles =
-            foreign_frame_obstacles(&diag, &container_bboxes, &entity_container, 0, 1);
+        let obstacles = foreign_frame_obstacles(&diag, &container_bboxes, &entity_container, 0, 1);
         // Both endpoints' own packages are transparent — no obstacles
         // when the edge is entirely within the union of both chains.
         assert!(obstacles.is_empty());
@@ -154,8 +153,7 @@ mod tests {
 
         // Edge from A to B: PkgC (belongs to neither endpoint) must be
         // an obstacle.
-        let obstacles =
-            foreign_frame_obstacles(&diag, &container_bboxes, &entity_container, 0, 1);
+        let obstacles = foreign_frame_obstacles(&diag, &container_bboxes, &entity_container, 0, 1);
         assert_eq!(obstacles.len(), 1);
         assert_eq!(obstacles[0].min, Point::new(40.0, 0.0));
     }

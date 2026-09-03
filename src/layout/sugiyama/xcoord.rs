@@ -54,8 +54,7 @@ pub(crate) fn do_it(vg: &mut VisualGraph) {
         let row = vg.dag.row(r);
         for pair in row.windows(2) {
             let (l, rt) = (pair[0], pair[1]);
-            let sep =
-                vg.pos(l).size(true).x / 2.0 + vg.pos(rt).size(true).x / 2.0 + NODESEP_PT;
+            let sep = vg.pos(l).size(true).x / 2.0 + vg.pos(rt).size(true).x / 2.0 + NODESEP_PT;
             edges.push((l.get_index(), rt.get_index(), sep, 0.0));
         }
     }

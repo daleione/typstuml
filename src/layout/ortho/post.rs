@@ -178,9 +178,7 @@ mod tests {
     fn short_routes_are_left_alone() {
         // A single-segment (2-point) and simple Z-route with no
         // interior-interior segment eligible: nothing to move.
-        let mut routes = vec![
-            vec![Point::new(0.0, 0.0), Point::new(100.0, 0.0)],
-        ];
+        let mut routes = vec![vec![Point::new(0.0, 0.0), Point::new(100.0, 0.0)]];
         let before = routes.clone();
         separate_overlapping(&mut routes, 10.0);
         assert_eq!(routes, before);

@@ -82,8 +82,12 @@ pub(super) fn layout(
     // Entities → measured adapter nodes. Lollipops (bare interfaces)
     // shrink to the disc with the label as an outside bottom label, so
     // edges route to the disc — draw-uml's icon-node mechanism.
-    let entity_index: HashMap<&str, usize> =
-        diag.entities.iter().enumerate().map(|(i, e)| (e.id.as_str(), i)).collect();
+    let entity_index: HashMap<&str, usize> = diag
+        .entities
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (e.id.as_str(), i))
+        .collect();
     for (i, entity) in diag.entities.iter().enumerate() {
         let size = geoms[i].size;
         if entity.usymbol == USymbol::Interface {
@@ -164,7 +168,10 @@ pub(super) fn layout(
     let container_bboxes: Vec<Option<(Point, Point)>> = (0..diag.containers.len())
         .map(|ci| {
             layout.groups.get(&group_id(ci)).map(|g| {
-                (Point::new(g.x, g.y), Point::new(g.x + g.width, g.y + g.height))
+                (
+                    Point::new(g.x, g.y),
+                    Point::new(g.x + g.width, g.y + g.height),
+                )
             })
         })
         .collect();
@@ -204,7 +211,13 @@ pub(super) fn layout(
         })
         .collect();
 
-    ElkDescLayout { top_lefts, container_bboxes, entity_container, edge_points, edge_label_pos }
+    ElkDescLayout {
+        top_lefts,
+        container_bboxes,
+        entity_container,
+        edge_points,
+        edge_label_pos,
+    }
 }
 
 /// Emit every oriented edge from its engine-routed polyline: sides come
@@ -229,12 +242,20 @@ pub(super) fn emit_edges(
     line_mode: LineMode,
 ) {
     let sp = spacing();
-    let arc = if line_mode == LineMode::Polyline { 0.0 } else { sp.ortho_arc };
+    let arc = if line_mode == LineMode::Polyline {
+        0.0
+    } else {
+        sp.ortho_arc
+    };
 
     // Direction of an axis-aligned segment, named by the face it leaves.
     let leave_dir = |a: Point, b: Point| -> Side {
         if (b.y - a.y).abs() >= (b.x - a.x).abs() {
-            if b.y >= a.y { Side::Bot } else { Side::Top }
+            if b.y >= a.y {
+                Side::Bot
+            } else {
+                Side::Top
+            }
         } else if b.x >= a.x {
             Side::Right
         } else {
@@ -306,7 +327,10 @@ pub(super) fn emit_edges(
         // LABEL-dummy chain; trunk-midpoint fallback otherwise (unmeasured
         // labels — e.g. --no-measure runs).
         let label_pos = elk.edge_label_pos[k].or_else(|| {
-            oe.relation.label.as_ref().and_then(|_| ortho::longest_trunk_midpoint(pts))
+            oe.relation
+                .label
+                .as_ref()
+                .and_then(|_| ortho::longest_trunk_midpoint(pts))
         });
         let segments = ortho::to_rounded_cubics(pts, arc);
         emit_edge(

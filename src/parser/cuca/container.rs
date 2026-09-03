@@ -72,7 +72,11 @@ pub(super) fn parse_container_open(raw: &str) -> Option<ContainerOpen> {
         } else if let Some((quoted, _)) = strip_leading_quoted(label_raw) {
             quoted
         } else {
-            label_raw.split_whitespace().next().unwrap_or("").to_string()
+            label_raw
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_string()
         };
         return Some(ContainerOpen {
             usymbol: *usymbol,

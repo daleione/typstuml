@@ -27,7 +27,10 @@ pub fn json_semantic_diff(a: &Value, b: &Value, eps: f64) -> Vec<(String, String
 fn diff_value(a: &Value, b: &Value, eps: f64, path: &str, out: &mut Vec<(String, String)>) {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => {
-            let (x, y) = (x.as_f64().unwrap_or(f64::NAN), y.as_f64().unwrap_or(f64::NAN));
+            let (x, y) = (
+                x.as_f64().unwrap_or(f64::NAN),
+                y.as_f64().unwrap_or(f64::NAN),
+            );
             if !((x - y).abs() <= eps || (x.is_nan() && y.is_nan())) {
                 out.push((path.to_string(), format!("{x} != {y}")));
             }
@@ -47,7 +50,10 @@ fn diff_value(a: &Value, b: &Value, eps: f64, path: &str, out: &mut Vec<(String,
         }
         (Value::Array(x), Value::Array(y)) => {
             if x.len() != y.len() {
-                out.push((path.to_string(), format!("array len {} != {}", x.len(), y.len())));
+                out.push((
+                    path.to_string(),
+                    format!("array len {} != {}", x.len(), y.len()),
+                ));
             }
             for (i, (va, vb)) in x.iter().zip(y.iter()).enumerate() {
                 diff_value(va, vb, eps, &format!("{path}[{i}]"), out);
@@ -108,7 +114,12 @@ fn opt_field(
 ) {
     let (e, a) = (e.unwrap_or(0.0), a.unwrap_or(0.0));
     if (e - a).abs() > tol {
-        out.push(CoordDiff { id: id.into(), field: field.into(), expected: e, actual: a });
+        out.push(CoordDiff {
+            id: id.into(),
+            field: field.into(),
+            expected: e,
+            actual: a,
+        });
     }
 }
 
@@ -175,8 +186,22 @@ fn diff_edge(e: &ElkEdge, a: &ElkEdge, tol: f64, out: &mut Vec<CoordDiff>) {
     for (i, (le, la)) in el.iter().zip(al.iter()).enumerate() {
         opt_field(&e.id, &format!("label[{i}].x"), le.x, la.x, tol, out);
         opt_field(&e.id, &format!("label[{i}].y"), le.y, la.y, tol, out);
-        opt_field(&e.id, &format!("label[{i}].width"), le.width, la.width, tol, out);
-        opt_field(&e.id, &format!("label[{i}].height"), le.height, la.height, tol, out);
+        opt_field(
+            &e.id,
+            &format!("label[{i}].width"),
+            le.width,
+            la.width,
+            tol,
+            out,
+        );
+        opt_field(
+            &e.id,
+            &format!("label[{i}].height"),
+            le.height,
+            la.height,
+            tol,
+            out,
+        );
     }
 
     let empty = Vec::new();

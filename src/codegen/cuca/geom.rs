@@ -219,11 +219,7 @@ pub(super) fn note_geom(entity: &Entity) -> ClassGeom {
     }
 }
 
-pub(super) fn name_width_pt_filtered(
-    entity: &Entity,
-    show_marker: bool,
-    show_stereo: bool,
-) -> f64 {
+pub(super) fn name_width_pt_filtered(entity: &Entity, show_marker: bool, show_stereo: bool) -> f64 {
     // Generic parameters render as a small dashed box at the top-right
     // corner of the class — they don't widen the name line.
     let name = entity.display.clone();
@@ -367,7 +363,10 @@ mod tests {
         let shown = class_geom_filtered(&e, &Default::default());
         let hidden = class_geom_filtered(
             &e,
-            &crate::ir::HideOptions { methods: true, ..Default::default() },
+            &crate::ir::HideOptions {
+                methods: true,
+                ..Default::default()
+            },
         );
         assert!(
             hidden.size.y < shown.size.y,

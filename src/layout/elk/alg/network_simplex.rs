@@ -47,7 +47,10 @@ pub struct NGraph {
 
 impl NGraph {
     pub fn add_node(&mut self, origin: Option<usize>) -> usize {
-        self.nodes.push(NNode { origin, ..NNode::default() });
+        self.nodes.push(NNode {
+            origin,
+            ..NNode::default()
+        });
         let idx = self.nodes.len() - 1;
         self.active_nodes.push(idx);
         idx
@@ -71,13 +74,21 @@ impl NGraph {
 
     fn other(&self, edge: usize, node: usize) -> usize {
         let e = &self.edges[edge];
-        if e.source == node { e.target } else { e.source }
+        if e.source == node {
+            e.target
+        } else {
+            e.source
+        }
     }
 
     fn connected_edges(&self, node: usize) -> Vec<usize> {
         // Java `getConnectedEdges()`: outgoing then incoming.
         let n = &self.nodes[node];
-        n.outgoing_edges.iter().chain(n.incoming_edges.iter()).copied().collect()
+        n.outgoing_edges
+            .iter()
+            .chain(n.incoming_edges.iter())
+            .copied()
+            .collect()
     }
 }
 
@@ -185,7 +196,9 @@ impl<'a> NetworkSimplex<'a> {
             if iter >= self.iteration_limit {
                 break;
             }
-            let enter = self.enter_edge(leave).expect("network simplex: no entering edge");
+            let enter = self
+                .enter_edge(leave)
+                .expect("network simplex: no entering edge");
             self.exchange(leave, enter);
             e = self.leave_edge();
             iter += 1;
@@ -216,9 +229,13 @@ impl<'a> NetworkSimplex<'a> {
             let is_out_edge = !self.graph.nodes[node].outgoing_edges.is_empty();
             let other = self.graph.other(edge, node);
             if is_out_edge {
-                self.graph.nodes[other].incoming_edges.retain(|&e| e != edge);
+                self.graph.nodes[other]
+                    .incoming_edges
+                    .retain(|&e| e != edge);
             } else {
-                self.graph.nodes[other].outgoing_edges.retain(|&e| e != edge);
+                self.graph.nodes[other]
+                    .outgoing_edges
+                    .retain(|&e| e != edge);
             }
             if self.graph.connected_edges(other).len() == 1 {
                 leafs.push_back(other);
@@ -453,8 +470,12 @@ impl<'a> NetworkSimplex<'a> {
                         self.cutvalue[to_id] += e_weight;
                     }
                 }
-                self.graph.nodes[source].unknown_cutvalues.retain(|&e| e != to_determine);
-                self.graph.nodes[target].unknown_cutvalues.retain(|&e| e != to_determine);
+                self.graph.nodes[source]
+                    .unknown_cutvalues
+                    .retain(|&e| e != to_determine);
+                self.graph.nodes[target]
+                    .unknown_cutvalues
+                    .retain(|&e| e != to_determine);
                 if source == node {
                     node = target;
                 } else {
@@ -467,13 +488,10 @@ impl<'a> NetworkSimplex<'a> {
     /// Java `leaveEdge()` — first tree edge (insertion order) with a
     /// negative cut value.
     fn leave_edge(&self) -> Option<usize> {
-        self.tree_edges
-            .iter()
-            .copied()
-            .find(|&edge| {
-                self.graph.edges[edge].tree_edge
-                    && self.cutvalue[self.graph.edges[edge].internal_id] < FUZZY_ST_ZERO
-            })
+        self.tree_edges.iter().copied().find(|&edge| {
+            self.graph.edges[edge].tree_edge
+                && self.cutvalue[self.graph.edges[edge].internal_id] < FUZZY_ST_ZERO
+        })
     }
 
     /// Java `enterEdge(leave)`.

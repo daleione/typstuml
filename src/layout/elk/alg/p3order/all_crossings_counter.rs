@@ -22,7 +22,10 @@ pub fn count_all_crossings(arena: &LGraphArena, order: &[Vec<LNodeId>]) -> i32 {
         return 0;
     }
     debug_assert!(
-        order.iter().flatten().all(|&n| arena.nodes[n.0].node_type != NodeType::NorthSouthPort),
+        order
+            .iter()
+            .flatten()
+            .all(|&n| arena.nodes[n.0].node_type != NodeType::NorthSouthPort),
         "north/south ports are outside the flat crossing-count scope"
     );
     let mut counter = CrossingsCounter::new(arena, vec![0; arena.ports.len()]);

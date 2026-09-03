@@ -367,11 +367,13 @@ fn pack_down(
                 // never register overlap. Preserve source order by
                 // slotting it after everything placed so far.
                 let placed_max = placed_rects.iter().map(|r| r.x1).fold(0.0, f64::max);
-                let incoming_min = incoming
-                    .iter()
-                    .map(|r| r.x0)
-                    .fold(f64::INFINITY, f64::min);
-                placed_max + cfg.x_gap - if incoming_min.is_finite() { incoming_min } else { 0.0 }
+                let incoming_min = incoming.iter().map(|r| r.x0).fold(f64::INFINITY, f64::min);
+                placed_max + cfg.x_gap
+                    - if incoming_min.is_finite() {
+                        incoming_min
+                    } else {
+                        0.0
+                    }
             }
         };
         for r in &incoming {
@@ -493,11 +495,13 @@ fn layout_horiz_right(node: &TreeLayoutInput, cfg: &TreeConfig) -> Blob {
             } else {
                 // No x-overlap (zero-size blob) — keep source order.
                 let placed_max = placed_rects.iter().map(|r| r.y1).fold(0.0, f64::max);
-                let incoming_min = incoming
-                    .iter()
-                    .map(|r| r.y0)
-                    .fold(f64::INFINITY, f64::min);
-                placed_max + cfg.y_gap - if incoming_min.is_finite() { incoming_min } else { 0.0 }
+                let incoming_min = incoming.iter().map(|r| r.y0).fold(f64::INFINITY, f64::min);
+                placed_max + cfg.y_gap
+                    - if incoming_min.is_finite() {
+                        incoming_min
+                    } else {
+                        0.0
+                    }
             }
         };
         for r in &incoming {
@@ -667,10 +671,7 @@ fn outline_blob(node: &TreeLayoutInput, cfg: &TreeConfig) -> Blob {
         .map(|r| r.x1 - (-clear))
         .fold(0.0, f64::max);
     let right_rects = col_rects(&right_col);
-    let extra_right = right_rects
-        .iter()
-        .map(|r| clear - r.x0)
-        .fold(0.0, f64::max);
+    let extra_right = right_rects.iter().map(|r| clear - r.x0).fold(0.0, f64::max);
 
     let mut last_attach: f64 = f64::NEG_INFINITY;
     for (cb, dx, dy, attach_y) in left_col {
@@ -725,11 +726,7 @@ fn outline_blob(node: &TreeLayoutInput, cfg: &TreeConfig) -> Blob {
 /// (sides ignored there, matching PlantUML), every deeper level in
 /// outline form.
 pub fn layout_wbs(root: &TreeLayoutInput, cfg: &TreeConfig) -> TreeLayout {
-    let kid_blobs: Vec<Blob> = root
-        .children
-        .iter()
-        .map(|c| outline_blob(c, cfg))
-        .collect();
+    let kid_blobs: Vec<Blob> = root.children.iter().map(|c| outline_blob(c, cfg)).collect();
     pack_down(root.id, root.size, kid_blobs, cfg).into_layout()
 }
 
@@ -922,7 +919,11 @@ pub fn stack_layouts(layouts: Vec<TreeLayout>, gap: f64, horizontal: bool) -> Tr
     let mut out = TreeLayout::default();
     let mut cursor = 0.0;
     for (i, mut l) in layouts.into_iter().enumerate() {
-        let (dx, dy) = if horizontal { (cursor, 0.0) } else { (0.0, cursor) };
+        let (dx, dy) = if horizontal {
+            (cursor, 0.0)
+        } else {
+            (0.0, cursor)
+        };
         for n in &mut l.nodes {
             n.x += dx;
             n.y += dy;
@@ -982,8 +983,8 @@ mod tests {
     fn no_node_overlap(l: &TreeLayout) {
         for (i, a) in l.nodes.iter().enumerate() {
             for b in l.nodes.iter().skip(i + 1) {
-                let overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h
-                    && b.y < a.y + a.h;
+                let overlap =
+                    a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
                 assert!(
                     !overlap,
                     "nodes {} and {} overlap: {a:?} vs {b:?}",
@@ -1004,7 +1005,12 @@ mod tests {
 
     #[test]
     fn down_root_centered_over_child_anchor_span() {
-        let root = parent(0, 40.0, 20.0, vec![leaf(1, 40.0, 20.0), leaf(2, 40.0, 20.0)]);
+        let root = parent(
+            0,
+            40.0,
+            20.0,
+            vec![leaf(1, 40.0, 20.0), leaf(2, 40.0, 20.0)],
+        );
         let c = cfg();
         let l = layout_down(&root, &c);
         let r = node_by_id(&l, 0);
@@ -1019,7 +1025,12 @@ mod tests {
     fn down_canvas_is_tight_no_symmetric_padding() {
         // v1 inflated the canvas so the root sat at the bbox center;
         // v2 must hug the content instead.
-        let root = parent(0, 30.0, 20.0, vec![leaf(1, 100.0, 20.0), leaf(2, 20.0, 20.0)]);
+        let root = parent(
+            0,
+            30.0,
+            20.0,
+            vec![leaf(1, 100.0, 20.0), leaf(2, 20.0, 20.0)],
+        );
         let c = cfg();
         let l = layout_down(&root, &c);
         let tight = 100.0 + c.x_gap + 20.0;
@@ -1060,7 +1071,12 @@ mod tests {
 
     #[test]
     fn elbow_edge_spans_root_to_child_anchor() {
-        let root = parent(0, 30.0, 20.0, vec![leaf(1, 30.0, 20.0), leaf(2, 30.0, 20.0)]);
+        let root = parent(
+            0,
+            30.0,
+            20.0,
+            vec![leaf(1, 30.0, 20.0), leaf(2, 30.0, 20.0)],
+        );
         let c = cfg();
         let l = layout_down(&root, &c);
         let e = l.edges.iter().find(|e| e.to == 1).unwrap();
@@ -1083,7 +1099,12 @@ mod tests {
 
     #[test]
     fn horiz_right_root_centered_over_anchor_span() {
-        let branch = parent(0, 40.0, 20.0, vec![leaf(1, 50.0, 20.0), leaf(2, 50.0, 20.0)]);
+        let branch = parent(
+            0,
+            40.0,
+            20.0,
+            vec![leaf(1, 50.0, 20.0), leaf(2, 50.0, 20.0)],
+        );
         let c = cfg();
         let blob = layout_horiz(&branch, &c, false);
         let r = *blob.nodes.iter().find(|n| n.id == 0).unwrap();
@@ -1099,7 +1120,10 @@ mod tests {
         let branch = parent(0, 40.0, 20.0, vec![leaf(1, 50.0, 20.0)]);
         let blob = layout_horiz(&branch, &cfg(), true);
         let r = *blob.nodes.iter().find(|n| n.id == 0).unwrap();
-        assert!((r.x + r.w - blob.w).abs() < 1e-9, "left root hugs right edge");
+        assert!(
+            (r.x + r.w - blob.w).abs() < 1e-9,
+            "left root hugs right edge"
+        );
         let k = *blob.nodes.iter().find(|n| n.id == 1).unwrap();
         assert!((k.x - 0.0).abs() < 1e-9, "left children hug left edge");
     }
@@ -1172,10 +1196,7 @@ mod tests {
             0,
             60.0,
             20.0,
-            vec![
-                sided(1, Side::Left, vec![]),
-                sided(2, Side::Right, vec![]),
-            ],
+            vec![sided(1, Side::Left, vec![]), sided(2, Side::Right, vec![])],
         );
         let l = layout_wbs(&root, &cfg());
         let a = node_by_id(&l, 1);
@@ -1235,15 +1256,32 @@ mod tests {
         // Trunk: from == to == parent id, vertical.
         let trunk = l.edges.iter().find(|e| e.from == 1 && e.to == 1).unwrap();
         assert_eq!(trunk.points.len(), 2);
-        assert!((trunk.points[0].0 - trunk.points[1].0).abs() < 1e-9, "trunk vertical");
+        assert!(
+            (trunk.points[0].0 - trunk.points[1].0).abs() < 1e-9,
+            "trunk vertical"
+        );
         // Stubs: horizontal, from trunk to each child's inner edge.
         for child in [2usize, 3] {
-            let stub = l.edges.iter().find(|e| e.from == 1 && e.to == child).unwrap();
+            let stub = l
+                .edges
+                .iter()
+                .find(|e| e.from == 1 && e.to == child)
+                .unwrap();
             assert_eq!(stub.points.len(), 2);
-            assert!((stub.points[0].1 - stub.points[1].1).abs() < 1e-9, "stub horizontal");
+            assert!(
+                (stub.points[0].1 - stub.points[1].1).abs() < 1e-9,
+                "stub horizontal"
+            );
             let cnode = node_by_id(&l, child);
-            let inner = if child == 3 { cnode.x + cnode.w } else { cnode.x };
-            assert!((stub.points[1].0 - inner).abs() < 1e-9, "stub reaches box edge");
+            let inner = if child == 3 {
+                cnode.x + cnode.w
+            } else {
+                cnode.x
+            };
+            assert!(
+                (stub.points[1].0 - inner).abs() < 1e-9,
+                "stub reaches box edge"
+            );
         }
     }
 
@@ -1261,7 +1299,11 @@ mod tests {
             0,
             60.0,
             20.0,
-            vec![sided(1, Side::Right, vec![deep_left, sided(5, Side::Right, vec![])])],
+            vec![sided(
+                1,
+                Side::Right,
+                vec![deep_left, sided(5, Side::Right, vec![])],
+            )],
         );
         let l = layout_wbs(&root, &cfg());
         no_node_overlap(&l);

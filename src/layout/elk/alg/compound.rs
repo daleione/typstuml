@@ -92,7 +92,11 @@ impl Preprocessor<'_> {
             // Java: processInsideSelfLoops — INSIDE_SELF_LOOPS_ACTIVATE
             // is never set in scope, so this is the early-return path.
 
-            if self.arena.graphs[nested_graph.0].props.graph_properties.external_ports {
+            if self.arena.graphs[nested_graph.0]
+                .props
+                .graph_properties
+                .external_ports
+            {
                 // Sync any pre-existing ports of the compound node with
                 // external-port dummies. In scope every port of a
                 // compound node is created by this very preprocessor
@@ -159,12 +163,10 @@ impl Preprocessor<'_> {
                             self.arena.edges[target_edge.0].labels.push(label);
                             let src_node = self.arena.edge_source_node(target_edge).unwrap();
                             let src_graph = self.arena.nodes[src_node.0].graph;
-                            let gp =
-                                &mut self.arena.graphs[src_graph.0].props.graph_properties;
+                            let gp = &mut self.arena.graphs[src_graph.0].props.graph_properties;
                             gp.end_labels = true;
                             gp.center_labels = true;
-                            self.arena.labels[label.0].props.original_label_edge =
-                                Some(orig_edge);
+                            self.arena.labels[label.0].props.original_label_edge = Some(orig_edge);
                         }
                         None => kept.push(label),
                     }
@@ -189,7 +191,10 @@ impl Preprocessor<'_> {
             let owner = self.arena.ports[external_port.0].owner.unwrap();
             self.arena.nodes[owner.0].props.port_constraints = PortConstraints::FixedSide;
             let owner_graph = self.arena.nodes[owner.0].graph;
-            self.arena.graphs[owner_graph.0].props.graph_properties.non_free_ports = true;
+            self.arena.graphs[owner_graph.0]
+                .props
+                .graph_properties
+                .non_free_ports = true;
         }
     }
 
@@ -216,9 +221,7 @@ impl Preprocessor<'_> {
                     let target_node = self.arena.ports[target_port.0].owner.unwrap();
                     if self.arena.nodes[target_node.0].graph == graph {
                         self.connect_child(graph, port_type, orig_edge, dummy_port, target_port);
-                    } else if parent_node
-                        .is_none_or(|p| self.is_descendant(target_node, p))
-                    {
+                    } else if parent_node.is_none_or(|p| self.is_descendant(target_node, p)) {
                         self.connect_siblings(
                             graph,
                             port_type,
@@ -243,9 +246,7 @@ impl Preprocessor<'_> {
                     let source_node = self.arena.ports[source_port.0].owner.unwrap();
                     if self.arena.nodes[source_node.0].graph == graph {
                         self.connect_child(graph, port_type, orig_edge, source_port, dummy_port);
-                    } else if parent_node
-                        .is_none_or(|p| self.is_descendant(source_node, p))
-                    {
+                    } else if parent_node.is_none_or(|p| self.is_descendant(source_node, p)) {
                         // Handled from the output side.
                         continue;
                     } else {
@@ -277,11 +278,14 @@ impl Preprocessor<'_> {
         let dummy_edge = self.create_dummy_edge(orig_edge);
         self.arena.edge_set_source(dummy_edge, Some(source_port));
         self.arena.edge_set_target(dummy_edge, Some(target_port));
-        self.cross_hierarchy_map.entry(orig_edge).or_default().push(CrossHierarchyEdge {
-            edge: dummy_edge,
-            graph,
-            port_type,
-        });
+        self.cross_hierarchy_map
+            .entry(orig_edge)
+            .or_default()
+            .push(CrossHierarchyEdge {
+                edge: dummy_edge,
+                graph,
+                port_type,
+            });
     }
 
     /// Java `connectSiblings`.
@@ -303,13 +307,18 @@ impl Preprocessor<'_> {
         assert_eq!(target_external_port.port_type, PortType::Input);
         let target_dummy_port = target_external_port.dummy_port;
         let dummy_edge = self.create_dummy_edge(orig_edge);
-        self.arena.edge_set_source(dummy_edge, Some(output_dummy_port));
-        self.arena.edge_set_target(dummy_edge, Some(target_dummy_port));
-        self.cross_hierarchy_map.entry(orig_edge).or_default().push(CrossHierarchyEdge {
-            edge: dummy_edge,
-            graph,
-            port_type: output_port_type,
-        });
+        self.arena
+            .edge_set_source(dummy_edge, Some(output_dummy_port));
+        self.arena
+            .edge_set_target(dummy_edge, Some(target_dummy_port));
+        self.cross_hierarchy_map
+            .entry(orig_edge)
+            .or_default()
+            .push(CrossHierarchyEdge {
+                edge: dummy_edge,
+                graph,
+                port_type: output_port_type,
+            });
     }
 
     /// Java `processOuterHierarchicalEdgeSegments`.
@@ -417,18 +426,29 @@ impl Preprocessor<'_> {
             // Java also merges EDGE_THICKNESS here (max) — thickness
             // is not modelled in scope (draw-uml never sets it).
             let new_edge = created[idx].new_edge;
-            self.cross_hierarchy_map.entry(orig_edge).or_default().push(CrossHierarchyEdge {
-                edge: new_edge,
-                graph,
-                port_type,
-            });
+            self.cross_hierarchy_map
+                .entry(orig_edge)
+                .or_default()
+                .push(CrossHierarchyEdge {
+                    edge: new_edge,
+                    graph,
+                    port_type,
+                });
             return;
         }
 
         let external_port_side = if let Some(pep) = parent_end_port {
             self.arena.ports[pep.0].side
-        } else if self.arena.nodes[parent_node.0].props.port_constraints.is_side_fixed() {
-            if port_type == PortType::Input { PortSide::West } else { PortSide::East }
+        } else if self.arena.nodes[parent_node.0]
+            .props
+            .port_constraints
+            .is_side_fixed()
+        {
+            if port_type == PortType::Input {
+                PortSide::West
+            } else {
+                PortSide::East
+            }
         } else {
             PortSide::Undefined
         };
@@ -443,11 +463,13 @@ impl Preprocessor<'_> {
         let dummy_edge = self.create_dummy_edge(orig_edge);
         let dummy_node_port = self.arena.nodes[dummy_node.0].ports[0];
         if port_type == PortType::Input {
-            self.arena.edge_set_source(dummy_edge, Some(dummy_node_port));
+            self.arena
+                .edge_set_source(dummy_edge, Some(dummy_node_port));
             self.arena.edge_set_target(dummy_edge, Some(opposite_port));
         } else {
             self.arena.edge_set_source(dummy_edge, Some(opposite_port));
-            self.arena.edge_set_target(dummy_edge, Some(dummy_node_port));
+            self.arena
+                .edge_set_target(dummy_edge, Some(dummy_node_port));
         }
 
         let dummy_port = self.arena.nodes[dummy_node.0]
@@ -465,11 +487,14 @@ impl Preprocessor<'_> {
         if parent_end_port.is_none() {
             *current = Some(created.len() - 1);
         }
-        self.cross_hierarchy_map.entry(orig_edge).or_default().push(CrossHierarchyEdge {
-            edge: dummy_edge,
-            graph,
-            port_type,
-        });
+        self.cross_hierarchy_map
+            .entry(orig_edge)
+            .or_default()
+            .push(CrossHierarchyEdge {
+                edge: dummy_edge,
+                graph,
+                port_type,
+            });
     }
 
     /// Java `createDummyEdge`: property copy only (JUNCTION_POINTS
@@ -544,7 +569,10 @@ impl Preprocessor<'_> {
             self.dummy_node_map.insert(dummy_port, dummy_node);
         }
 
-        self.arena.graphs[graph.0].props.graph_properties.external_ports = true;
+        self.arena.graphs[graph.0]
+            .props
+            .graph_properties
+            .external_ports = true;
         let gp = self.arena.graphs[graph.0].props.port_constraints;
         self.arena.graphs[graph.0].props.port_constraints = if gp.is_side_fixed() {
             PortConstraints::FixedSide

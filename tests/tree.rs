@@ -233,8 +233,14 @@ fn renders_svg_for_mindmap_syntax_fixtures() {
     // Every syntax-compat fixture must render (parse + layout + Typst).
     let tmp = tempfile::tempdir().unwrap();
     for name in [
-        "markdown", "indent", "plusminus", "leftside", "multiroot",
-        "style-classes", "ttb", "multiline-code",
+        "markdown",
+        "indent",
+        "plusminus",
+        "leftside",
+        "multiroot",
+        "style-classes",
+        "ttb",
+        "multiline-code",
     ] {
         let out = tmp.path().join(format!("{name}.svg"));
         Command::cargo_bin("typstuml")
@@ -271,7 +277,10 @@ fn renders_svg_for_mindmap_basic() {
     let width = svg_viewbox_width(&svg).expect("viewBox missing");
     // Mindmap fans out left + right, so it should be visibly wider than a
     // single-column WBS of the same node count.
-    assert!(width > 300.0, "mindmap viewBox unexpectedly narrow: {width}");
+    assert!(
+        width > 300.0,
+        "mindmap viewBox unexpectedly narrow: {width}"
+    );
 }
 
 #[test]

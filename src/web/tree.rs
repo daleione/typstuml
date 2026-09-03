@@ -30,16 +30,15 @@ use serde_json::{json, Value};
 use crate::diagnostics::CompatMode;
 use crate::ir::{Diagram, MapDirection, NodeShape, NodeSide, TreeNode};
 use crate::layout::tree::{
-    layout_mindmap, layout_wbs, stack_layouts, transpose_layout, Side, TreeConfig,
-    TreeLayoutInput,
+    layout_mindmap, layout_wbs, stack_layouts, transpose_layout, Side, TreeConfig, TreeLayoutInput,
 };
 
 /// Parse `source` and build the model JSON for its first WBS / mind-map
 /// diagram. Errors mirror the render path's diagnostics.
 pub fn model_json(source: &str) -> Result<String, String> {
     let config = crate::parser::Config::default();
-    let parsed = crate::parser::parse(source, CompatMode::Warn, &config)
-        .map_err(|e| e.to_string())?;
+    let parsed =
+        crate::parser::parse(source, CompatMode::Warn, &config).map_err(|e| e.to_string())?;
 
     for diagram in &parsed.document.diagrams {
         let (kind, title, roots, direction) = match diagram {
@@ -56,8 +55,7 @@ pub fn model_json(source: &str) -> Result<String, String> {
             _ => continue,
         };
         let mut counter = 0;
-        let roots_json: Vec<Value> =
-            roots.iter().map(|r| node_json(r, &mut counter)).collect();
+        let roots_json: Vec<Value> = roots.iter().map(|r| node_json(r, &mut counter)).collect();
         let model = json!({
             "kind": kind,
             "title": title,
@@ -72,7 +70,11 @@ pub fn model_json(source: &str) -> Result<String, String> {
 fn node_json(node: &TreeNode, counter: &mut usize) -> Value {
     let id = *counter;
     *counter += 1;
-    let children: Vec<Value> = node.children.iter().map(|c| node_json(c, counter)).collect();
+    let children: Vec<Value> = node
+        .children
+        .iter()
+        .map(|c| node_json(c, counter))
+        .collect();
     json!({
         "id": id,
         "label": label_lines(node),
@@ -136,8 +138,7 @@ pub fn display_list_json(
     folded_json: &str,
     em: f64,
 ) -> Result<String, String> {
-    let model: Value =
-        serde_json::from_str(model_json).map_err(|e| format!("model: {e}"))?;
+    let model: Value = serde_json::from_str(model_json).map_err(|e| format!("model: {e}"))?;
     let sizes: HashMap<String, (f64, f64)> =
         serde_json::from_str(sizes_json).map_err(|e| format!("sizes: {e}"))?;
     let folded_raw: Vec<Value> =
@@ -190,8 +191,10 @@ pub fn display_list_json(
                 let mut rights = Vec::new();
                 if !folded.contains(&root_input.id) {
                     for child in child_array(root)? {
-                        let side =
-                            child.get("side").and_then(Value::as_str).unwrap_or("default");
+                        let side = child
+                            .get("side")
+                            .and_then(Value::as_str)
+                            .unwrap_or("default");
                         let is_left = side == "left";
                         if (is_left && fold_left) || (!is_left && fold_right) {
                             continue;
@@ -262,7 +265,11 @@ fn node_id(node: &Value) -> Result<usize, String> {
 /// Size lookup with the same shape of heuristic fallback the CLI path
 /// uses (max line width + insets) so an unmeasured node still occupies
 /// plausible space.
-fn node_size(node: &Value, sizes: &HashMap<String, (f64, f64)>, em: f64) -> Result<(f64, f64), String> {
+fn node_size(
+    node: &Value,
+    sizes: &HashMap<String, (f64, f64)>,
+    em: f64,
+) -> Result<(f64, f64), String> {
     if node.get("shape").and_then(Value::as_str) == Some("phantom") {
         return Ok((0.0, 0.0));
     }
@@ -373,8 +380,10 @@ mod tests {
         for root in v["roots"].as_array().unwrap() {
             walk(root, &mut ids);
         }
-        let map: HashMap<String, [f64; 2]> =
-            ids.into_iter().map(|i| (i.to_string(), [60.0, 20.0])).collect();
+        let map: HashMap<String, [f64; 2]> = ids
+            .into_iter()
+            .map(|i| (i.to_string(), [60.0, 20.0]))
+            .collect();
         serde_json::to_string(&map).unwrap()
     }
 
@@ -447,8 +456,7 @@ mod tests {
     fn side_fold_prunes_one_mindmap_column() {
         let model = model_json(MINDMAP_SRC).unwrap();
         // Fold the left side: L1 (id 3) disappears, right side stays.
-        let dl =
-            display_list_json(&model, &sizes_for(&model), "[\"left\"]", 10.0).unwrap();
+        let dl = display_list_json(&model, &sizes_for(&model), "[\"left\"]", 10.0).unwrap();
         let v: Value = serde_json::from_str(&dl).unwrap();
         let ids: Vec<u64> = v["nodes"]
             .as_array()
@@ -458,8 +466,7 @@ mod tests {
             .collect();
         assert_eq!(ids, vec![0, 1, 2], "left column pruned: {ids:?}");
         // Mixed ids + side strings compose.
-        let dl2 =
-            display_list_json(&model, &sizes_for(&model), "[\"left\", 1]", 10.0).unwrap();
+        let dl2 = display_list_json(&model, &sizes_for(&model), "[\"left\", 1]", 10.0).unwrap();
         let v2: Value = serde_json::from_str(&dl2).unwrap();
         let ids2: Vec<u64> = v2["nodes"]
             .as_array()

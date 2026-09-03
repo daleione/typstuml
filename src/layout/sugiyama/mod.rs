@@ -12,14 +12,14 @@
 mod bk;
 pub(crate) mod cluster_rank;
 mod compact;
-pub(crate) mod ns;
-mod xcoord;
 mod edge_fix;
 pub mod hierarchy;
+pub(crate) mod ns;
 mod port_align;
 mod simple;
 pub mod tighten;
 mod verify;
+mod xcoord;
 
 pub use hierarchy::{ClusterId, HCluster, HierarchyMap};
 

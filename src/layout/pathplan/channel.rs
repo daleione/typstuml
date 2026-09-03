@@ -252,8 +252,7 @@ mod tests {
     #[test]
     fn skips_obstacles_outside_path_x_range() {
         // Obstacle is to the left of both endpoints — should be ignored.
-        let poly =
-            build_channel(pt(10., 5.), pt(20., 5.), &[obs(0., 4., 5., 6.)], 1.0).unwrap();
+        let poly = build_channel(pt(10., 5.), pt(20., 5.), &[obs(0., 4., 5., 6.)], 1.0).unwrap();
         assert_eq!(poly.len(), 4, "{:?}", poly.vertices());
     }
 
@@ -301,8 +300,7 @@ mod tests {
         // Without the y-overlap filter we'd add a spurious bay that
         // extends the polygon downward and tempts the funnel to detour
         // through it; with the filter the obstacle is ignored entirely.
-        let poly =
-            build_channel(pt(0., 0.), pt(10., 0.), &[obs(4., 50., 6., 60.)], 1.0).unwrap();
+        let poly = build_channel(pt(0., 0.), pt(10., 0.), &[obs(4., 50., 6., 60.)], 1.0).unwrap();
         assert_eq!(poly.len(), 4, "expected no bay, got {:?}", poly.vertices());
     }
 

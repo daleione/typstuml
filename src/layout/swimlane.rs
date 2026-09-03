@@ -129,10 +129,17 @@ pub fn solve(
     for (i, n) in nodes_in.iter().enumerate() {
         let m = measurements.get(&n.probe_id);
         let w = m.as_ref().map(|m| m.width_pt).unwrap_or(FALLBACK_NODE_W_PT);
-        let h = m.as_ref().map(|m| m.height_pt).unwrap_or(FALLBACK_NODE_H_PT);
+        let h = m
+            .as_ref()
+            .map(|m| m.height_pt)
+            .unwrap_or(FALLBACK_NODE_H_PT);
         if i > 0 {
             let prev_lane = nodes_in[i - 1].lane;
-            y += if prev_lane != n.lane { CROSS_GAP_PT } else { INTRA_GAP_PT };
+            y += if prev_lane != n.lane {
+                CROSS_GAP_PT
+            } else {
+                INTRA_GAP_PT
+            };
         }
         let lane_center = lane_xs[n.lane] + lane_widths[n.lane] / 2.0;
         placements.push(NodePlacement {
@@ -205,13 +212,31 @@ mod tests {
     #[test]
     fn lane_revisit_consolidates_columns() {
         let lanes = vec![
-            LaneInput { label: "A".into(), color: None },
-            LaneInput { label: "B".into(), color: None },
+            LaneInput {
+                label: "A".into(),
+                color: None,
+            },
+            LaneInput {
+                label: "B".into(),
+                color: None,
+            },
         ];
         let nodes = vec![
-            NodeInput { probe_id: "n0".into(), lane: 0, supplies_entry: false },
-            NodeInput { probe_id: "n1".into(), lane: 1, supplies_entry: false },
-            NodeInput { probe_id: "n2".into(), lane: 0, supplies_entry: false },
+            NodeInput {
+                probe_id: "n0".into(),
+                lane: 0,
+                supplies_entry: false,
+            },
+            NodeInput {
+                probe_id: "n1".into(),
+                lane: 1,
+                supplies_entry: false,
+            },
+            NodeInput {
+                probe_id: "n2".into(),
+                lane: 0,
+                supplies_entry: false,
+            },
         ];
         let labels = vec![Some("lane0".into()), Some("lane1".into())];
         let layout = solve(&lanes, &nodes, &labels, &ms());
@@ -225,12 +250,26 @@ mod tests {
     #[test]
     fn cross_lane_edge_is_a_snake() {
         let lanes = vec![
-            LaneInput { label: "A".into(), color: None },
-            LaneInput { label: "B".into(), color: None },
+            LaneInput {
+                label: "A".into(),
+                color: None,
+            },
+            LaneInput {
+                label: "B".into(),
+                color: None,
+            },
         ];
         let nodes = vec![
-            NodeInput { probe_id: "n0".into(), lane: 0, supplies_entry: false },
-            NodeInput { probe_id: "n1".into(), lane: 1, supplies_entry: false },
+            NodeInput {
+                probe_id: "n0".into(),
+                lane: 0,
+                supplies_entry: false,
+            },
+            NodeInput {
+                probe_id: "n1".into(),
+                lane: 1,
+                supplies_entry: false,
+            },
         ];
         let labels = vec![Some("lane0".into()), Some("lane1".into())];
         let layout = solve(&lanes, &nodes, &labels, &ms());
@@ -240,10 +279,21 @@ mod tests {
 
     #[test]
     fn intra_lane_edge_is_straight() {
-        let lanes = vec![LaneInput { label: "A".into(), color: None }];
+        let lanes = vec![LaneInput {
+            label: "A".into(),
+            color: None,
+        }];
         let nodes = vec![
-            NodeInput { probe_id: "n0".into(), lane: 0, supplies_entry: false },
-            NodeInput { probe_id: "n1".into(), lane: 0, supplies_entry: false },
+            NodeInput {
+                probe_id: "n0".into(),
+                lane: 0,
+                supplies_entry: false,
+            },
+            NodeInput {
+                probe_id: "n1".into(),
+                lane: 0,
+                supplies_entry: false,
+            },
         ];
         let labels = vec![Some("lane0".into())];
         let layout = solve(&lanes, &nodes, &labels, &ms());

@@ -14,7 +14,7 @@
 
 use crate::ir::{ArrowHead, Direction, LineStyle};
 
-use super::util::{Flavor, unquote};
+use super::util::{unquote, Flavor};
 
 /// Per-endpoint shape hint used by the caller when auto-creating an
 /// entity that the user referenced but didn't declare. Distinct from
@@ -83,8 +83,10 @@ fn expand_arrow_around(bytes: &[u8], pivot: usize) -> Option<(usize, usize)> {
     let mut end = pivot;
     while end < n {
         let c = bytes[end];
-        if matches!(c, b'-' | b'.' | b'=' | b'<' | b'>' | b'|' | b'*' | b'o' | b'x' | b'+' | b'#')
-        {
+        if matches!(
+            c,
+            b'-' | b'.' | b'=' | b'<' | b'>' | b'|' | b'*' | b'o' | b'x' | b'+' | b'#'
+        ) {
             end += 1;
             continue;
         }
@@ -110,7 +112,8 @@ fn expand_arrow_around(bytes: &[u8], pivot: usize) -> Option<(usize, usize)> {
             // side (the previous byte is a body char by construction at
             // the first iteration).
             let after = end + kw_len;
-            if end > 0 && matches!(bytes[end - 1], b'-' | b'.' | b'=')
+            if end > 0
+                && matches!(bytes[end - 1], b'-' | b'.' | b'=')
                 && (after == n || matches!(bytes[after], b'-' | b'.' | b'='))
             {
                 end = after;
@@ -128,7 +131,10 @@ fn expand_arrow_around(bytes: &[u8], pivot: usize) -> Option<(usize, usize)> {
     let mut start = pivot;
     while start > 0 {
         let prev = bytes[start - 1];
-        if matches!(prev, b'<' | b'>' | b'|' | b'*' | b'o' | b'x' | b'+' | b'#' | b'(' | b')') {
+        if matches!(
+            prev,
+            b'<' | b'>' | b'|' | b'*' | b'o' | b'x' | b'+' | b'#' | b'(' | b')'
+        ) {
             start -= 1;
             continue;
         }
@@ -165,9 +171,7 @@ fn validate_arrow_borders(bytes: &[u8], start: usize, end: usize) -> bool {
     if !span.iter().any(|b| matches!(b, b'-' | b'.' | b'=')) {
         return false;
     }
-    let left_ok = start == 0
-        || bytes[start - 1].is_ascii_whitespace()
-        || bytes[start - 1] == b'"';
+    let left_ok = start == 0 || bytes[start - 1].is_ascii_whitespace() || bytes[start - 1] == b'"';
     let right_ok = end >= bytes.len()
         || bytes[end].is_ascii_whitespace()
         || bytes[end] == b'"'
@@ -210,7 +214,10 @@ pub(super) fn parse_relation(raw: &str, line_no: usize, flavor: Flavor) -> Optio
         found
     };
     let (label, right) = match label_colon {
-        Some(i) => (Some(right[i + 1..].trim().to_string()), right[..i].trim_end()),
+        Some(i) => (
+            Some(right[i + 1..].trim().to_string()),
+            right[..i].trim_end(),
+        ),
         None => (None, right),
     };
 
@@ -288,7 +295,14 @@ fn parse_endpoint_left(s: &str, flavor: Flavor) -> Option<EndpointTuple> {
     // Couple form has top priority — the comma inside `()` is what
     // distinguishes it from a lollipop reference.
     if let Some(couple) = parse_couple_parens(s) {
-        return Some((String::new(), None, None, None, EndpointHint::None, Some(couple)));
+        return Some((
+            String::new(),
+            None,
+            None,
+            None,
+            EndpointHint::None,
+            Some(couple),
+        ));
     }
     let (id_part, mult) = pop_trailing_quoted(s);
     let id_part = id_part.trim();
@@ -307,7 +321,14 @@ fn parse_endpoint_right(s: &str, flavor: Flavor) -> Option<EndpointTuple> {
         return None;
     }
     if let Some(couple) = parse_couple_parens(s) {
-        return Some((String::new(), None, None, None, EndpointHint::None, Some(couple)));
+        return Some((
+            String::new(),
+            None,
+            None,
+            None,
+            EndpointHint::None,
+            Some(couple),
+        ));
     }
     let (rest, mult) = pop_leading_quoted(s);
     let rest = rest.trim();
@@ -329,7 +350,14 @@ fn classify_endpoint_id(id: String, flavor: Flavor) -> (String, EndpointHint) {
     match flavor {
         Flavor::Class => {
             let (id, is_lollipop) = strip_lollipop_parens(id);
-            (id, if is_lollipop { EndpointHint::Lollipop } else { EndpointHint::None })
+            (
+                id,
+                if is_lollipop {
+                    EndpointHint::Lollipop
+                } else {
+                    EndpointHint::None
+                },
+            )
         }
         Flavor::UseCase => {
             let (id, is_actor) = strip_actor_colons(id);
@@ -337,7 +365,14 @@ fn classify_endpoint_id(id: String, flavor: Flavor) -> (String, EndpointHint) {
                 return (id, EndpointHint::Actor);
             }
             let (id, is_usecase) = strip_lollipop_parens(id);
-            (id, if is_usecase { EndpointHint::UseCase } else { EndpointHint::None })
+            (
+                id,
+                if is_usecase {
+                    EndpointHint::UseCase
+                } else {
+                    EndpointHint::None
+                },
+            )
         }
     }
 }
@@ -475,7 +510,13 @@ fn pop_trailing_role(s: &str) -> (&str, Option<String>) {
 /// its head decorations, line style, and direction hint.
 fn decode_arrow(
     arrow: &str,
-) -> (ArrowHead, ArrowHead, LineStyle, Option<Direction>, Option<String>) {
+) -> (
+    ArrowHead,
+    ArrowHead,
+    LineStyle,
+    Option<Direction>,
+    Option<String>,
+) {
     // Strip `[…]` color/style annotations; capture the first `#…`
     // color found inside any such annotation. PlantUML accepts forms
     // like `[#red]`, `[#abcdef]`, `[#red,bold]`, `[bold,#red]` —
@@ -526,10 +567,8 @@ fn decode_arrow(
             let after = idx + kw.len();
             // Must be flanked by `-`/`.`/`=` (the body chars) on at
             // least one side, to avoid matching shape characters.
-            let before_ok = idx == 0
-                || matches!(s.as_bytes()[idx - 1], b'-' | b'.' | b'=');
-            let after_ok = after == s.len()
-                || matches!(s.as_bytes()[after], b'-' | b'.' | b'=');
+            let before_ok = idx == 0 || matches!(s.as_bytes()[idx - 1], b'-' | b'.' | b'=');
+            let after_ok = after == s.len() || matches!(s.as_bytes()[after], b'-' | b'.' | b'=');
             if before_ok && after_ok {
                 direction = Some(dir);
                 s.replace_range(idx..idx + kw.len(), "");
@@ -539,7 +578,11 @@ fn decode_arrow(
     }
 
     let dotted = s.contains('.');
-    let line_style = if dotted { LineStyle::Dashed } else { LineStyle::Solid };
+    let line_style = if dotted {
+        LineStyle::Dashed
+    } else {
+        LineStyle::Solid
+    };
 
     // Body chars are `-` / `.` / `=`. Anything before the first body
     // char is the left head; anything after the last body char is the

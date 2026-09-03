@@ -153,7 +153,10 @@ impl LGraphArena {
     /// Java `new LNode(graph)` + `graph.getLayerlessNodes().add(node)`
     /// (the two always travel together at creation time).
     pub fn new_node(&mut self, graph: LGraphId) -> LNodeId {
-        self.nodes.push(LNode { graph, ..LNode::default() });
+        self.nodes.push(LNode {
+            graph,
+            ..LNode::default()
+        });
         let id = LNodeId(self.nodes.len() - 1);
         self.graphs[graph.0].layerless_nodes.push(id);
         id
@@ -172,7 +175,10 @@ impl LGraphArena {
     }
 
     pub fn new_label(&mut self, text: impl Into<String>) -> LLabelId {
-        self.labels.push(LLabel { text: text.into(), ..LLabel::default() });
+        self.labels.push(LLabel {
+            text: text.into(),
+            ..LLabel::default()
+        });
         LLabelId(self.labels.len() - 1)
     }
 
@@ -261,7 +267,10 @@ impl LGraphArena {
         if adapt_ports {
             let collect = old_target.is_some_and(|p| self.ports[p.0].props.input_collect)
                 || old_source.is_some_and(|p| self.ports[p.0].props.output_collect);
-            assert!(!collect, "collector ports (hypernodes) are outside the ported scope");
+            assert!(
+                !collect,
+                "collector ports (hypernodes) are outside the ported scope"
+            );
         }
         self.edge_set_source(edge, old_target);
         self.edge_set_target(edge, old_source);
@@ -287,7 +296,9 @@ impl LGraphArena {
     /// the stored indices consistent when the list shifts.
     pub fn node_set_layer(&mut self, graph: LGraphId, node: LNodeId, layer_idx: Option<usize>) {
         if let Some(old) = self.nodes[node.0].layer {
-            self.graphs[graph.0].layers[old].nodes.retain(|&n| n != node);
+            self.graphs[graph.0].layers[old]
+                .nodes
+                .retain(|&n| n != node);
         }
         self.nodes[node.0].layer = layer_idx;
         if let Some(new) = layer_idx {
@@ -307,10 +318,14 @@ impl LGraphArena {
         index: usize,
     ) {
         if let Some(old) = self.nodes[node.0].layer {
-            self.graphs[graph.0].layers[old].nodes.retain(|&n| n != node);
+            self.graphs[graph.0].layers[old]
+                .nodes
+                .retain(|&n| n != node);
         }
         self.nodes[node.0].layer = Some(layer_idx);
-        self.graphs[graph.0].layers[layer_idx].nodes.insert(index, node);
+        self.graphs[graph.0].layers[layer_idx]
+            .nodes
+            .insert(index, node);
     }
 
     /// Insert an empty layer at `at`, shifting the stored layer index
@@ -334,8 +349,11 @@ impl LGraphArena {
     /// Remove empty layers (Java: iterator removal at the end of
     /// several processors), fixing stored indices.
     pub fn remove_empty_layers(&mut self, graph: LGraphId) {
-        let keep: Vec<bool> =
-            self.graphs[graph.0].layers.iter().map(|l| !l.nodes.is_empty()).collect();
+        let keep: Vec<bool> = self.graphs[graph.0]
+            .layers
+            .iter()
+            .map(|l| !l.nodes.is_empty())
+            .collect();
         let mut new_index = vec![0usize; keep.len()];
         let mut next = 0usize;
         for (i, &k) in keep.iter().enumerate() {

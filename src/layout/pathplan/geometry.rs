@@ -42,8 +42,7 @@ pub(super) fn segments_intersect(a: Point, b: Point, c: Point, d: Point) -> bool
     {
         between(a, b, c) || between(a, b, d) || between(c, d, a) || between(c, d, b)
     } else {
-        (o1 == Orient::Ccw) != (o2 == Orient::Ccw)
-            && (o3 == Orient::Ccw) != (o4 == Orient::Ccw)
+        (o1 == Orient::Ccw) != (o2 == Orient::Ccw) && (o3 == Orient::Ccw) != (o4 == Orient::Ccw)
     }
 }
 

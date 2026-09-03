@@ -9,7 +9,7 @@
 //! the balancing of later components toward less-filled layers.
 
 use super::graph::{LGraphArena, LGraphId, LNodeId};
-use super::network_simplex::{NetworkSimplex, NGraph};
+use super::network_simplex::{NGraph, NetworkSimplex};
 
 const ITER_LIMIT_FACTOR: usize = 4;
 
@@ -45,7 +45,11 @@ pub fn layer_nodes(arena: &mut LGraphArena, graph: LGraphId) {
 
         if components.len() > 1 {
             previous_layering_node_counts = Some(
-                arena.graphs[graph.0].layers.iter().map(|l| l.nodes.len() as i32).collect(),
+                arena.graphs[graph.0]
+                    .layers
+                    .iter()
+                    .map(|l| l.nodes.len() as i32)
+                    .collect(),
             );
         }
     }

@@ -48,8 +48,8 @@ pub(super) fn creole_to_typst(s: &str) -> String {
                 let body_start = color_end + 1;
                 if let Some(rel_close) = s[body_start..].find("</color>") {
                     let body = &s[body_start..body_start + rel_close];
-                    let typst_color = puml_color_to_typst(color)
-                        .unwrap_or_else(|| "black".to_string());
+                    let typst_color =
+                        puml_color_to_typst(color).unwrap_or_else(|| "black".to_string());
                     let _ = write!(out, "#text(fill: {})[", typst_color);
                     out.push_str(&creole_to_typst(body));
                     out.push(']');

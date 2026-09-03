@@ -111,14 +111,8 @@ pub fn tree_model(source: &str) -> Result<String, JsError> {
 /// Pure arithmetic — no Typst compile — so calling this on every
 /// fold/unfold stays comfortably within a frame.
 #[wasm_bindgen(js_name = treeLayout)]
-pub fn tree_layout(
-    model: &str,
-    sizes: &str,
-    folded: &str,
-    em: f64,
-) -> Result<String, JsError> {
-    typstuml::web::tree::display_list_json(model, sizes, folded, em)
-        .map_err(|e| JsError::new(&e))
+pub fn tree_layout(model: &str, sizes: &str, folded: &str, em: f64) -> Result<String, JsError> {
+    typstuml::web::tree::display_list_json(model, sizes, folded, em).map_err(|e| JsError::new(&e))
 }
 
 /// Collapse a [`typstuml::diagnostics::Error`] into a JS `Error`. The

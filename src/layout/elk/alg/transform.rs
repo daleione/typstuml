@@ -28,7 +28,10 @@ use super::options::{
 /// tree inside `arena` and returns the top-level graph. Panics on
 /// constructs outside the ported scope.
 pub fn import_graph(arena: &mut LGraphArena, elkgraph: &json::ElkNode) -> LGraphId {
-    let mut importer = Importer { arena, node_map: HashMap::new() };
+    let mut importer = Importer {
+        arena,
+        node_map: HashMap::new(),
+    };
     importer.import_graph(elkgraph)
 }
 
@@ -363,8 +366,11 @@ impl Importer<'_> {
         let direction = graph_props(self.arena, graph).direction;
         let port = self.arena.new_port(node);
         let default_side = PortSide::from_direction(direction);
-        let side =
-            if port_type == PortType::Output { default_side } else { default_side.opposed() };
+        let side = if port_type == PortType::Output {
+            default_side
+        } else {
+            default_side.opposed()
+        };
         self.arena.port_set_side(port, side);
         let north_south = match direction {
             Direction::Left | Direction::Right => {
@@ -374,16 +380,16 @@ impl Importer<'_> {
             Direction::Undefined => false,
         };
         if north_south {
-            self.arena.graphs[graph.0].props.graph_properties.north_south_ports = true;
+            self.arena.graphs[graph.0]
+                .props
+                .graph_properties
+                .north_south_ports = true;
         }
         port
     }
 }
 
-fn graph_props<'a>(
-    arena: &'a LGraphArena,
-    g: LGraphId,
-) -> &'a super::options::GraphProps {
+fn graph_props<'a>(arena: &'a LGraphArena, g: LGraphId) -> &'a super::options::GraphProps {
     &arena.graphs[g.0].props
 }
 
@@ -508,13 +514,12 @@ fn parse_graph_options(props: &mut super::options::GraphProps, node: &json::ElkN
         Some(other) => panic!("unknown elk.edgeRouting {other}"),
         None => EdgeRouting::Undefined,
     };
-    props.hierarchy_handling =
-        match get_opt(node, "elk.hierarchyHandling").map(String::as_str) {
-            Some("INCLUDE_CHILDREN") => HierarchyHandling::IncludeChildren,
-            Some("SEPARATE_CHILDREN") => HierarchyHandling::SeparateChildren,
-            Some(other) => panic!("unknown elk.hierarchyHandling {other}"),
-            None => HierarchyHandling::Inherit,
-        };
+    props.hierarchy_handling = match get_opt(node, "elk.hierarchyHandling").map(String::as_str) {
+        Some("INCLUDE_CHILDREN") => HierarchyHandling::IncludeChildren,
+        Some("SEPARATE_CHILDREN") => HierarchyHandling::SeparateChildren,
+        Some(other) => panic!("unknown elk.hierarchyHandling {other}"),
+        None => HierarchyHandling::Inherit,
+    };
     props.consider_model_order =
         match get_opt(node, "elk.layered.considerModelOrder.strategy").map(String::as_str) {
             Some("NODES_AND_EDGES") => OrderingStrategy::NodesAndEdges,
@@ -532,7 +537,10 @@ fn parse_graph_options(props: &mut super::options::GraphProps, node: &json::ElkN
             Some(other) => panic!("unknown cycleBreaking strategy {other}"),
         };
     props.merge_edges = opt_bool(node, "elk.layered.mergeEdges").unwrap_or(false);
-    assert!(!props.merge_edges, "mergeEdges=true is outside the ported scope");
+    assert!(
+        !props.merge_edges,
+        "mergeEdges=true is outside the ported scope"
+    );
     props.post_compaction_left =
         match get_opt(node, "elk.layered.compaction.postCompaction.strategy").map(String::as_str) {
             Some("LEFT") => true,
@@ -540,7 +548,8 @@ fn parse_graph_options(props: &mut super::options::GraphProps, node: &json::ElkN
             Some(other) => panic!("postCompaction strategy {other} is outside the ported scope"),
         };
     assert!(
-        get_opt(node, "elk.layered.compaction.postCompaction.constraints").is_none_or(|v| v == "SCANLINE"),
+        get_opt(node, "elk.layered.compaction.postCompaction.constraints")
+            .is_none_or(|v| v == "SCANLINE"),
         "non-SCANLINE post-compaction constraints are outside the ported scope"
     );
     props.favor_straight_edges =
@@ -576,9 +585,18 @@ fn parse_graph_options(props: &mut super::options::GraphProps, node: &json::ElkN
     spc!(component_component, "elk.spacing.componentComponent");
     spc!(port_port, "elk.spacing.portPort");
     spc!(label_node, "elk.spacing.labelNode");
-    spc!(node_node_between_layers, "elk.layered.spacing.nodeNodeBetweenLayers");
-    spc!(edge_node_between_layers, "elk.layered.spacing.edgeNodeBetweenLayers");
-    spc!(edge_edge_between_layers, "elk.layered.spacing.edgeEdgeBetweenLayers");
+    spc!(
+        node_node_between_layers,
+        "elk.layered.spacing.nodeNodeBetweenLayers"
+    );
+    spc!(
+        edge_node_between_layers,
+        "elk.layered.spacing.edgeNodeBetweenLayers"
+    );
+    spc!(
+        edge_edge_between_layers,
+        "elk.layered.spacing.edgeEdgeBetweenLayers"
+    );
 }
 
 /// Export a fully laid-out **flat** LGraph back to the ELK JSON output
@@ -619,7 +637,10 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
     let off_x = pad.left - min_y;
     let off_y = pad.top - min_x;
     // internal (ix, iy) → output DOWN (iy + off_x, ix + off_y).
-    let tx = |v: KVector| json::ElkPoint { x: v.y + off_x, y: v.x + off_y };
+    let tx = |v: KVector| json::ElkPoint {
+        x: v.y + off_x,
+        y: v.x + off_y,
+    };
 
     // Finish: reassemble split edges, place + strip label dummies (the
     // LABEL_DUMMY_REMOVER slot follows LONG_EDGE_JOINER), restore
@@ -635,7 +656,9 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
     for layer in &arena.graphs[graph.0].layers {
         for &n in &layer.nodes {
             let node = &arena.nodes[n.0];
-            let Some(origin) = node.props.origin.clone() else { continue };
+            let Some(origin) = node.props.origin.clone() else {
+                continue;
+            };
             children.push(json::ElkNode {
                 id: origin,
                 x: Some(node.position.y + off_x),
@@ -648,12 +671,20 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
     }
 
     // Surviving original edges → one section each.
-    let root_id = arena.graphs[graph.0].props.origin.clone().unwrap_or_else(|| "root".into());
+    let root_id = arena.graphs[graph.0]
+        .props
+        .origin
+        .clone()
+        .unwrap_or_else(|| "root".into());
     let mut edges = Vec::new();
     for e in 0..arena.edges.len() {
         let edge = &arena.edges[e];
-        let (Some(src), Some(tgt)) = (edge.source, edge.target) else { continue };
-        let Some(origin) = edge.props.origin.clone() else { continue };
+        let (Some(src), Some(tgt)) = (edge.source, edge.target) else {
+            continue;
+        };
+        let Some(origin) = edge.props.origin.clone() else {
+            continue;
+        };
         // Keep only surviving original edges of this graph (a dropped
         // dummy edge has no endpoints; a foreign edge's source lives in
         // another graph).
@@ -698,7 +729,11 @@ pub fn apply_layout(arena: &mut LGraphArena, graph: LGraphId) -> json::ElkNode {
                 bend_points: if bends.is_empty() { None } else { Some(bends) },
                 ..Default::default()
             }]),
-            labels: if labels.is_empty() { None } else { Some(labels) },
+            labels: if labels.is_empty() {
+                None
+            } else {
+                Some(labels)
+            },
             container: Some(root_id.clone()),
             ..Default::default()
         });
@@ -758,7 +793,9 @@ pub fn apply_layout_compound(
         let mut v = KVector::default();
         loop {
             v = v.add(arena.graphs[g.0].offset);
-            let Some(parent) = arena.graphs[g.0].parent_node else { break };
+            let Some(parent) = arena.graphs[g.0].parent_node else {
+                break;
+            };
             let pad = super::hierarchical::internal_padding(arena, g);
             v.x += pad.left + arena.nodes[parent.0].position.x;
             v.y += pad.top + arena.nodes[parent.0].position.y;
@@ -789,7 +826,10 @@ pub fn apply_layout_compound(
         d_of: &dyn Fn(LGraphId) -> KVector,
         tx: &dyn Fn(KVector) -> json::ElkPoint,
     ) -> json::ElkNode {
-        let mut out = json::ElkNode { id: input.id.clone(), ..Default::default() };
+        let mut out = json::ElkNode {
+            id: input.id.clone(),
+            ..Default::default()
+        };
 
         if is_top {
             let size = super::hierarchical::actual_size(arena, graph);
@@ -870,7 +910,10 @@ pub fn apply_layout_compound(
 
             let to_container = |p: KVector, from: LGraphId| -> json::ElkPoint {
                 let a = a_of(from);
-                tx(KVector::new(p.x + a.x - container_d.x, p.y + a.y - container_d.y))
+                tx(KVector::new(
+                    p.x + a.x - container_d.x,
+                    p.y + a.y - container_d.y,
+                ))
             };
             let start = to_container(arena.port_absolute_anchor(src), src_graph);
             let end = to_container(arena.port_absolute_anchor(tgt), tgt_graph);
@@ -909,7 +952,11 @@ pub fn apply_layout_compound(
                     bend_points: if bends.is_empty() { None } else { Some(bends) },
                     ..Default::default()
                 }]),
-                labels: if labels.is_empty() { None } else { Some(labels) },
+                labels: if labels.is_empty() {
+                    None
+                } else {
+                    Some(labels)
+                },
                 container: Some(input.id.clone()),
                 ..Default::default()
             });
@@ -939,11 +986,18 @@ pub fn apply_layout_compound(
 fn parse_padding(node: &json::ElkNode) -> Insets {
     let Some(raw) = get_opt(node, "elk.padding") else {
         // CoreOptions.PADDING default for layered is 12 on each side.
-        return Insets { top: 12.0, right: 12.0, bottom: 12.0, left: 12.0 };
+        return Insets {
+            top: 12.0,
+            right: 12.0,
+            bottom: 12.0,
+            left: 12.0,
+        };
     };
     let mut padding = Insets::default();
     for part in raw.trim_matches(['[', ']']).split(',') {
-        let Some((k, v)) = part.split_once('=') else { continue };
+        let Some((k, v)) = part.split_once('=') else {
+            continue;
+        };
         let v: f64 = v.trim().parse().unwrap_or(0.0);
         match k.trim() {
             "top" => padding.top = v,

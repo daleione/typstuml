@@ -25,11 +25,7 @@ impl Polyline {
 
 /// Shortest path from `src` to `dst` inside `polygon`. Both endpoints must
 /// lie inside the polygon (or on its boundary).
-pub fn shortest_path(
-    polygon: &Polygon,
-    src: Point,
-    dst: Point,
-) -> Result<Polyline, PathError> {
+pub fn shortest_path(polygon: &Polygon, src: Point, dst: Point) -> Result<Polyline, PathError> {
     if polygon.len() < 3 {
         return Err(PathError::PolygonTooSmall(polygon.len()));
     }
@@ -52,17 +48,12 @@ pub fn shortest_path(
 }
 
 fn find_triangle(tris: &[Triangle], verts: &[Point], p: Point) -> Option<usize> {
-    tris.iter()
-        .position(|t| triangle_contains(t, verts, p))
+    tris.iter().position(|t| triangle_contains(t, verts, p))
 }
 
 /// DFS through triangle adjacency to find a path from `src_tri` to
 /// `dst_tri`. Returns the triangle indices in order.
-fn mark_triangle_path(
-    tris: &[Triangle],
-    src_tri: usize,
-    dst_tri: usize,
-) -> Option<Vec<usize>> {
+fn mark_triangle_path(tris: &[Triangle], src_tri: usize, dst_tri: usize) -> Option<Vec<usize>> {
     let mut visited = vec![false; tris.len()];
     let mut path = Vec::new();
     if dfs(tris, src_tri, dst_tri, &mut visited, &mut path) {

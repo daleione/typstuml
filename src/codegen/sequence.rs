@@ -192,7 +192,6 @@ fn write_token(out: &mut String, s: &str) {
     }
 }
 
-
 fn write_steps(out: &mut String, steps: &[Step], depth: usize) {
     for step in steps {
         write_step(out, step, depth);
@@ -363,8 +362,6 @@ fn typst_string_literal(s: &str) -> String {
     out.push('"');
     out
 }
-
-
 
 #[cfg(test)]
 mod tests {

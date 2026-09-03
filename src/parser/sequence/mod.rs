@@ -107,8 +107,7 @@ impl<'a> Parser<'a> {
             }
             if let Some(rest) = strip_prefix_keyword(raw, "autoactivate") {
                 let arg = rest.trim().to_ascii_lowercase();
-                self.seq.autoactivate =
-                    matches!(arg.as_str(), "on" | "yes" | "true" | "");
+                self.seq.autoactivate = matches!(arg.as_str(), "on" | "yes" | "true" | "");
                 continue;
             }
             if let Some(rest) = strip_prefix_keyword(raw, "title") {

@@ -277,8 +277,12 @@ mod tests {
             let line = line.trim();
             // We only export via `#import "..": a, b, c` — colon split
             // gives us the symbol list on the right.
-            let Some(rest) = line.strip_prefix("#import") else { continue };
-            let Some((_, names)) = rest.split_once(':') else { continue };
+            let Some(rest) = line.strip_prefix("#import") else {
+                continue;
+            };
+            let Some((_, names)) = rest.split_once(':') else {
+                continue;
+            };
             for name in names.split(',') {
                 let name = name.trim();
                 if !name.is_empty() {

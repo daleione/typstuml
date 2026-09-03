@@ -91,7 +91,9 @@ fn desugar_bare_interfaces_to_lollipops(diag: &mut CucaDiagram) {
         );
         if is_bare_interface {
             e.usymbol = USymbol::Interface;
-            e.kind_data = EntityKindData::Plain { members: Vec::new() };
+            e.kind_data = EntityKindData::Plain {
+                members: Vec::new(),
+            };
         }
     }
 }

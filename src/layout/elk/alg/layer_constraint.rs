@@ -44,7 +44,9 @@ pub fn preprocess(arena: &mut LGraphArena, graph: LGraphId) -> Vec<LNodeId> {
         hidden.push(node);
     }
 
-    arena.graphs[graph.0].layerless_nodes.retain(|n| !hidden.contains(n));
+    arena.graphs[graph.0]
+        .layerless_nodes
+        .retain(|n| !hidden.contains(n));
     hidden
 }
 
@@ -75,8 +77,11 @@ fn hide(
     for edge in arena.node_connected_edges(node) {
         let src_node = arena.edge_source_node(edge);
         let is_outgoing = src_node == Some(node);
-        let opposite_port =
-            if is_outgoing { arena.edges[edge.0].target.unwrap() } else { arena.edges[edge.0].source.unwrap() };
+        let opposite_port = if is_outgoing {
+            arena.edges[edge.0].target.unwrap()
+        } else {
+            arena.edges[edge.0].source.unwrap()
+        };
         let opposite_node = arena.ports[opposite_port.0].owner.unwrap();
 
         if is_outgoing {
@@ -103,7 +108,10 @@ fn update_opposite_node_layer_constraints(
     if arena.nodes[opposite.0].props.layer_constraint != LayerConstraint::None {
         return;
     }
-    let prev = connections.get(&opposite).copied().unwrap_or(LayerConstraint::None);
+    let prev = connections
+        .get(&opposite)
+        .copied()
+        .unwrap_or(LayerConstraint::None);
     let combined = combine(prev, hidden_lc);
     connections.insert(opposite, combined);
 
@@ -129,16 +137,25 @@ fn move_first_and_last_nodes(arena: &mut LGraphArena, graph: LGraphId) {
         return;
     }
     let last = n_layers - 1;
-    let all_nodes: Vec<LNodeId> =
-        arena.graphs[graph.0].layers.iter().flat_map(|l| l.nodes.clone()).collect();
+    let all_nodes: Vec<LNodeId> = arena.graphs[graph.0]
+        .layers
+        .iter()
+        .flat_map(|l| l.nodes.clone())
+        .collect();
     for node in all_nodes {
         match arena.nodes[node.0].props.layer_constraint {
             LayerConstraint::First => {
-                assert!(arena.node_incoming_edges(node).is_empty(), "FIRST node has incoming edges");
+                assert!(
+                    arena.node_incoming_edges(node).is_empty(),
+                    "FIRST node has incoming edges"
+                );
                 arena.node_set_layer(graph, node, Some(0));
             }
             LayerConstraint::Last => {
-                assert!(arena.node_outgoing_edges(node).is_empty(), "LAST node has outgoing edges");
+                assert!(
+                    arena.node_outgoing_edges(node).is_empty(),
+                    "LAST node has outgoing edges"
+                );
                 arena.node_set_layer(graph, node, Some(last));
             }
             _ => {}
@@ -194,7 +211,9 @@ pub fn postprocess(arena: &mut LGraphArena, graph: LGraphId, hidden: &[LNodeId])
     // Append the last-separate layer, prepend the first-separate layer.
     if !last_nodes.is_empty() {
         let at = arena.graphs[graph.0].layers.len();
-        arena.graphs[graph.0].layers.push(super::graph::Layer::default());
+        arena.graphs[graph.0]
+            .layers
+            .push(super::graph::Layer::default());
         for n in last_nodes {
             arena.node_set_layer(graph, n, Some(at));
         }

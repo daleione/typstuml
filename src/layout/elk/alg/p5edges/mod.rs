@@ -34,12 +34,7 @@ pub fn calculate_layer_sizes(arena: &mut LGraphArena, graph: LGraphId) {
 /// Java `LGraphUtil.placeNodesHorizontally(layer, xoffset)`. With the
 /// default (AUTOMATIC) alignment, a node's position within its layer is
 /// biased by its port ratio `outports / (inports + outports)`.
-pub fn place_nodes_horizontally(
-    arena: &mut LGraphArena,
-    graph: LGraphId,
-    li: usize,
-    xoffset: f64,
-) {
+pub fn place_nodes_horizontally(arena: &mut LGraphArena, graph: LGraphId, li: usize, xoffset: f64) {
     let nodes = arena.graphs[graph.0].layers[li].nodes.clone();
     let size_x = arena.graphs[graph.0].layers[li].size.x;
     let mut max_left = 0.0f64;
@@ -60,8 +55,11 @@ pub fn place_nodes_horizontally(
                 outports += 1;
             }
         }
-        let ratio =
-            if inports + outports == 0 { 0.5 } else { outports as f64 / (inports + outports) as f64 };
+        let ratio = if inports + outports == 0 {
+            0.5
+        } else {
+            outports as f64 / (inports + outports) as f64
+        };
         let node_size = arena.nodes[node.0].size.x;
         let mut xpos = (size_x - node_size) * ratio;
         if ratio > 0.5 {
@@ -93,8 +91,11 @@ pub fn route_and_place(
 ) -> f64 {
     calculate_layer_sizes(arena, graph);
     let sp = arena.graphs[graph.0].props.spacing;
-    let (nn, ee, en) =
-        (sp.node_node_between_layers, sp.edge_edge_between_layers, sp.edge_node_between_layers);
+    let (nn, ee, en) = (
+        sp.node_node_between_layers,
+        sp.edge_edge_between_layers,
+        sp.edge_node_between_layers,
+    );
     let n = arena.graphs[graph.0].layers.len();
 
     let mut xpos = 0.0f64;
@@ -116,8 +117,9 @@ pub fn route_and_place(
                 .flat_map(|l| l.nodes.iter())
                 .filter(|&&n| arena.nodes[n.0].node_type == super::graph::NodeType::Normal)
                 .count();
-            let left_len =
-                left.map(|li| arena.graphs[graph.0].layers[li].nodes.len() as i64).unwrap_or(-1);
+            let left_len = left
+                .map(|li| arena.graphs[graph.0].layers[li].nodes.len() as i64)
+                .unwrap_or(-1);
             eprintln!("SLOT real={real} left={left_len} slots={slots} xpos={xpos:.4}");
         }
         // Java: a layer is "external" when absent *or* when all its nodes

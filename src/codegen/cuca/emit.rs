@@ -158,8 +158,16 @@ pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &Hi
         }
     }
 
-    let fields_to_emit: &[Member] = if show_fields { entity.kind_data.fields() } else { &[] };
-    let methods_to_emit: &[Member] = if show_methods { entity.kind_data.methods() } else { &[] };
+    let fields_to_emit: &[Member] = if show_fields {
+        entity.kind_data.fields()
+    } else {
+        &[]
+    };
+    let methods_to_emit: &[Member] = if show_methods {
+        entity.kind_data.methods()
+    } else {
+        &[]
+    };
 
     out.push_str(", fields: (");
     for (i, m) in fields_to_emit.iter().enumerate() {

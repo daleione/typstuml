@@ -35,9 +35,7 @@ pub fn vertical_spacing(spacing: &SpacingProps, t1: NodeType, t2: NodeType) -> f
         (LongEdge, Label) | (Label, LongEdge) => spacing.edge_node,
         (Label, Label) => spacing.edge_edge,
         (ExternalPort, Label) | (Label, ExternalPort) => spacing.label_port_vertical,
-        _ => panic!(
-            "vertical spacing for node types {t1:?}/{t2:?} is outside the ported scope"
-        ),
+        _ => panic!("vertical spacing for node types {t1:?}/{t2:?} is outside the ported scope"),
     }
 }
 
@@ -57,9 +55,7 @@ pub fn horizontal_spacing(spacing: &SpacingProps, t1: NodeType, t2: NodeType) ->
         (LongEdge, Label) | (Label, LongEdge) => spacing.edge_node_between_layers,
         (Label, Label) => spacing.edge_edge,
         (ExternalPort, Label) | (Label, ExternalPort) => spacing.label_port_horizontal,
-        _ => panic!(
-            "horizontal spacing for node types {t1:?}/{t2:?} is outside the ported scope"
-        ),
+        _ => panic!("horizontal spacing for node types {t1:?}/{t2:?} is outside the ported scope"),
     }
 }
 
@@ -72,10 +68,27 @@ mod tests {
         // draw-uml benchmark: nodeNode=10, edgeNode/edgeEdge at ELK
         // defaults (10). Table lookups follow ELK's precalculated
         // node-type spacing map.
-        let s = SpacingProps { node_node: 10.0, edge_node: 8.0, edge_edge: 6.0, ..Default::default() };
-        assert_eq!(vertical_spacing(&s, NodeType::Normal, NodeType::Normal), 10.0);
-        assert_eq!(vertical_spacing(&s, NodeType::Normal, NodeType::LongEdge), 8.0);
-        assert_eq!(vertical_spacing(&s, NodeType::LongEdge, NodeType::Normal), 8.0);
-        assert_eq!(vertical_spacing(&s, NodeType::LongEdge, NodeType::LongEdge), 6.0);
+        let s = SpacingProps {
+            node_node: 10.0,
+            edge_node: 8.0,
+            edge_edge: 6.0,
+            ..Default::default()
+        };
+        assert_eq!(
+            vertical_spacing(&s, NodeType::Normal, NodeType::Normal),
+            10.0
+        );
+        assert_eq!(
+            vertical_spacing(&s, NodeType::Normal, NodeType::LongEdge),
+            8.0
+        );
+        assert_eq!(
+            vertical_spacing(&s, NodeType::LongEdge, NodeType::Normal),
+            8.0
+        );
+        assert_eq!(
+            vertical_spacing(&s, NodeType::LongEdge, NodeType::LongEdge),
+            6.0
+        );
     }
 }

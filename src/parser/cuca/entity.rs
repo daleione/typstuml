@@ -122,7 +122,9 @@ pub(super) fn parse_lollipop_decl(raw: &str, line_no: usize) -> Option<EntityAct
             stereotype_marker: None,
             fill: None,
             line: line_no,
-            kind_data: EntityKindData::Plain { members: Vec::new() },
+            kind_data: EntityKindData::Plain {
+                members: Vec::new(),
+            },
         },
         has_block: false,
     })
@@ -194,11 +196,10 @@ pub(super) fn parse_inline_shorthand(raw: &str, line_no: usize) -> Option<Entity
         format!("{inner} {trailing}")
     };
     let fill = pop_trailing_color(&mut working);
-    let (stereotype, stereotype_marker) =
-        match pop_trailing_stereotype_with_marker(&mut working) {
-            Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
-            None => (None, None),
-        };
+    let (stereotype, stereotype_marker) = match pop_trailing_stereotype_with_marker(&mut working) {
+        Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
+        None => (None, None),
+    };
     let _ = close; // close char captured for symmetry; not needed past parsing
     let (id, display) = parse_alias(working.trim())?;
     Some(EntityAction {
@@ -212,7 +213,9 @@ pub(super) fn parse_inline_shorthand(raw: &str, line_no: usize) -> Option<Entity
             stereotype_marker,
             fill,
             line: line_no,
-            kind_data: EntityKindData::Plain { members: Vec::new() },
+            kind_data: EntityKindData::Plain {
+                members: Vec::new(),
+            },
         },
         has_block: false,
     })
@@ -253,20 +256,39 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
         .find_map(|kw| strip_prefix_keyword(raw, kw).map(|r| (*kw, r.trim())))?;
     let (usymbol, body_kind) = match kw {
         // Class family.
-        "abstract class" | "abstract" => {
-            (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Abstract))
-        }
+        "abstract class" | "abstract" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::Abstract),
+        ),
         "static class" | "metaclass" | "stereotype" | "dataclass" | "record" => {
             (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Class))
         }
         "class" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Class)),
-        "interface" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Interface)),
-        "annotation" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Annotation)),
-        "protocol" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Protocol)),
-        "exception" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Exception)),
+        "interface" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::Interface),
+        ),
+        "annotation" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::Annotation),
+        ),
+        "protocol" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::Protocol),
+        ),
+        "exception" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::Exception),
+        ),
         "enum" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Enum)),
-        "struct" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::Struct)),
-        "entity" => (USymbol::None, BodyKind::Compartment(ClassFamilyKind::EntityShape)),
+        "struct" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::Struct),
+        ),
+        "entity" => (
+            USymbol::None,
+            BodyKind::Compartment(ClassFamilyKind::EntityShape),
+        ),
         // Object (instance-level) — name=value rows, no method compartment.
         "object" => (USymbol::None, BodyKind::Object),
         // Specials.
@@ -315,11 +337,10 @@ pub(super) fn parse_entity_decl(raw: &str, line_no: usize) -> Option<EntityActio
     let mut working = rest_trim.to_string();
 
     let fill = pop_trailing_color(&mut working);
-    let (stereotype, stereotype_marker) =
-        match pop_trailing_stereotype_with_marker(&mut working) {
-            Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
-            None => (None, None),
-        };
+    let (stereotype, stereotype_marker) = match pop_trailing_stereotype_with_marker(&mut working) {
+        Some((text, marker)) => (Some(text).filter(|t| !t.is_empty()), marker),
+        None => (None, None),
+    };
     // Strip Java-style `extends Base` / `implements I1, I2` clauses
     // before the alias parser runs — both produce generalisation
     // edges that `commit_entity` adds on commit. `implements` may
@@ -401,7 +422,10 @@ fn parse_stereotype_inner(s: String) -> (String, Option<StereotypeMarker>) {
     }
     let mut parts = inner.splitn(2, ',').map(str::trim);
     let letter = parts.next().unwrap_or("").to_string();
-    let color = parts.next().map(|c| c.to_string()).filter(|c| !c.is_empty());
+    let color = parts
+        .next()
+        .map(|c| c.to_string())
+        .filter(|c| !c.is_empty());
     if letter.is_empty() {
         return (s, None);
     }

@@ -17,14 +17,12 @@ use std::collections::HashSet;
 use super::super::graph::{LEdgeId, LGraphArena, LGraphId, LNodeId, LPortId, NodeType};
 use super::super::spacings::vertical_spacing;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[derive(Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum VDir {
     Down,
     Up,
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[derive(Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum HDir {
     Right,
     Left,
@@ -45,8 +43,11 @@ struct Ni {
 
 impl Ni {
     fn build(arena: &mut LGraphArena, graph: LGraphId) -> Ni {
-        let layers: Vec<Vec<LNodeId>> =
-            arena.graphs[graph.0].layers.iter().map(|l| l.nodes.clone()).collect();
+        let layers: Vec<Vec<LNodeId>> = arena.graphs[graph.0]
+            .layers
+            .iter()
+            .map(|l| l.nodes.clone())
+            .collect();
         let mut node_count = 0;
         for l in &layers {
             node_count += l.len();
@@ -175,11 +176,21 @@ fn get_edge(arena: &LGraphArena, source: LNodeId, target: LNodeId) -> Option<LEd
 /// Java `BKNodePlacer.process`. Assigns `node.position.y` for every node.
 pub fn place(arena: &mut LGraphArena, graph: LGraphId) {
     let n_layers = arena.graphs[graph.0].layers.len();
-    if arena.graphs[graph.0].layers.iter().all(|l| l.nodes.is_empty()) {
+    if arena.graphs[graph.0]
+        .layers
+        .iter()
+        .all(|l| l.nodes.is_empty())
+    {
         return;
     }
     let ni = Ni::build(arena, graph);
-    let dummy = arena.graphs[graph.0].layers.iter().flat_map(|l| l.nodes.iter()).copied().next().unwrap();
+    let dummy = arena.graphs[graph.0]
+        .layers
+        .iter()
+        .flat_map(|l| l.nodes.iter())
+        .copied()
+        .next()
+        .unwrap();
 
     // Type-1 conflicts (direction-independent).
     let marked = mark_conflicts(arena, graph, &ni);
@@ -209,8 +220,11 @@ pub fn place(arena: &mut LGraphArena, graph: LGraphId) {
     // picks the smallest feasible of the four sweeps.
     let align = arena.graphs[graph.0].props.bk_fixed_alignment;
     assert!(
-        matches!(align, super::super::options::FixedAlignment::None
-            | super::super::options::FixedAlignment::Balanced),
+        matches!(
+            align,
+            super::super::options::FixedAlignment::None
+                | super::super::options::FixedAlignment::Balanced
+        ),
         "single-sweep fixedAlignment values are outside the ported scope"
     );
     let produce_balanced = (align == super::super::options::FixedAlignment::None
@@ -278,7 +292,10 @@ pub fn place(arena: &mut LGraphArena, graph: LGraphId) {
             for layer in &arena.graphs[graph.0].layers {
                 for &n in &layer.nodes {
                     let id = gid(arena, n);
-                    ys.push(format!("{:.4}", layout.y[id].unwrap_or(0.0) + layout.inner_shift[id]));
+                    ys.push(format!(
+                        "{:.4}",
+                        layout.y[id].unwrap_or(0.0) + layout.inner_shift[id]
+                    ));
                 }
             }
             eprintln!("BKL {:?}/{:?} [{}]", layout.vdir, layout.hdir, ys.join(" "));
@@ -327,8 +344,11 @@ fn incident_to_inner_segment(
 
 fn mark_conflicts(arena: &LGraphArena, graph: LGraphId, ni: &Ni) -> HashSet<LEdgeId> {
     let mut marked = HashSet::new();
-    let layers: Vec<Vec<LNodeId>> =
-        arena.graphs[graph.0].layers.iter().map(|l| l.nodes.clone()).collect();
+    let layers: Vec<Vec<LNodeId>> = arena.graphs[graph.0]
+        .layers
+        .iter()
+        .map(|l| l.nodes.clone())
+        .collect();
     let number_of_layers = layers.len();
     if number_of_layers < 3 {
         return marked;
@@ -462,7 +482,10 @@ fn get_blocks(arena: &LGraphArena, graph: LGraphId, bal: &Layout) -> Vec<(LNodeI
             contents.get_mut(&root).unwrap().push(node);
         }
     }
-    roots.into_iter().map(|r| (r, contents.remove(&r).unwrap())).collect()
+    roots
+        .into_iter()
+        .map(|r| (r, contents.remove(&r).unwrap()))
+        .collect()
 }
 
 fn inside_block_shift(arena: &LGraphArena, graph: LGraphId, _ni: &Ni, bal: &mut Layout) {
@@ -480,7 +503,10 @@ fn inside_block_shift(arena: &LGraphArena, graph: LGraphId, _ni: &Ni, bal: &mut 
                 break;
             }
             let edge = get_edge(arena, current, next).unwrap();
-            let (sp, tp) = (arena.edges[edge.0].source.unwrap(), arena.edges[edge.0].target.unwrap());
+            let (sp, tp) = (
+                arena.edges[edge.0].source.unwrap(),
+                arena.edges[edge.0].target.unwrap(),
+            );
             let port_pos_diff = if bal.hdir == Some(HDir::Left) {
                 port_pos_anchor_y(arena, tp) - port_pos_anchor_y(arena, sp)
             } else {
@@ -489,8 +515,8 @@ fn inside_block_shift(arena: &LGraphArena, graph: LGraphId, _ni: &Ni, bal: &mut 
             let next_inner_shift = bal.inner_shift[gid(arena, current)] + port_pos_diff;
             bal.inner_shift[gid(arena, next)] = next_inner_shift;
             space_above = space_above.max(margin_top(arena, next) - next_inner_shift);
-            space_below =
-                space_below.max(next_inner_shift + size_y(arena, next) + margin_bottom(arena, next));
+            space_below = space_below
+                .max(next_inner_shift + size_y(arena, next) + margin_bottom(arena, next));
             current = next;
         }
 
@@ -532,7 +558,10 @@ fn get_min_y(arena: &LGraphArena, bal: &Layout, n: LNodeId) -> f64 {
 fn get_max_y(arena: &LGraphArena, bal: &Layout, n: LNodeId) -> f64 {
     let id = gid(arena, n);
     let root = bal.root[id];
-    bal.y[gid(arena, root)].unwrap() + bal.inner_shift[id] + size_y(arena, n) + margin_bottom(arena, n)
+    bal.y[gid(arena, root)].unwrap()
+        + bal.inner_shift[id]
+        + size_y(arena, n)
+        + margin_bottom(arena, n)
 }
 
 fn upper_neighbor(arena: &LGraphArena, graph: LGraphId, ni: &Ni, n: LNodeId) -> Option<LNodeId> {
@@ -645,8 +674,10 @@ fn check_order_constraint(arena: &LGraphArena, graph: LGraphId, bal: &Option<Lay
         for &node in &arena.graphs[graph.0].layers[l].nodes {
             let id = gid(arena, node);
             let top = bal.y[id].unwrap() + bal.inner_shift[id] - margin_top(arena, node);
-            let bottom =
-                bal.y[id].unwrap() + bal.inner_shift[id] + size_y(arena, node) + margin_bottom(arena, node);
+            let bottom = bal.y[id].unwrap()
+                + bal.inner_shift[id]
+                + size_y(arena, node)
+                + margin_bottom(arena, node);
             if top > pos && bottom > pos {
                 pos = bottom;
             } else {
@@ -700,7 +731,11 @@ fn horizontal_compaction(
         for &node in &arena.graphs[graph.0].layers[l].nodes {
             let id = gid(arena, node);
             bal.sink[id] = node;
-            bal.shift[id] = if bal.vdir == Some(VDir::Up) { f64::NEG_INFINITY } else { f64::INFINITY };
+            bal.shift[id] = if bal.vdir == Some(VDir::Up) {
+                f64::NEG_INFINITY
+            } else {
+                f64::INFINITY
+            };
         }
     }
     let mut c = Compactor {
@@ -759,7 +794,12 @@ impl<'a> Compactor<'a> {
             return i;
         }
         let i = self.class_nodes.len();
-        self.class_nodes.push(ClassNode { class_shift: None, node: sink, outgoing: Vec::new(), indegree: 0 });
+        self.class_nodes.push(ClassNode {
+            class_shift: None,
+            node: sink,
+            outgoing: Vec::new(),
+            indegree: 0,
+        });
         self.class_of.insert(sink, i);
         i
     }
@@ -771,7 +811,11 @@ impl<'a> Compactor<'a> {
         let mut is_initial = true;
         bal.y[gid(self.arena, root)] = Some(0.0);
         let mut current = root;
-        let mut thresh = if bal.vdir == Some(VDir::Down) { f64::NEG_INFINITY } else { f64::INFINITY };
+        let mut thresh = if bal.vdir == Some(VDir::Down) {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        };
         loop {
             let cur_idx = self.ni.node_index[gid(self.arena, current)];
             let layer = self.arena.nodes[current.0].layer.unwrap();
@@ -853,7 +897,9 @@ impl<'a> Compactor<'a> {
                             - s
                     };
                     self.class_nodes[neighbor_i].indegree += 1;
-                    self.class_nodes[sink_i].outgoing.push((neighbor_i, required));
+                    self.class_nodes[sink_i]
+                        .outgoing
+                        .push((neighbor_i, required));
                 }
             } else {
                 thresh = self.calculate_threshold(bal, thresh, root, current);
@@ -883,11 +929,12 @@ impl<'a> Compactor<'a> {
                 match self.class_nodes[target].class_shift {
                     None => self.class_nodes[target].class_shift = Some(base + separation),
                     Some(cur) => {
-                        self.class_nodes[target].class_shift = Some(if bal.vdir == Some(VDir::Down) {
-                            cur.min(base + separation)
-                        } else {
-                            cur.max(base + separation)
-                        });
+                        self.class_nodes[target].class_shift =
+                            Some(if bal.vdir == Some(VDir::Down) {
+                                cur.min(base + separation)
+                            } else {
+                                cur.max(base + separation)
+                            });
                     }
                 }
                 self.class_nodes[target].indegree -= 1;
@@ -950,26 +997,48 @@ impl<'a> Compactor<'a> {
             }
             has_edges = true;
             let other = other_node(self.arena, e, free);
-            if self.block_finished.contains(&bal.root[gid(self.arena, other)]) {
-                return Postprocessable { free, is_root, has_edges: true, edge: Some(e) };
+            if self
+                .block_finished
+                .contains(&bal.root[gid(self.arena, other)])
+            {
+                return Postprocessable {
+                    free,
+                    is_root,
+                    has_edges: true,
+                    edge: Some(e),
+                };
             }
         }
-        Postprocessable { free, is_root, has_edges, edge: None }
+        Postprocessable {
+            free,
+            is_root,
+            has_edges,
+            edge: None,
+        }
     }
 
     fn get_bound(&mut self, bal: &mut Layout, block_node: LNodeId, is_root: bool) -> f64 {
-        let invalid = if bal.vdir == Some(VDir::Up) { f64::INFINITY } else { f64::NEG_INFINITY };
+        let invalid = if bal.vdir == Some(VDir::Up) {
+            f64::INFINITY
+        } else {
+            f64::NEG_INFINITY
+        };
         let pick = self.pick_edge(bal, block_node, is_root);
         if pick.edge.is_none() && pick.has_edges {
             self.pp_queue.push_back(pick);
             return invalid;
         }
-        let Some(edge) = pick.edge else { return invalid };
+        let Some(edge) = pick.edge else {
+            return invalid;
+        };
         let left = self.arena.edges[edge.0].source.unwrap();
         let right = self.arena.edges[edge.0].target.unwrap();
         let threshold = if is_root {
-            let (root_port, other_port) =
-                if bal.hdir == Some(HDir::Right) { (right, left) } else { (left, right) };
+            let (root_port, other_port) = if bal.hdir == Some(HDir::Right) {
+                (right, left)
+            } else {
+                (left, right)
+            };
             let other_root = bal.root[gid(self.arena, port_node(self.arena, other_port))];
             bal.y[gid(self.arena, other_root)].unwrap()
                 + bal.inner_shift[gid(self.arena, port_node(self.arena, other_port))]
@@ -977,16 +1046,29 @@ impl<'a> Compactor<'a> {
                 - bal.inner_shift[gid(self.arena, port_node(self.arena, root_port))]
                 - port_pos_anchor_y(self.arena, root_port)
         } else {
-            let (root_port, other_port) =
-                if bal.hdir == Some(HDir::Left) { (right, left) } else { (left, right) };
-            bal.y[gid(self.arena, bal.root[gid(self.arena, port_node(self.arena, other_port))])].unwrap()
+            let (root_port, other_port) = if bal.hdir == Some(HDir::Left) {
+                (right, left)
+            } else {
+                (left, right)
+            };
+            bal.y[gid(
+                self.arena,
+                bal.root[gid(self.arena, port_node(self.arena, other_port))],
+            )]
+            .unwrap()
                 + bal.inner_shift[gid(self.arena, port_node(self.arena, other_port))]
                 + port_pos_anchor_y(self.arena, other_port)
                 - bal.inner_shift[gid(self.arena, port_node(self.arena, root_port))]
                 - port_pos_anchor_y(self.arena, root_port)
         };
-        bal.su[gid(self.arena, bal.root[gid(self.arena, port_node(self.arena, left))])] = true;
-        bal.su[gid(self.arena, bal.root[gid(self.arena, port_node(self.arena, right))])] = true;
+        bal.su[gid(
+            self.arena,
+            bal.root[gid(self.arena, port_node(self.arena, left))],
+        )] = true;
+        bal.su[gid(
+            self.arena,
+            bal.root[gid(self.arena, port_node(self.arena, right))],
+        )] = true;
         threshold
     }
 
@@ -998,7 +1080,12 @@ impl<'a> Compactor<'a> {
             if !only_dummies && is_in_layer_edge(self.arena, edge) {
                 continue;
             }
-            let pp2 = Postprocessable { free: pp.free, is_root: pp.is_root, has_edges: true, edge: Some(edge) };
+            let pp2 = Postprocessable {
+                free: pp.free,
+                is_root: pp.is_root,
+                has_edges: true,
+                edge: Some(edge),
+            };
             let moved = self.process(bal, &pp2);
             if !moved {
                 self.pp_stack.push(pp2);
@@ -1011,21 +1098,40 @@ impl<'a> Compactor<'a> {
 
     fn process(&mut self, bal: &mut Layout, pp: &Postprocessable) -> bool {
         let edge = pp.edge.unwrap();
-        let (fix, block) = if port_node(self.arena, self.arena.edges[edge.0].source.unwrap()) == pp.free {
-            (self.arena.edges[edge.0].target.unwrap(), self.arena.edges[edge.0].source.unwrap())
-        } else {
-            (self.arena.edges[edge.0].source.unwrap(), self.arena.edges[edge.0].target.unwrap())
-        };
+        let (fix, block) =
+            if port_node(self.arena, self.arena.edges[edge.0].source.unwrap()) == pp.free {
+                (
+                    self.arena.edges[edge.0].target.unwrap(),
+                    self.arena.edges[edge.0].source.unwrap(),
+                )
+            } else {
+                (
+                    self.arena.edges[edge.0].source.unwrap(),
+                    self.arena.edges[edge.0].target.unwrap(),
+                )
+            };
         let delta = calculate_delta(self.arena, bal, fix, block);
         if delta > 0.0 && delta < THRESHOLD {
             let available = check_space_above(
-                self.arena, self.graph, self.ni, bal, &self.spacing, port_node(self.arena, block), delta,
+                self.arena,
+                self.graph,
+                self.ni,
+                bal,
+                &self.spacing,
+                port_node(self.arena, block),
+                delta,
             );
             shift_block(self.arena, bal, port_node(self.arena, block), -available);
             available > 0.0
         } else if delta < 0.0 && -delta < THRESHOLD {
             let available = check_space_below(
-                self.arena, self.graph, self.ni, bal, &self.spacing, port_node(self.arena, block), -delta,
+                self.arena,
+                self.graph,
+                self.ni,
+                bal,
+                &self.spacing,
+                port_node(self.arena, block),
+                -delta,
             );
             shift_block(self.arena, bal, port_node(self.arena, block), available);
             available > 0.0

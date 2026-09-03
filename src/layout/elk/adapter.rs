@@ -53,7 +53,12 @@ pub struct AdapterSpacing {
 impl Default for AdapterSpacing {
     fn default() -> Self {
         // draw-uml theme defaults at fontSize 14 (the benchmark's values).
-        Self { node_gap: 20.0, layer_gap: 40.0, content_pad: 10.0, edge_gap: 5.0 }
+        Self {
+            node_gap: 20.0,
+            layer_gap: 40.0,
+            content_pad: 10.0,
+            edge_gap: 5.0,
+        }
     }
 }
 
@@ -182,7 +187,10 @@ impl AdapterModel {
 /// icon-sized with an `OUTSIDE V_BOTTOM H_CENTER` label covering the rest
 /// of the measured box.
 fn map_leaf(n: &AdapterNode) -> json::ElkNode {
-    let mut elk = json::ElkNode { id: n.id.clone(), ..Default::default() };
+    let mut elk = json::ElkNode {
+        id: n.id.clone(),
+        ..Default::default()
+    };
     if let Some((gw, gh)) = n.graphic {
         elk.width = Some(gw);
         elk.height = Some(gh);
@@ -207,11 +215,7 @@ fn map_leaf(n: &AdapterNode) -> json::ElkNode {
 
 /// Recursively map a group and its children. `full` adds the pass-2
 /// per-group spacing overrides on top of the padding.
-fn map_group(
-    model: &AdapterModel,
-    g: &AdapterGroup,
-    full: bool,
-) -> json::ElkNode {
+fn map_group(model: &AdapterModel, g: &AdapterGroup, full: bool) -> json::ElkNode {
     let node_map = model.node_map();
     let group_map = model.group_map();
     let children: Vec<json::ElkNode> = g
@@ -227,18 +231,33 @@ fn map_group(
         .collect();
 
     let (top, left, bottom, right) = g.padding;
-    let padding = format!("[top={},left={},bottom={},right={}]", fmt(top), fmt(left), fmt(bottom), fmt(right));
+    let padding = format!(
+        "[top={},left={},bottom={},right={}]",
+        fmt(top),
+        fmt(left),
+        fmt(bottom),
+        fmt(right)
+    );
     let es = model.spacing;
     let layout_options = if full {
         opts(&[
             ("elk.padding", padding),
             ("elk.spacing.nodeNode", fmt(es.node_gap)),
-            ("elk.layered.spacing.nodeNodeBetweenLayers", fmt(es.layer_gap)),
+            (
+                "elk.layered.spacing.nodeNodeBetweenLayers",
+                fmt(es.layer_gap),
+            ),
             ("elk.spacing.edgeNode", fmt(es.node_gap)),
             ("elk.spacing.edgeEdge", fmt(es.content_pad)),
             ("elk.spacing.nodeSelfLoop", fmt(es.node_gap)),
-            ("elk.layered.spacing.edgeEdgeBetweenLayers", fmt(es.content_pad)),
-            ("elk.layered.spacing.edgeNodeBetweenLayers", fmt(es.node_gap)),
+            (
+                "elk.layered.spacing.edgeEdgeBetweenLayers",
+                fmt(es.content_pad),
+            ),
+            (
+                "elk.layered.spacing.edgeNodeBetweenLayers",
+                fmt(es.node_gap),
+            ),
         ])
     } else {
         opts(&[("elk.padding", padding)])
@@ -272,7 +291,11 @@ fn build_root(model: &AdapterModel, full: bool) -> json::ElkNode {
     let has_groups = !model.groups.is_empty();
     // Root-level nodeNode: reduced (contentPad) when groups are present —
     // groups carry their own padding.
-    let root_node_node = if has_groups { es.content_pad } else { es.node_gap };
+    let root_node_node = if has_groups {
+        es.content_pad
+    } else {
+        es.node_gap
+    };
     let root_between_layers = es.layer_gap;
 
     let mut pairs: Vec<(&str, String)> = vec![
@@ -280,25 +303,46 @@ fn build_root(model: &AdapterModel, full: bool) -> json::ElkNode {
         ("elk.direction", "DOWN".into()),
         ("elk.edgeRouting", "ORTHOGONAL".into()),
         ("elk.spacing.nodeNode", fmt(root_node_node)),
-        ("elk.layered.spacing.nodeNodeBetweenLayers", fmt(root_between_layers)),
+        (
+            "elk.layered.spacing.nodeNodeBetweenLayers",
+            fmt(root_between_layers),
+        ),
         ("elk.spacing.edgeNode", fmt(es.node_gap)),
         ("elk.spacing.edgeEdge", fmt(es.content_pad)),
         ("elk.spacing.nodeSelfLoop", fmt(es.node_gap)),
         ("elk.spacing.componentComponent", fmt(es.node_gap)),
-        ("elk.layered.spacing.edgeEdgeBetweenLayers", fmt(es.content_pad)),
-        ("elk.layered.spacing.edgeNodeBetweenLayers", fmt(es.node_gap)),
+        (
+            "elk.layered.spacing.edgeEdgeBetweenLayers",
+            fmt(es.content_pad),
+        ),
+        (
+            "elk.layered.spacing.edgeNodeBetweenLayers",
+            fmt(es.node_gap),
+        ),
     ];
     if full {
         pairs.push(("elk.spacing.edgeLabel", fmt(es.edge_gap)));
-        pairs.push(("elk.layered.nodePlacement.bk.fixedAlignment", "BALANCED".into()));
+        pairs.push((
+            "elk.layered.nodePlacement.bk.fixedAlignment",
+            "BALANCED".into(),
+        ));
         pairs.push(("elk.contentAlignment", "H_CENTER V_CENTER".into()));
-        pairs.push(("elk.layered.considerModelOrder.strategy", "NODES_AND_EDGES".into()));
+        pairs.push((
+            "elk.layered.considerModelOrder.strategy",
+            "NODES_AND_EDGES".into(),
+        ));
         pairs.push(("elk.layered.highDegreeNodes.treatment", "true".into()));
         pairs.push(("elk.layered.highDegreeNodes.threshold", "8".into()));
         pairs.push(("elk.layered.mergeEdges", "false".into()));
     } else {
-        pairs.push(("elk.layered.considerModelOrder.strategy", "NODES_AND_EDGES".into()));
-        pairs.push(("elk.layered.compaction.postCompaction.strategy", "LEFT".into()));
+        pairs.push((
+            "elk.layered.considerModelOrder.strategy",
+            "NODES_AND_EDGES".into(),
+        ));
+        pairs.push((
+            "elk.layered.compaction.postCompaction.strategy",
+            "LEFT".into(),
+        ));
     }
     if has_groups {
         pairs.push(("elk.hierarchyHandling", "INCLUDE_CHILDREN".into()));
@@ -323,8 +367,11 @@ fn collect_edges(model: &AdapterModel, simple: bool) -> Vec<json::ElkEdge> {
         .edges
         .iter()
         .map(|e| {
-            let (from, to) =
-                if e.inverted { (e.to.clone(), e.from.clone()) } else { (e.from.clone(), e.to.clone()) };
+            let (from, to) = if e.inverted {
+                (e.to.clone(), e.from.clone())
+            } else {
+                (e.from.clone(), e.to.clone())
+            };
             let labels: Vec<json::ElkLabel> = e
                 .labels
                 .iter()
@@ -344,14 +391,12 @@ fn collect_edges(model: &AdapterModel, simple: bool) -> Vec<json::ElkEdge> {
                         height: Some(l.height),
                         layout_options: match l.placement {
                             EdgeLabelPlacement::Center => None,
-                            EdgeLabelPlacement::Tail => opts(&[(
-                                "org.eclipse.elk.edgeLabels.placement",
-                                "TAIL".into(),
-                            )]),
-                            EdgeLabelPlacement::Head => opts(&[(
-                                "org.eclipse.elk.edgeLabels.placement",
-                                "HEAD".into(),
-                            )]),
+                            EdgeLabelPlacement::Tail => {
+                                opts(&[("org.eclipse.elk.edgeLabels.placement", "TAIL".into())])
+                            }
+                            EdgeLabelPlacement::Head => {
+                                opts(&[("org.eclipse.elk.edgeLabels.placement", "HEAD".into())])
+                            }
                         },
                         extra,
                         ..Default::default()
@@ -596,7 +641,13 @@ pub fn extract(result: &json::ElkNode, model: &AdapterModel) -> Layout {
             if child.children.as_ref().is_some_and(|c| !c.is_empty()) {
                 layout.groups.insert(
                     child.id.clone(),
-                    LayoutGroup { id: child.id.clone(), x: ax, y: ay, width: w, height: h },
+                    LayoutGroup {
+                        id: child.id.clone(),
+                        x: ax,
+                        y: ay,
+                        width: w,
+                        height: h,
+                    },
                 );
                 collect(child, ax, ay, node_map, layout);
             } else {
@@ -667,7 +718,9 @@ pub fn extract(result: &json::ElkNode, model: &AdapterModel) -> Layout {
         model.edges.iter().map(|e| (e.id.as_str(), e)).collect();
 
     for (elk_edge, container) in collected {
-        let Some(sem) = model_edges.get(elk_edge.id.as_str()) else { continue };
+        let Some(sem) = model_edges.get(elk_edge.id.as_str()) else {
+            continue;
+        };
         let (ox, oy) = offsets.get(&container).copied().unwrap_or((0.0, 0.0));
         let mut points: Vec<(f64, f64)> = Vec::new();
         for section in elk_edge.sections.as_deref().unwrap_or(&[]) {
@@ -687,7 +740,9 @@ pub fn extract(result: &json::ElkNode, model: &AdapterModel) -> Layout {
         let mut card_to_pos = None;
         if let Some(labels) = &elk_edge.labels {
             for (i, lbl) in labels.iter().enumerate() {
-                let (Some(lx), Some(ly)) = (lbl.x, lbl.y) else { continue };
+                let (Some(lx), Some(ly)) = (lbl.x, lbl.y) else {
+                    continue;
+                };
                 let center = (
                     ox + lx + lbl.width.unwrap_or(0.0) / 2.0,
                     oy + ly + lbl.height.unwrap_or(0.0) / 2.0,
@@ -755,7 +810,12 @@ fn simplify_orthogonal_edge(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
         if i + 3 < cleaned.len() {
             let (a, b, c, d) = (cleaned[i], cleaned[i + 1], cleaned[i + 2], cleaned[i + 3]);
             // V-H-V with a small horizontal jog.
-            if a.0 == b.0 && b.1 == c.1 && c.0 == d.0 && a.0 != d.0 && (a.0 - d.0).abs() <= BEND_THRESHOLD {
+            if a.0 == b.0
+                && b.1 == c.1
+                && c.0 == d.0
+                && a.0 != d.0
+                && (a.0 - d.0).abs() <= BEND_THRESHOLD
+            {
                 let mid_x = (a.0 + d.0) / 2.0;
                 result.push((mid_x, a.1));
                 result.push((mid_x, d.1));
@@ -763,7 +823,12 @@ fn simplify_orthogonal_edge(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
                 continue;
             }
             // H-V-H with a small vertical jog.
-            if a.1 == b.1 && b.0 == c.0 && c.1 == d.1 && a.1 != d.1 && (a.1 - d.1).abs() <= BEND_THRESHOLD {
+            if a.1 == b.1
+                && b.0 == c.0
+                && c.1 == d.1
+                && a.1 != d.1
+                && (a.1 - d.1).abs() <= BEND_THRESHOLD
+            {
                 let mid_y = (a.1 + d.1) / 2.0;
                 result.push((a.0, mid_y));
                 result.push((d.0, mid_y));
@@ -794,7 +859,10 @@ pub fn position_title(layout: &mut Layout, model: &AdapterModel) {
         return;
     }
     let min_x = boxes.iter().map(|b| b.0).fold(f64::INFINITY, f64::min);
-    let max_x = boxes.iter().map(|b| b.0 + b.2).fold(f64::NEG_INFINITY, f64::max);
+    let max_x = boxes
+        .iter()
+        .map(|b| b.0 + b.2)
+        .fold(f64::NEG_INFINITY, f64::max);
     let min_y = boxes.iter().map(|b| b.1).fold(f64::INFINITY, f64::min);
     layout.nodes.insert(
         "__title__".into(),

@@ -71,7 +71,11 @@ struct Segment {
 
 impl Segment {
     fn new() -> Segment {
-        Segment { start: f64::NAN, end: f64::NAN, ..Default::default() }
+        Segment {
+            start: f64::NAN,
+            end: f64::NAN,
+            ..Default::default()
+        }
     }
     fn length(&self) -> f64 {
         self.end - self.start
@@ -87,8 +91,16 @@ impl Segment {
         self.end = f64::NAN;
         for list in [&self.incoming, &self.outgoing] {
             if let (Some(&first), Some(&last)) = (list.first(), list.last()) {
-                self.start = if self.start.is_nan() { first } else { self.start.min(first) };
-                self.end = if self.end.is_nan() { last } else { self.end.max(last) };
+                self.start = if self.start.is_nan() {
+                    first
+                } else {
+                    self.start.min(first)
+                };
+                self.end = if self.end.is_nan() {
+                    last
+                } else {
+                    self.end.max(last)
+                };
             }
         }
     }
@@ -205,7 +217,12 @@ impl<'a> RoutingGen<'a> {
 
     fn add_dep(&mut self, source: usize, target: usize, weight: i32, dep_type: DepType) {
         let di = self.deps.len();
-        self.deps.push(Dependency { source: Some(source), target: Some(target), weight, dep_type });
+        self.deps.push(Dependency {
+            source: Some(source),
+            target: Some(target),
+            weight,
+            dep_type,
+        });
         self.segments[source].out_deps.push(di);
         self.segments[target].in_deps.push(di);
     }
@@ -293,9 +310,12 @@ impl<'a> RoutingGen<'a> {
         {
             return 0;
         }
-        let conflicts1 = self.count_conflicts(&self.segments[i1].outgoing, &self.segments[i2].incoming);
-        let conflicts2 = self.count_conflicts(&self.segments[i2].outgoing, &self.segments[i1].incoming);
-        let critical = conflicts1 == CRITICAL_CONFLICTS_DETECTED || conflicts2 == CRITICAL_CONFLICTS_DETECTED;
+        let conflicts1 =
+            self.count_conflicts(&self.segments[i1].outgoing, &self.segments[i2].incoming);
+        let conflicts2 =
+            self.count_conflicts(&self.segments[i2].outgoing, &self.segments[i1].incoming);
+        let critical =
+            conflicts1 == CRITICAL_CONFLICTS_DETECTED || conflicts2 == CRITICAL_CONFLICTS_DETECTED;
         let mut critical_count = 0;
         if critical {
             if conflicts1 == CRITICAL_CONFLICTS_DETECTED {
@@ -307,14 +327,26 @@ impl<'a> RoutingGen<'a> {
                 critical_count += 1;
             }
         } else {
-            let mut crossings1 =
-                count_crossings(&self.segments[i1].outgoing, self.segments[i2].start, self.segments[i2].end);
-            crossings1 +=
-                count_crossings(&self.segments[i2].incoming, self.segments[i1].start, self.segments[i1].end);
-            let mut crossings2 =
-                count_crossings(&self.segments[i2].outgoing, self.segments[i1].start, self.segments[i1].end);
-            crossings2 +=
-                count_crossings(&self.segments[i1].incoming, self.segments[i2].start, self.segments[i2].end);
+            let mut crossings1 = count_crossings(
+                &self.segments[i1].outgoing,
+                self.segments[i2].start,
+                self.segments[i2].end,
+            );
+            crossings1 += count_crossings(
+                &self.segments[i2].incoming,
+                self.segments[i1].start,
+                self.segments[i1].end,
+            );
+            let mut crossings2 = count_crossings(
+                &self.segments[i2].outgoing,
+                self.segments[i1].start,
+                self.segments[i1].end,
+            );
+            crossings2 += count_crossings(
+                &self.segments[i1].incoming,
+                self.segments[i2].start,
+                self.segments[i2].end,
+            );
             let dv1 = CONFLICT_PENALTY * conflicts1 + CROSSING_PENALTY * crossings1;
             let dv2 = CONFLICT_PENALTY * conflicts2 + CROSSING_PENALTY * crossings2;
             if dv1 < dv2 {
@@ -342,7 +374,8 @@ impl<'a> RoutingGen<'a> {
                 && pos1 < pos2 + self.critical_conflict_threshold
             {
                 return CRITICAL_CONFLICTS_DETECTED;
-            } else if pos1 > pos2 - self.conflict_threshold && pos1 < pos2 + self.conflict_threshold {
+            } else if pos1 > pos2 - self.conflict_threshold && pos1 < pos2 + self.conflict_threshold
+            {
                 conflicts += 1;
             }
             if pos1 <= pos2 && i1 + 1 < posis1.len() {
@@ -373,7 +406,11 @@ impl<'a> RoutingGen<'a> {
         let to_split = self.decide_which_segments_to_split(&deps_to_resolve);
         // split smallest first
         let mut ordered = to_split;
-        ordered.sort_by(|&a, &b| self.segments[a].length().total_cmp(&self.segments[b].length()));
+        ordered.sort_by(|&a, &b| {
+            self.segments[a]
+                .length()
+                .total_cmp(&self.segments[b].length())
+        });
         for seg in ordered {
             self.split(seg, &mut free_areas);
         }
@@ -491,7 +528,8 @@ impl<'a> RoutingGen<'a> {
             // simulate split: split_segment keeps incoming, partner keeps outgoing.
             let sim_split_in = self.segments[seg].incoming.clone();
             let sim_partner_out = self.segments[seg].outgoing.clone();
-            let mut best_rating = self.rate_area(seg, &sim_split_in, &sim_partner_out, free_areas[from]);
+            let mut best_rating =
+                self.rate_area(seg, &sim_split_in, &sim_partner_out, free_areas[from]);
             for i in (from + 1)..=to {
                 let r = self.rate_area(seg, &sim_split_in, &sim_partner_out, free_areas[i]);
                 if is_better(free_areas[i], r, free_areas[best], best_rating) {
@@ -553,8 +591,11 @@ impl<'a> RoutingGen<'a> {
         let (sb_start, sb_end) = (self.segments[split_by].start, self.segments[split_by].end);
         crossings += count_crossings(&split_out, sb_start, sb_end)
             + count_crossings(&self.segments[split_by].incoming, split_start, split_end);
-        crossings += count_crossings(&self.segments[split_by].outgoing, partner_start, partner_end)
-            + count_crossings(&partner_in, sb_start, sb_end);
+        crossings += count_crossings(
+            &self.segments[split_by].outgoing,
+            partner_start,
+            partner_end,
+        ) + count_crossings(&partner_in, sb_start, sb_end);
         (dependencies, crossings)
     }
 
@@ -753,7 +794,8 @@ impl<'a> RoutingGen<'a> {
             let out_deps = self.segments[node].out_deps.clone();
             for di in out_deps {
                 let target = self.deps[di].target.unwrap();
-                let ns = (self.segments[node].routing_slot + 1).max(self.segments[target].routing_slot);
+                let ns =
+                    (self.segments[node].routing_slot + 1).max(self.segments[target].routing_slot);
                 self.segments[target].routing_slot = ns;
                 max_rank = max_rank.max(ns);
                 self.segments[target].in_weight -= 1;
@@ -766,7 +808,8 @@ impl<'a> RoutingGen<'a> {
             for &si in &rightward_targets {
                 self.segments[si].routing_slot = max_rank;
             }
-            let mut queue: std::collections::VecDeque<usize> = rightward_targets.into_iter().collect();
+            let mut queue: std::collections::VecDeque<usize> =
+                rightward_targets.into_iter().collect();
             while let Some(node) = queue.pop_front() {
                 let in_deps = self.segments[node].in_deps.clone();
                 for di in in_deps {
@@ -774,8 +817,9 @@ impl<'a> RoutingGen<'a> {
                     if !self.segments[source].incoming.is_empty() {
                         continue;
                     }
-                    self.segments[source].routing_slot =
-                        self.segments[source].routing_slot.min(self.segments[node].routing_slot - 1);
+                    self.segments[source].routing_slot = self.segments[source]
+                        .routing_slot
+                        .min(self.segments[node].routing_slot - 1);
                     self.segments[source].out_weight -= 1;
                     if self.segments[source].out_weight == 0 {
                         queue.push_back(source);
@@ -813,7 +857,8 @@ impl<'a> RoutingGen<'a> {
                         self.arena.edges[e.0]
                             .bend_points
                             .push(super::super::math::KVector::new(current_x, split_y));
-                        current_x = start_pos + self.segments[partner].routing_slot as f64 * self.edge_spacing;
+                        current_x = start_pos
+                            + self.segments[partner].routing_slot as f64 * self.edge_spacing;
                         self.arena.edges[e.0]
                             .bend_points
                             .push(super::super::math::KVector::new(current_x, split_y));
@@ -890,7 +935,12 @@ fn use_area(free_areas: &mut Vec<(f64, f64)>, index: usize, ct: f64) {
 
 /// Java `HyperEdgeSegmentSplitter.isBetter`. Rating = (dependencies,
 /// crossings); area = (start, end).
-fn is_better(curr_area: (f64, f64), curr: (i32, i32), best_area: (f64, f64), best: (i32, i32)) -> bool {
+fn is_better(
+    curr_area: (f64, f64),
+    curr: (i32, i32),
+    best_area: (f64, f64),
+    best: (i32, i32),
+) -> bool {
     if curr.1 < best.1 {
         true
     } else if curr.1 == best.1 {
@@ -920,9 +970,14 @@ fn count_crossings(posis: &[f64], start: f64, end: f64) -> i32 {
 
 /// Whether a graph has any node needing routing (used to short-circuit).
 pub fn has_nodes(arena: &LGraphArena, graph: super::super::graph::LGraphId) -> bool {
-    arena.graphs[graph.0].layers.iter().any(|l| l.nodes.iter().any(|&n| {
-        matches!(arena.nodes[n.0].node_type, NodeType::Normal | NodeType::LongEdge)
-    }))
+    arena.graphs[graph.0].layers.iter().any(|l| {
+        l.nodes.iter().any(|&n| {
+            matches!(
+                arena.nodes[n.0].node_type,
+                NodeType::Normal | NodeType::LongEdge
+            )
+        })
+    })
 }
 
 /// Route all edges (P5) and assign layer x-positions, threading the
@@ -941,6 +996,11 @@ pub fn route_orthogonal(
         let left_nodes = left.map(|li| super::layer_nodes(arena, graph, li));
         let right_nodes = right.map(|li| super::layer_nodes(arena, graph, li));
         let mut gen = RoutingGen::new(arena, edge_spacing);
-        gen.route_edges(left_nodes.as_deref(), right_nodes.as_deref(), start_pos, random)
+        gen.route_edges(
+            left_nodes.as_deref(),
+            right_nodes.as_deref(),
+            start_pos,
+            random,
+        )
     })
 }

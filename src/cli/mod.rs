@@ -249,8 +249,12 @@ fn run_compile(args: CompileArgs, global: &GlobalCtx) -> Result<()> {
     let theme = Theme {
         preamble: args.preamble.clone(),
     };
-    let typst_source =
-        build_typst_source(&parsed.document, &theme, parsed.source_dir.as_deref(), global)?;
+    let typst_source = build_typst_source(
+        &parsed.document,
+        &theme,
+        parsed.source_dir.as_deref(),
+        global,
+    )?;
 
     let format = resolve_format(args.format, args.output.as_deref());
     let rendered = runtime::render(typst_source, parsed.source_dir, format)?;
@@ -276,8 +280,12 @@ fn run_emit(args: EmitArgs, global: &GlobalCtx) -> Result<()> {
     let theme = Theme {
         preamble: args.preamble.clone(),
     };
-    let typst_source =
-        build_typst_source(&parsed.document, &theme, parsed.source_dir.as_deref(), global)?;
+    let typst_source = build_typst_source(
+        &parsed.document,
+        &theme,
+        parsed.source_dir.as_deref(),
+        global,
+    )?;
     write_output(args.output.as_deref(), typst_source.as_bytes())
 }
 
@@ -295,8 +303,12 @@ fn render_compile(
     let theme = Theme {
         preamble: preamble.map(Path::to_path_buf),
     };
-    let typst_source =
-        build_typst_source(&parsed.document, &theme, parsed.source_dir.as_deref(), global)?;
+    let typst_source = build_typst_source(
+        &parsed.document,
+        &theme,
+        parsed.source_dir.as_deref(),
+        global,
+    )?;
     let fmt = resolve_format(format, Some(output));
     let rendered = runtime::render(typst_source, parsed.source_dir, fmt)?;
     for w in &rendered.warnings {
@@ -455,12 +467,7 @@ fn report_error(err: &Error) {
 fn current_time_short() -> String {
     use time::OffsetDateTime;
     let now = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    format!(
-        "{:02}:{:02}:{:02}",
-        now.hour(),
-        now.minute(),
-        now.second()
-    )
+    format!("{:02}:{:02}:{:02}", now.hour(), now.minute(), now.second())
 }
 
 fn canonicalize(p: &Path) -> Result<PathBuf> {
@@ -540,10 +547,7 @@ fn build_typst_source(
         }
     };
     let elapsed_ms = start.elapsed().as_millis();
-    global.print_info(&format!(
-        "measure: {} probes, {elapsed_ms}ms",
-        set.len()
-    ));
+    global.print_info(&format!("measure: {} probes, {elapsed_ms}ms", set.len()));
 
     crate::codegen::emit(doc, theme, Some(&set), ImportStrategy::VirtualFs)
 }
@@ -675,7 +679,13 @@ impl ValueEnum for Format {
     fn value_variants<'a>() -> &'a [Self] {
         // CLI doesn't expose `--png-scale` yet, so the only PNG variant
         // surfaced through clap is the default-scale one.
-        &[Self::Svg, Self::Pdf, Self::Png { scale: DEFAULT_PNG_SCALE }]
+        &[
+            Self::Svg,
+            Self::Pdf,
+            Self::Png {
+                scale: DEFAULT_PNG_SCALE,
+            },
+        ]
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {

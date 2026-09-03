@@ -288,12 +288,7 @@ impl ModelOrderNodeComparator {
     /// feedback (in-layer) LONG_EDGE dummies against real nodes and
     /// against each other via their in-layer reference nodes. Returns 0
     /// when neither node is a feedback dummy.
-    fn handle_helper_dummy_nodes(
-        &mut self,
-        arena: &LGraphArena,
-        n1: LNodeId,
-        n2: LNodeId,
-    ) -> i32 {
+    fn handle_helper_dummy_nodes(&mut self, arena: &LGraphArena, n1: LNodeId, n2: LNodeId) -> i32 {
         let t1 = arena.nodes[n1.0].node_type;
         let t2 = arena.nodes[n2.0].node_type;
         if t1 == NodeType::LongEdge && t2 == NodeType::Normal {
@@ -440,16 +435,29 @@ impl ModelOrderNodeComparator {
 
     /// Java `updateBiggerAndSmallerAssociations(bigger, smaller)`.
     fn update(&mut self, bigger: LNodeId, smaller: LNodeId) {
-        let smaller_bigger_than: Vec<LNodeId> =
-            self.bigger_than.get(&smaller).into_iter().flatten().copied().collect();
-        let bigger_smaller_than: Vec<LNodeId> =
-            self.smaller_than.get(&bigger).into_iter().flatten().copied().collect();
+        let smaller_bigger_than: Vec<LNodeId> = self
+            .bigger_than
+            .get(&smaller)
+            .into_iter()
+            .flatten()
+            .copied()
+            .collect();
+        let bigger_smaller_than: Vec<LNodeId> = self
+            .smaller_than
+            .get(&bigger)
+            .into_iter()
+            .flatten()
+            .copied()
+            .collect();
 
         self.bigger_than.entry(bigger).or_default().insert(smaller);
         self.smaller_than.entry(smaller).or_default().insert(bigger);
 
         for very_small in &smaller_bigger_than {
-            self.bigger_than.entry(bigger).or_default().insert(*very_small);
+            self.bigger_than
+                .entry(bigger)
+                .or_default()
+                .insert(*very_small);
             let e = self.smaller_than.entry(*very_small).or_default();
             e.insert(bigger);
             for &x in &bigger_smaller_than {
@@ -457,7 +465,10 @@ impl ModelOrderNodeComparator {
             }
         }
         for very_big in &bigger_smaller_than {
-            self.smaller_than.entry(smaller).or_default().insert(*very_big);
+            self.smaller_than
+                .entry(smaller)
+                .or_default()
+                .insert(*very_big);
             let e = self.bigger_than.entry(*very_big).or_default();
             e.insert(smaller);
             for &x in &smaller_bigger_than {
@@ -476,7 +487,9 @@ fn first_incoming_source_port_of_node(arena: &LGraphArena, node: LNodeId) -> LPo
         .copied()
         .find(|&p| !arena.ports[p.0].incoming_edges.is_empty())
         .expect("feedback candidate has an incoming port");
-    arena.edges[arena.ports[port.0].incoming_edges[0].0].source.unwrap()
+    arena.edges[arena.ports[port.0].incoming_edges[0].0]
+        .source
+        .unwrap()
 }
 
 /// Java `getFirstOutgoingTargetPortOfNode`.
@@ -487,7 +500,9 @@ fn first_outgoing_target_port_of_node(arena: &LGraphArena, node: LNodeId) -> LPo
         .copied()
         .find(|&p| !arena.ports[p.0].outgoing_edges.is_empty())
         .expect("feedback candidate has an outgoing port");
-    arena.edges[arena.ports[port.0].outgoing_edges[0].0].target.unwrap()
+    arena.edges[arena.ports[port.0].outgoing_edges[0].0]
+        .target
+        .unwrap()
 }
 
 // ----------------------------------------------------------------------
@@ -599,8 +614,12 @@ impl ModelOrderPortComparator {
             {
                 reverse_order = -reverse_order;
             }
-            let p1_src = arena.edges[arena.ports[p1.0].incoming_edges[0].0].source.unwrap();
-            let p2_src = arena.edges[arena.ports[p2.0].incoming_edges[0].0].source.unwrap();
+            let p1_src = arena.edges[arena.ports[p1.0].incoming_edges[0].0]
+                .source
+                .unwrap();
+            let p2_src = arena.edges[arena.ports[p2.0].incoming_edges[0].0]
+                .source
+                .unwrap();
             let p1_node = arena.ports[p1_src.0].owner.unwrap();
             let p2_node = arena.ports[p2_src.0].owner.unwrap();
             if p1_node == p2_node {
@@ -641,13 +660,27 @@ impl ModelOrderPortComparator {
             // strategy PREFER_NODES branch omitted (NODES_AND_EDGES in scope).
             let mut p1_order = 0;
             let mut p2_order = 0;
-            if arena.edges[arena.ports[p1.0].outgoing_edges[0].0].props.model_order.is_some() {
-                p1_order =
-                    model_order_or(arena.edges[arena.ports[p1.0].outgoing_edges[0].0].props.model_order);
+            if arena.edges[arena.ports[p1.0].outgoing_edges[0].0]
+                .props
+                .model_order
+                .is_some()
+            {
+                p1_order = model_order_or(
+                    arena.edges[arena.ports[p1.0].outgoing_edges[0].0]
+                        .props
+                        .model_order,
+                );
             }
-            if arena.edges[arena.ports[p2.0].outgoing_edges[0].0].props.model_order.is_some() {
-                p2_order =
-                    model_order_or(arena.edges[arena.ports[p2.0].outgoing_edges[0].0].props.model_order);
+            if arena.edges[arena.ports[p2.0].outgoing_edges[0].0]
+                .props
+                .model_order
+                .is_some()
+            {
+                p2_order = model_order_or(
+                    arena.edges[arena.ports[p2.0].outgoing_edges[0].0]
+                        .props
+                        .model_order,
+                );
             }
 
             if p1_target.is_some() && p1_target == p2_target {
@@ -701,16 +734,32 @@ impl ModelOrderPortComparator {
     }
 
     fn update(&mut self, bigger_ori: LPortId, smaller_ori: LPortId, reverse_order: i32) {
-        let (bigger, smaller) =
-            if reverse_order < 0 { (smaller_ori, bigger_ori) } else { (bigger_ori, smaller_ori) };
-        let smaller_bigger_than: Vec<LPortId> =
-            self.bigger_than.get(&smaller).into_iter().flatten().copied().collect();
-        let bigger_smaller_than: Vec<LPortId> =
-            self.smaller_than.get(&bigger).into_iter().flatten().copied().collect();
+        let (bigger, smaller) = if reverse_order < 0 {
+            (smaller_ori, bigger_ori)
+        } else {
+            (bigger_ori, smaller_ori)
+        };
+        let smaller_bigger_than: Vec<LPortId> = self
+            .bigger_than
+            .get(&smaller)
+            .into_iter()
+            .flatten()
+            .copied()
+            .collect();
+        let bigger_smaller_than: Vec<LPortId> = self
+            .smaller_than
+            .get(&bigger)
+            .into_iter()
+            .flatten()
+            .copied()
+            .collect();
         self.bigger_than.entry(bigger).or_default().insert(smaller);
         self.smaller_than.entry(smaller).or_default().insert(bigger);
         for very_small in &smaller_bigger_than {
-            self.bigger_than.entry(bigger).or_default().insert(*very_small);
+            self.bigger_than
+                .entry(bigger)
+                .or_default()
+                .insert(*very_small);
             let e = self.smaller_than.entry(*very_small).or_default();
             e.insert(bigger);
             for &x in &bigger_smaller_than {
@@ -718,7 +767,10 @@ impl ModelOrderPortComparator {
             }
         }
         for very_big in &bigger_smaller_than {
-            self.smaller_than.entry(smaller).or_default().insert(*very_big);
+            self.smaller_than
+                .entry(smaller)
+                .or_default()
+                .insert(*very_big);
             let e = self.bigger_than.entry(*very_big).or_default();
             e.insert(smaller);
             for &x in &smaller_bigger_than {
@@ -747,7 +799,10 @@ fn long_edge_target_node_preprocessing(
             let edge = arena.ports[p.0].outgoing_edges[0];
             if !arena.edges[edge.0].props.reversed {
                 let mo = model_order_or(arena.edges[edge.0].props.model_order);
-                let prev = target_node_model_order.get(&tn).copied().unwrap_or(i32::MAX);
+                let prev = target_node_model_order
+                    .get(&tn)
+                    .copied()
+                    .unwrap_or(i32::MAX);
                 target_node_model_order.insert(tn, mo.min(prev));
             }
         }

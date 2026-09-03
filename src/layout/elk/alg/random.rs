@@ -17,7 +17,10 @@ pub struct JavaRandom {
 
 impl JavaRandom {
     pub fn new(seed: i64) -> Self {
-        Self { seed: (seed as u64 ^ MULTIPLIER) & MASK, draws: 0 }
+        Self {
+            seed: (seed as u64 ^ MULTIPLIER) & MASK,
+            draws: 0,
+        }
     }
 
     fn next(&mut self, bits: u32) -> i32 {
@@ -175,4 +178,3 @@ mod tests {
         assert_eq!(seq, [9, 5, 4, 7, 5]);
     }
 }
-

@@ -9,9 +9,7 @@ use std::collections::VecDeque;
 
 use super::graph::{LEdgeId, LGraphArena, LGraphId, LLabelId, LNodeId, LPortId, NodeType};
 use super::math::KVector;
-use super::options::{
-    Direction, EdgeLabelPlacement, LabelSide, PortConstraints, PortSide,
-};
+use super::options::{Direction, EdgeLabelPlacement, LabelSide, PortConstraints, PortSide};
 
 /// Port of
 /// `org.eclipse.elk.alg.layered.intermediate.LongEdgeSplitter` (before
@@ -127,8 +125,9 @@ fn set_dummy_node_properties(
             arena.nodes[in_source_node.0].props.long_edge_source;
         arena.nodes[dummy_node.0].props.long_edge_target =
             arena.nodes[in_source_node.0].props.long_edge_target;
-        arena.nodes[dummy_node.0].props.long_edge_has_label_dummies =
-            arena.nodes[in_source_node.0].props.long_edge_has_label_dummies;
+        arena.nodes[dummy_node.0].props.long_edge_has_label_dummies = arena.nodes[in_source_node.0]
+            .props
+            .long_edge_has_label_dummies;
     } else if arena.nodes[in_source_node.0].node_type == NodeType::Label {
         arena.nodes[dummy_node.0].props.long_edge_source =
             arena.nodes[in_source_node.0].props.long_edge_source;
@@ -310,10 +309,14 @@ pub fn label_dummy_switcher(arena: &mut LGraphArena, graph: LGraphId) {
             }
             let leftmost_layer = left
                 .first()
-                .map_or(arena.nodes[node.0].layer.unwrap(), |&d| arena.nodes[d.0].layer.unwrap());
+                .map_or(arena.nodes[node.0].layer.unwrap(), |&d| {
+                    arena.nodes[d.0].layer.unwrap()
+                });
             let rightmost_layer = right
                 .last()
-                .map_or(arena.nodes[node.0].layer.unwrap(), |&d| arena.nodes[d.0].layer.unwrap());
+                .map_or(arena.nodes[node.0].layer.unwrap(), |&d| {
+                    arena.nodes[d.0].layer.unwrap()
+                });
             infos.push(LabelDummyInfo {
                 label_dummy: node,
                 left,
@@ -435,7 +438,11 @@ pub fn label_side_selector(arena: &mut LGraphArena, graph: LGraphId) {
         arena.graphs[graph.0].props.direction,
         Direction::Up | Direction::Down
     );
-    let default_side = if vertical { LabelSide::Above } else { LabelSide::Below };
+    let default_side = if vertical {
+        LabelSide::Above
+    } else {
+        LabelSide::Below
+    };
 
     let mut dummy_queue: VecDeque<LNodeId> = VecDeque::new();
     let layer_count = arena.graphs[graph.0].layers.len();
@@ -590,8 +597,11 @@ fn apply_label_side(arena: &mut LGraphArena, label_dummy: LNodeId, side: LabelSi
     if arena.nodes[label_dummy.0].node_type != NodeType::Label {
         return;
     }
-    let effective_side =
-        if is_inline_edge_label(arena, label_dummy) { LabelSide::Inline } else { side };
+    let effective_side = if is_inline_edge_label(arena, label_dummy) {
+        LabelSide::Inline
+    } else {
+        side
+    };
     arena.nodes[label_dummy.0].props.label_side = effective_side;
 
     if effective_side != LabelSide::Below {
@@ -603,9 +613,8 @@ fn apply_label_side(arena: &mut LGraphArena, label_dummy: LNodeId, side: LabelSi
         } else if effective_side == LabelSide::Inline {
             let graph = arena.nodes[label_dummy.0].graph;
             let edge_label_spacing = arena.graphs[graph.0].props.spacing.edge_label;
-            port_pos = (arena.nodes[label_dummy.0].size.y - edge_label_spacing - thickness)
-                .ceil()
-                / 2.0;
+            port_pos =
+                (arena.nodes[label_dummy.0].size.y - edge_label_spacing - thickness).ceil() / 2.0;
             arena.nodes[label_dummy.0].size.y -= edge_label_spacing;
             arena.nodes[label_dummy.0].size.y -= thickness;
         }
@@ -641,8 +650,7 @@ pub fn label_dummy_remover(arena: &mut LGraphArena, graph: LGraphId) {
             }
             // EDGE_THICKNESS of the origin edge — the 1.0 default.
             let thickness = 1.0f64;
-            let labels_below_edge =
-                arena.nodes[node.0].props.label_side == LabelSide::Below;
+            let labels_below_edge = arena.nodes[node.0].props.label_side == LabelSide::Below;
 
             let mut curr_label_pos = arena.nodes[node.0].position;
             if labels_below_edge {
@@ -652,7 +660,11 @@ pub fn label_dummy_remover(arena: &mut LGraphArena, graph: LGraphId) {
             let label_space = KVector::new(
                 arena.nodes[node.0].size.x,
                 arena.nodes[node.0].size.y
-                    + if inline_node { 0.0 } else { -thickness - edge_label_spacing },
+                    + if inline_node {
+                        0.0
+                    } else {
+                        -thickness - edge_label_spacing
+                    },
             );
 
             let represented = arena.nodes[node.0].props.represented_labels.clone();
@@ -793,7 +805,11 @@ fn set_port_side(arena: &mut LGraphArena, port: LPortId) {
     } else {
         let net_flow = arena.ports[port.0].incoming_edges.len() as i32
             - arena.ports[port.0].outgoing_edges.len() as i32;
-        let side = if net_flow < 0 { PortSide::East } else { PortSide::West };
+        let side = if net_flow < 0 {
+            PortSide::East
+        } else {
+            PortSide::West
+        };
         arena.port_set_side(port, side);
     }
 }
@@ -967,9 +983,13 @@ fn set_long_edge_source_and_target(
     dummy_input: LPortId,
     dummy_output: LPortId,
 ) {
-    let source_port = arena.edges[arena.ports[dummy_input.0].incoming_edges[0].0].source.unwrap();
+    let source_port = arena.edges[arena.ports[dummy_input.0].incoming_edges[0].0]
+        .source
+        .unwrap();
     let source_node = arena.ports[source_port.0].owner.unwrap();
-    let target_port = arena.edges[arena.ports[dummy_output.0].outgoing_edges[0].0].target.unwrap();
+    let target_port = arena.edges[arena.ports[dummy_output.0].outgoing_edges[0].0]
+        .target
+        .unwrap();
     let target_node = arena.ports[target_port.0].owner.unwrap();
 
     if arena.nodes[source_node.0].node_type == NodeType::LongEdge {
@@ -1075,11 +1095,7 @@ fn reverse_west_and_south_side(arena: &LGraphArena, ports: &mut [LPortId]) {
     reverse_range(ports, w_lo, w_hi);
 }
 
-fn find_port_side_range(
-    arena: &LGraphArena,
-    ports: &[LPortId],
-    side: PortSide,
-) -> (usize, usize) {
+fn find_port_side_range(arena: &LGraphArena, ports: &[LPortId], side: PortSide) -> (usize, usize) {
     if ports.is_empty() {
         return (0, 0);
     }

@@ -191,11 +191,7 @@ pub(crate) fn build_forest(
         postprocess_labels(root, &styles);
     }
 
-    Ok((
-        roots,
-        ForestMeta { title, direction },
-        diagnostics,
-    ))
+    Ok((roots, ForestMeta { title, direction }, diagnostics))
 }
 
 /// Single-root wrapper for WBS: keeps the first root and warns about
@@ -329,12 +325,9 @@ fn decode_unicode_escapes(line: &str) -> String {
         let after = &rest[pos + 3..];
         if let Some(close) = after.find('>') {
             let hex = &after[..close];
-            let valid = (2..=6).contains(&hex.len())
-                && hex.chars().all(|c| c.is_ascii_hexdigit());
+            let valid = (2..=6).contains(&hex.len()) && hex.chars().all(|c| c.is_ascii_hexdigit());
             if valid {
-                if let Some(c) =
-                    u32::from_str_radix(hex, 16).ok().and_then(char::from_u32)
-                {
+                if let Some(c) = u32::from_str_radix(hex, 16).ok().and_then(char::from_u32) {
                     out.push(c);
                     rest = &after[close + 1..];
                     continue;

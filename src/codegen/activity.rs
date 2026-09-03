@@ -12,9 +12,7 @@
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
-use crate::codegen::common::{
-    emit_skinparam_preamble, indent as push_indent, puml_color_to_typst,
-};
+use crate::codegen::common::{emit_skinparam_preamble, indent as push_indent, puml_color_to_typst};
 use crate::ir::{
     ActionKind, ActivityDiagram, ActivityStmt, ElseIfBranch, NoteAttach, NotePosition,
     PartitionKind, SwitchCase,
@@ -349,7 +347,14 @@ fn emit_stmt(out: &mut String, s: &ActivityStmt, indent: usize) {
             color,
             notes,
             ..
-        } => emit_action(out, label, *kind, edge_label.as_deref(), color.as_deref(), notes),
+        } => emit_action(
+            out,
+            label,
+            *kind,
+            edge_label.as_deref(),
+            color.as_deref(),
+            notes,
+        ),
         ActivityStmt::If {
             cond,
             then_label,
@@ -388,7 +393,11 @@ fn emit_stmt(out: &mut String, s: &ActivityStmt, indent: usize) {
         } => emit_n_way_bar(out, branches, *merge, indent),
         ActivityStmt::Switch { cond, cases, .. } => emit_switch(out, cond, cases, indent),
         ActivityStmt::Partition {
-            kind, label, color, body, ..
+            kind,
+            label,
+            color,
+            body,
+            ..
         } => emit_partition(out, *kind, label, color.as_deref(), body, indent),
     }
 }
@@ -645,7 +654,13 @@ fn emit_if(
             label_owned = format!("{} ?", &ei.cond);
             &label_owned
         };
-        emit_case(out, label, &ei.branch, branch_terminates(&ei.branch), indent + 1);
+        emit_case(
+            out,
+            label,
+            &ei.branch,
+            branch_terminates(&ei.branch),
+            indent + 1,
+        );
     }
     if let Some(eb) = else_b {
         emit_case(
@@ -660,13 +675,7 @@ fn emit_if(
     out.push(')');
 }
 
-fn emit_case(
-    out: &mut String,
-    label: &str,
-    branch: &[ActivityStmt],
-    detach: bool,
-    indent: usize,
-) {
+fn emit_case(out: &mut String, label: &str, branch: &[ActivityStmt], detach: bool, indent: usize) {
     push_indent(out, indent);
     out.push_str("case([");
     out.push_str(&typst_escape(label));
@@ -762,7 +771,13 @@ fn emit_switch(out: &mut String, cond: &str, cases: &[SwitchCase], indent: usize
     out.push_str(&typst_escape(cond));
     out.push_str("],\n");
     for c in cases {
-        emit_case(out, &c.value, &c.branch, branch_terminates(&c.branch), indent + 1);
+        emit_case(
+            out,
+            &c.value,
+            &c.branch,
+            branch_terminates(&c.branch),
+            indent + 1,
+        );
     }
     push_indent(out, indent);
     out.push(')');
@@ -777,8 +792,6 @@ fn emit_title(out: &mut String, title: &str) {
     out.push_str(&typst_escape(title));
     out.push_str("*]\n\n");
 }
-
-
 
 /// Join a multi-line label using Typst's hard-line-break marker. Lines
 /// are individually escaped so user content can't smuggle markup.
@@ -819,8 +832,6 @@ fn typst_escape(s: &str) -> String {
     }
     out
 }
-
-
 
 #[cfg(test)]
 mod tests {

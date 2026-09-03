@@ -121,10 +121,8 @@ fn recompute_all_bboxes(vg: &mut VisualGraph) {
 fn resolve_strangers(vg: &mut VisualGraph) {
     const MAX_ROUNDS: usize = 16;
     for _ in 0..MAX_ROUNDS {
-        let real_nodes: Vec<NodeHandle> = vg
-            .iter_nodes()
-            .filter(|h| !vg.is_connector(*h))
-            .collect();
+        let real_nodes: Vec<NodeHandle> =
+            vg.iter_nodes().filter(|h| !vg.is_connector(*h)).collect();
         let num_clusters = vg.hierarchy.clusters.len();
         let mut moved = false;
         for &n in &real_nodes {
@@ -134,7 +132,10 @@ fn resolve_strangers(vg: &mut VisualGraph) {
             // with `n` from this move — excluding them keeps the escape
             // computation from fighting the package's own internal
             // arrangement.
-            let n_top = vg.hierarchy.cluster_of(n).map(|c| vg.hierarchy.top_ancestor(c));
+            let n_top = vg
+                .hierarchy
+                .cluster_of(n)
+                .map(|c| vg.hierarchy.top_ancestor(c));
 
             let mut in_conflict = false;
             let mut left_edge = f64::INFINITY;
@@ -192,7 +193,10 @@ fn resolve_strangers(vg: &mut VisualGraph) {
                 if m == n {
                     continue;
                 }
-                let m_top = vg.hierarchy.cluster_of(m).map(|c| vg.hierarchy.top_ancestor(c));
+                let m_top = vg
+                    .hierarchy
+                    .cluster_of(m)
+                    .map(|c| vg.hierarchy.top_ancestor(c));
                 if n_top.is_some() && m_top == n_top {
                     continue;
                 }
@@ -545,7 +549,6 @@ fn sweep_siblings(vg: &mut VisualGraph, siblings: &[ClusterId]) {
         }
     }
 }
-
 
 /// Resolve overlap between each cluster at this depth and its parent's
 /// direct sibling nodes. Each cluster's outer bbox already includes

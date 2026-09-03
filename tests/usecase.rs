@@ -30,47 +30,78 @@ fn render_usecase_svg(name: &str) {
         "usecase {name} render did not produce SVG"
     );
     let width = svg_viewbox_width(&svg).expect("viewBox missing");
-    assert!(width > 50.0, "usecase {name} viewBox suspiciously narrow: {width}");
+    assert!(
+        width > 50.0,
+        "usecase {name} viewBox suspiciously narrow: {width}"
+    );
 }
 
 #[test]
-fn golden_emit_typst_usecase_basic() { golden_usecase("basic"); }
+fn golden_emit_typst_usecase_basic() {
+    golden_usecase("basic");
+}
 
 #[test]
-fn golden_emit_typst_usecase_shorthand_top_level() { golden_usecase("shorthand-top-level"); }
+fn golden_emit_typst_usecase_shorthand_top_level() {
+    golden_usecase("shorthand-top-level");
+}
 
 #[test]
-fn golden_emit_typst_usecase_shorthand_inline() { golden_usecase("shorthand-inline"); }
+fn golden_emit_typst_usecase_shorthand_inline() {
+    golden_usecase("shorthand-inline");
+}
 
 #[test]
-fn renders_svg_for_usecase_shorthand_inline() { render_usecase_svg("shorthand-inline"); }
+fn renders_svg_for_usecase_shorthand_inline() {
+    render_usecase_svg("shorthand-inline");
+}
 
 #[test]
-fn golden_emit_typst_usecase_include_extend() { golden_usecase("include-extend"); }
+fn golden_emit_typst_usecase_include_extend() {
+    golden_usecase("include-extend");
+}
 
 #[test]
-fn renders_svg_for_usecase_include_extend() { render_usecase_svg("include-extend"); }
+fn renders_svg_for_usecase_include_extend() {
+    render_usecase_svg("include-extend");
+}
 
 #[test]
-fn golden_emit_typst_usecase_direction_lr() { golden_usecase("direction-lr"); }
+fn golden_emit_typst_usecase_direction_lr() {
+    golden_usecase("direction-lr");
+}
 
 #[test]
-fn golden_emit_typst_usecase_system_boundary() { golden_usecase("system-boundary"); }
+fn golden_emit_typst_usecase_system_boundary() {
+    golden_usecase("system-boundary");
+}
 
 #[test]
-fn golden_emit_typst_usecase_actor_generalization() { golden_usecase("actor-generalization"); }
+fn golden_emit_typst_usecase_actor_generalization() {
+    golden_usecase("actor-generalization");
+}
 
 #[test]
-fn golden_emit_typst_usecase_notes() { golden_usecase("notes"); }
+fn golden_emit_typst_usecase_notes() {
+    golden_usecase("notes");
+}
 
 #[test]
-fn renders_svg_for_usecase_basic() { render_usecase_svg("basic"); }
+fn renders_svg_for_usecase_basic() {
+    render_usecase_svg("basic");
+}
 
 #[test]
-fn renders_svg_for_usecase_system_boundary() { render_usecase_svg("system-boundary"); }
+fn renders_svg_for_usecase_system_boundary() {
+    render_usecase_svg("system-boundary");
+}
 
 #[test]
-fn renders_svg_for_usecase_notes() { render_usecase_svg("notes"); }
+fn renders_svg_for_usecase_notes() {
+    render_usecase_svg("notes");
+}
 
 #[test]
-fn golden_emit_typst_usecase_multi_actor() { golden_usecase("multi-actor"); }
+fn golden_emit_typst_usecase_multi_actor() {
+    golden_usecase("multi-actor");
+}

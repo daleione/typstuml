@@ -79,7 +79,11 @@ pub(super) struct LayoutResult {
 /// packages already carry their own padding, so an unclustered node
 /// sitting next to one doesn't need the full inter-node gap.
 fn node_halo(sp: &Spacing, orientation: Orientation, is_root: bool) -> Point {
-    let perp = if is_root { sp.root_node_node } else { sp.node_node };
+    let perp = if is_root {
+        sp.root_node_node
+    } else {
+        sp.node_node
+    };
     match orientation {
         Orientation::TopToBottom => Point::new(perp, sp.between_layers),
         Orientation::LeftToRight => Point::new(sp.between_layers, perp),
@@ -194,8 +198,11 @@ fn hierarchical_layout(
         // Per-cluster geometric knobs feed `tighten`.
         let last = hierarchy.clusters.len() - 1;
         hierarchy.clusters[last].pad = container_pad_pt();
-        hierarchy.clusters[last].label_band =
-            if c.together { 0.0 } else { cluster_label_band_for_map(c, bands.get(last)) };
+        hierarchy.clusters[last].label_band = if c.together {
+            0.0
+        } else {
+            cluster_label_band_for_map(c, bands.get(last))
+        };
         hierarchy.clusters[last].label_min_w = bands
             .get(last)
             .and_then(|b| b.as_ref())
@@ -233,10 +240,7 @@ fn hierarchical_layout(
         .map(|i| {
             let c = &vg.hierarchy.clusters[i];
             if c.x_min.is_finite() && c.x_max.is_finite() {
-                Some((
-                    Point::new(c.x_min, c.y_min),
-                    Point::new(c.x_max, c.y_max),
-                ))
+                Some((Point::new(c.x_min, c.y_min), Point::new(c.x_max, c.y_max)))
             } else {
                 None
             }
@@ -264,7 +268,6 @@ pub(super) fn cluster_label_band_for_map(
         .map(|b| b.h_pt + LABEL_BAND_PADDING_PT)
         .unwrap_or_else(container_label_pt)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -301,11 +304,7 @@ mod tests {
         }
     }
 
-    fn pkg_with_children(
-        label: &str,
-        entities: Vec<String>,
-        containers: Vec<usize>,
-    ) -> Container {
+    fn pkg_with_children(label: &str, entities: Vec<String>, containers: Vec<usize>) -> Container {
         Container {
             usymbol: USymbol::Package,
             together: false,
@@ -332,8 +331,7 @@ mod tests {
         diag.entities.push(entity("A"));
         diag.entities.push(entity("B"));
         let geoms = vec![unit_geom(), unit_geom()];
-        let result =
-            compound_layout(&diag, &geoms, Orientation::TopToBottom, &[(0, 1)], &[]);
+        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[(0, 1)], &[]);
         assert_eq!(result.top_lefts.len(), 2);
         assert!(result.container_bboxes.is_empty());
     }
@@ -401,8 +399,7 @@ mod tests {
         diag.entities.push(entity("Inner"));
         diag.containers
             .push(pkg_with_children("outer", Vec::new(), vec![1]));
-        diag.containers
-            .push(pkg("inner", vec!["Inner".into()]));
+        diag.containers.push(pkg("inner", vec!["Inner".into()]));
         let geoms = vec![unit_geom()];
         let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
         let outer = result.container_bboxes[0].unwrap();
@@ -431,8 +428,7 @@ mod tests {
             .push(pkg_with_children("parent", Vec::new(), vec![2]));
         diag.containers.push(pkg("child", vec!["Leaf".into()]));
         let geoms = vec![unit_geom()];
-        let result =
-            compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
+        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[], &[]);
 
         let gp = result.container_bboxes[0].expect("grandparent bbox");
         let p = result.container_bboxes[1].expect("parent bbox");
@@ -443,8 +439,14 @@ mod tests {
                 && inner.1.x <= outer.1.x + 1e-3
                 && inner.1.y <= outer.1.y + 1e-3
         };
-        assert!(inside(c, p), "child must sit inside parent; got c={c:?} p={p:?}");
-        assert!(inside(p, gp), "parent must sit inside grandparent; got p={p:?} gp={gp:?}");
+        assert!(
+            inside(c, p),
+            "child must sit inside parent; got c={c:?} p={p:?}"
+        );
+        assert!(
+            inside(p, gp),
+            "parent must sit inside grandparent; got p={p:?} gp={gp:?}"
+        );
     }
 
     #[test]
@@ -487,15 +489,10 @@ mod tests {
         let mut diag = CucaDiagram::default();
         diag.entities.push(entity("A"));
         diag.entities.push(entity("B"));
-        diag.containers.push(pkg("PkgA", vec!["A".into(), "B".into()]));
+        diag.containers
+            .push(pkg("PkgA", vec!["A".into(), "B".into()]));
         let geoms = vec![unit_geom(), unit_geom()];
-        let result = compound_layout(
-            &diag,
-            &geoms,
-            Orientation::TopToBottom,
-            &[(0, 1)],
-            &[],
-        );
+        let result = compound_layout(&diag, &geoms, Orientation::TopToBottom, &[(0, 1)], &[]);
         let bb = result.container_bboxes[0].expect("PkgA bbox");
         let a_tl = result.top_lefts[0];
         let b_tl = result.top_lefts[1];

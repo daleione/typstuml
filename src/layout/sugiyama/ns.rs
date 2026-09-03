@@ -246,7 +246,11 @@ fn tight_tree(n: usize, e: &mut [Edge], rank: &[f64]) -> (usize, Vec<bool>) {
             if slack(rank, &e[ei]).abs() > EPS {
                 continue;
             }
-            let other = if e[ei].tail == u { e[ei].head } else { e[ei].tail };
+            let other = if e[ei].tail == u {
+                e[ei].head
+            } else {
+                e[ei].tail
+            };
             if !in_tree[other] {
                 in_tree[other] = true;
                 e[ei].tree = true;
@@ -351,7 +355,15 @@ mod tests {
     #[test]
     fn diamond_balances() {
         // 0→1, 0→2, 1→3, 2→3. All tight → 0,1,1,2.
-        let r = solve(4, &[(0, 1, 1.0, 1.0), (0, 2, 1.0, 1.0), (1, 3, 1.0, 1.0), (2, 3, 1.0, 1.0)]);
+        let r = solve(
+            4,
+            &[
+                (0, 1, 1.0, 1.0),
+                (0, 2, 1.0, 1.0),
+                (1, 3, 1.0, 1.0),
+                (2, 3, 1.0, 1.0),
+            ],
+        );
         approx(&r, &[0.0, 1.0, 1.0, 2.0]);
     }
 

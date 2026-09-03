@@ -77,8 +77,20 @@ fn scan_puml(src: &str) -> (Vec<DeclaredEntity>, Vec<DeclaredPackage>) {
     let mut stack: Vec<usize> = Vec::new();
 
     let entity_kw = [
-        "component", "interface", "database", "node", "folder", "frame", "cloud", "rectangle",
-        "queue", "storage", "artifact", "actor", "usecase", "card",
+        "component",
+        "interface",
+        "database",
+        "node",
+        "folder",
+        "frame",
+        "cloud",
+        "rectangle",
+        "queue",
+        "storage",
+        "artifact",
+        "actor",
+        "usecase",
+        "card",
     ];
 
     for raw_line in src.lines() {
@@ -89,11 +101,7 @@ fn scan_puml(src: &str) -> (Vec<DeclaredEntity>, Vec<DeclaredPackage>) {
 
         if let Some(rest) = line.strip_prefix("package ") {
             if rest.contains('{') {
-                let label = rest
-                    .split('"')
-                    .nth(1)
-                    .unwrap_or("")
-                    .to_string();
+                let label = rest.split('"').nth(1).unwrap_or("").to_string();
                 let parent = stack.last().copied();
                 let idx = packages.len();
                 packages.push(DeclaredPackage { label, parent });

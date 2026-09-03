@@ -282,18 +282,34 @@ fn segment_strictly_crosses_box(a: Point, b: Point, ob: &pathplan::Box) -> bool 
         }
         let r = q / p;
         if p < 0.0 {
-            if r > *t_exit { return false; }
-            if r > *t_enter { *t_enter = r; }
+            if r > *t_exit {
+                return false;
+            }
+            if r > *t_enter {
+                *t_enter = r;
+            }
         } else {
-            if r < *t_enter { return false; }
-            if r < *t_exit { *t_exit = r; }
+            if r < *t_enter {
+                return false;
+            }
+            if r < *t_exit {
+                *t_exit = r;
+            }
         }
         true
     };
-    if !clip(-dx, a.x - lo.x, &mut t_enter, &mut t_exit) { return false; }
-    if !clip(dx, hi.x - a.x, &mut t_enter, &mut t_exit) { return false; }
-    if !clip(-dy, a.y - lo.y, &mut t_enter, &mut t_exit) { return false; }
-    if !clip(dy, hi.y - a.y, &mut t_enter, &mut t_exit) { return false; }
+    if !clip(-dx, a.x - lo.x, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    if !clip(dx, hi.x - a.x, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    if !clip(-dy, a.y - lo.y, &mut t_enter, &mut t_exit) {
+        return false;
+    }
+    if !clip(dy, hi.y - a.y, &mut t_enter, &mut t_exit) {
+        return false;
+    }
     // Strict interior: we need the clipped sub-segment to have
     // positive length (more than just touching at a single t).
     t_exit - t_enter > 1e-6
@@ -476,25 +492,15 @@ mod tests {
     fn try_manhattan_route_parallel_yields_single_cubic() {
         // Source and target share x → single straight cubic on the
         // vertical line. No obstacles.
-        let segs = try_manhattan_route(
-            Point::new(50.0, 0.0),
-            Point::new(50.0, 100.0),
-            &[],
-            true,
-        )
-        .expect("clear");
+        let segs = try_manhattan_route(Point::new(50.0, 0.0), Point::new(50.0, 100.0), &[], true)
+            .expect("clear");
         assert_eq!(segs.len(), 1);
     }
 
     #[test]
     fn try_manhattan_route_z_yields_three_segments() {
-        let segs = try_manhattan_route(
-            Point::new(0.0, 0.0),
-            Point::new(100.0, 100.0),
-            &[],
-            true,
-        )
-        .expect("clear");
+        let segs = try_manhattan_route(Point::new(0.0, 0.0), Point::new(100.0, 100.0), &[], true)
+            .expect("clear");
         assert_eq!(segs.len(), 3);
     }
 
@@ -504,13 +510,8 @@ mod tests {
         // Improved router falls back to a bend just outside the
         // obstacle's top or bottom edge instead of giving up.
         let ob = pathplan::Box::new(Point::new(20.0, 40.0), Point::new(80.0, 60.0));
-        let segs = try_manhattan_route(
-            Point::new(0.0, 0.0),
-            Point::new(100.0, 100.0),
-            &[ob],
-            true,
-        )
-        .expect("must find a detour bend (above or below the obstacle)");
+        let segs = try_manhattan_route(Point::new(0.0, 0.0), Point::new(100.0, 100.0), &[ob], true)
+            .expect("must find a detour bend (above or below the obstacle)");
         assert_eq!(segs.len(), 3);
         // The middle segment runs horizontally at the bend y — it must
         // be above or below the obstacle, not through it.

@@ -29,7 +29,12 @@ impl<'a> CrossingsCounter<'a> {
     /// `port_positions` must be sized to `arena.ports.len()` (ELK passes
     /// a reused array indexed by the graph-unique `port.id`).
     pub fn new(arena: &'a LGraphArena, port_positions: Vec<i32>) -> Self {
-        Self { arena, port_positions, index_tree: BinaryIndexedTree::new(0), ends: Vec::new() }
+        Self {
+            arena,
+            port_positions,
+            index_tree: BinaryIndexedTree::new(0),
+            ends: Vec::new(),
+        }
     }
 
     /// Java `countCrossingsBetweenLayers(left, right)`.
@@ -44,11 +49,7 @@ impl<'a> CrossingsCounter<'a> {
     }
 
     /// Java `countInLayerCrossingsOnSide(nodes, side)`.
-    pub fn count_in_layer_crossings_on_side(
-        &mut self,
-        nodes: &[LNodeId],
-        side: PortSide,
-    ) -> i32 {
+    pub fn count_in_layer_crossings_on_side(&mut self, nodes: &[LNodeId], side: PortSide) -> i32 {
         let mut ports = Vec::new();
         self.init_positions(nodes, &mut ports, side, true);
         self.index_tree = BinaryIndexedTree::new(ports.len());
@@ -78,8 +79,11 @@ impl<'a> CrossingsCounter<'a> {
         top_down: bool,
     ) {
         let mut num_ports = ports.len() as i32;
-        let indices: Vec<usize> =
-            if top_down { (0..nodes.len()).collect() } else { (0..nodes.len()).rev().collect() };
+        let indices: Vec<usize> = if top_down {
+            (0..nodes.len()).collect()
+        } else {
+            (0..nodes.len()).rev().collect()
+        };
         for i in indices {
             let node = nodes[i];
             let node_ports = self.get_ports(node, side, top_down);
@@ -184,7 +188,11 @@ impl<'a> CrossingsCounter<'a> {
 
     fn other_end_of(&self, edge: LEdgeId, from_port: LPortId) -> LPortId {
         let e = &self.arena.edges[edge.0];
-        if Some(from_port) == e.source { e.target.unwrap() } else { e.source.unwrap() }
+        if Some(from_port) == e.source {
+            e.target.unwrap()
+        } else {
+            e.source.unwrap()
+        }
     }
 
     fn is_in_layer(&self, edge: LEdgeId) -> bool {

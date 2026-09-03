@@ -88,7 +88,10 @@ pub(crate) fn compute(dag: &mut DAG, hierarchy: &HierarchyMap) -> ClusterRankRes
     let mut flipped_pairs: HashSet<(usize, usize)> = reversed
         .iter()
         .map(|(u, v)| {
-            (u.get_index().min(v.get_index()), u.get_index().max(v.get_index()))
+            (
+                u.get_index().min(v.get_index()),
+                u.get_index().max(v.get_index()),
+            )
         })
         .collect();
     let mut ranks;
@@ -121,8 +124,10 @@ pub(crate) fn compute(dag: &mut DAG, hierarchy: &HierarchyMap) -> ClusterRankRes
         }
         let mut flipped_any = false;
         for (u, v, count) in groups.into_values() {
-            let key =
-                (u.get_index().min(v.get_index()), u.get_index().max(v.get_index()));
+            let key = (
+                u.get_index().min(v.get_index()),
+                u.get_index().max(v.get_index()),
+            );
             // Keep the original direction when this pair was already
             // flipped once (never oscillate), or when a longer path
             // still forces u before v — reversing would create a real
@@ -170,7 +175,10 @@ pub(crate) fn compute(dag: &mut DAG, hierarchy: &HierarchyMap) -> ClusterRankRes
         eprintln!("cluster_rank: ranks={ranks:?}");
         eprintln!(
             "cluster_rank: reversed={:?}",
-            reversed.iter().map(|(u, v)| (u.get_index(), v.get_index())).collect::<Vec<_>>()
+            reversed
+                .iter()
+                .map(|(u, v)| (u.get_index(), v.get_index()))
+                .collect::<Vec<_>>()
         );
     }
     ClusterRankResult { ranks, reversed }
@@ -202,8 +210,9 @@ pub(crate) fn compute(dag: &mut DAG, hierarchy: &HierarchyMap) -> ClusterRankRes
 /// there now point forward in that scope's linear order.
 fn break_scope_cycles(dag: &mut DAG, hierarchy: &HierarchyMap) -> Vec<(NodeHandle, NodeHandle)> {
     let n = dag.len();
-    let direct_owner: Vec<Option<ClusterId>> =
-        (0..n).map(|i| hierarchy.cluster_of(NodeHandle::new(i))).collect();
+    let direct_owner: Vec<Option<ClusterId>> = (0..n)
+        .map(|i| hierarchy.cluster_of(NodeHandle::new(i)))
+        .collect();
 
     let mut scopes: Vec<Vec<Item>> = Vec::new();
     scopes.push(
@@ -223,7 +232,12 @@ fn break_scope_cycles(dag: &mut DAG, hierarchy: &HierarchyMap) -> Vec<(NodeHandl
                 .direct_nodes
                 .iter()
                 .map(|&h| Item::Node(h))
-                .chain(hierarchy.clusters[c].direct_children.iter().map(|&ch| Item::Cluster(ch)))
+                .chain(
+                    hierarchy.clusters[c]
+                        .direct_children
+                        .iter()
+                        .map(|&ch| Item::Cluster(ch)),
+                )
                 .collect(),
         );
     }
@@ -272,7 +286,11 @@ fn break_scope_cycles(dag: &mut DAG, hierarchy: &HierarchyMap) -> Vec<(NodeHandl
         let model_key: Vec<usize> = items
             .iter()
             .map(|&it| {
-                nodes_under(it, hierarchy).iter().map(|h| h.get_index()).min().unwrap_or(usize::MAX)
+                nodes_under(it, hierarchy)
+                    .iter()
+                    .map(|h| h.get_index())
+                    .min()
+                    .unwrap_or(usize::MAX)
             })
             .collect();
 
@@ -323,22 +341,20 @@ fn els_positions(
     let mut left: Vec<usize> = Vec::new();
     let mut right: Vec<usize> = Vec::new(); // built back-to-front
     let mut remaining = m;
-    let remove = |u: usize,
-                      alive: &mut Vec<bool>,
-                      out_w: &mut Vec<usize>,
-                      in_w: &mut Vec<usize>| {
-        alive[u] = false;
-        for &(y, w) in &out_adj[u] {
-            if alive[y] {
-                in_w[y] -= w;
+    let remove =
+        |u: usize, alive: &mut Vec<bool>, out_w: &mut Vec<usize>, in_w: &mut Vec<usize>| {
+            alive[u] = false;
+            for &(y, w) in &out_adj[u] {
+                if alive[y] {
+                    in_w[y] -= w;
+                }
             }
-        }
-        for &(x, w) in &in_adj[u] {
-            if alive[x] {
-                out_w[x] -= w;
+            for &(x, w) in &in_adj[u] {
+                if alive[x] {
+                    out_w[x] -= w;
+                }
             }
-        }
-    };
+        };
 
     while remaining > 0 {
         let mut progressed = true;
@@ -370,7 +386,12 @@ fn els_positions(
         // choice), ties by model order.
         let u = (0..m)
             .filter(|&u| alive[u])
-            .max_by_key(|&u| (out_w[u] as i64 - in_w[u] as i64, std::cmp::Reverse(model_key[u])))
+            .max_by_key(|&u| {
+                (
+                    out_w[u] as i64 - in_w[u] as i64,
+                    std::cmp::Reverse(model_key[u]),
+                )
+            })
             .unwrap();
         remove(u, &mut alive, &mut out_w, &mut in_w);
         left.push(u);
@@ -388,10 +409,14 @@ fn els_positions(
 /// of `dag`. Returns the ranks plus every real edge whose item-level
 /// constraint had to be dropped because it would close a collapse-only
 /// cycle (see [`compute`], which decides what to do about them).
-fn compute_once(dag: &DAG, hierarchy: &HierarchyMap) -> (Vec<usize>, Vec<(NodeHandle, NodeHandle)>) {
+fn compute_once(
+    dag: &DAG,
+    hierarchy: &HierarchyMap,
+) -> (Vec<usize>, Vec<(NodeHandle, NodeHandle)>) {
     let n = dag.len();
-    let direct_owner: Vec<Option<ClusterId>> =
-        (0..n).map(|i| hierarchy.cluster_of(NodeHandle::new(i))).collect();
+    let direct_owner: Vec<Option<ClusterId>> = (0..n)
+        .map(|i| hierarchy.cluster_of(NodeHandle::new(i)))
+        .collect();
 
     // A cluster's own internal chain is acyclic (it's a sub-DAG of the
     // whole), but *collapsing* a cluster into one item for its
@@ -422,10 +447,21 @@ fn compute_once(dag: &DAG, hierarchy: &HierarchyMap) -> (Vec<usize>, Vec<(NodeHa
                 .direct_nodes
                 .iter()
                 .map(|&h| Item::Node(h))
-                .chain(hierarchy.clusters[c].direct_children.iter().map(|&ch| Item::Cluster(ch)))
+                .chain(
+                    hierarchy.clusters[c]
+                        .direct_children
+                        .iter()
+                        .map(|&ch| Item::Cluster(ch)),
+                )
                 .collect();
-            let (sub, drops) =
-                rank_items(&items, dag, hierarchy, &direct_owner, &sub_ranks, &topo_index);
+            let (sub, drops) = rank_items(
+                &items,
+                dag,
+                hierarchy,
+                &direct_owner,
+                &sub_ranks,
+                &topo_index,
+            );
             sub_ranks[c] = Some(sub);
             dropped.extend(drops);
         }
@@ -441,8 +477,14 @@ fn compute_once(dag: &DAG, hierarchy: &HierarchyMap) -> (Vec<usize>, Vec<(NodeHa
                 .map(Item::Cluster),
         )
         .collect();
-    let (root_result, root_drops) =
-        rank_items(&root_items, dag, hierarchy, &direct_owner, &sub_ranks, &topo_index);
+    let (root_result, root_drops) = rank_items(
+        &root_items,
+        dag,
+        hierarchy,
+        &direct_owner,
+        &sub_ranks,
+        &topo_index,
+    );
     dropped.extend(root_drops);
 
     // Push down: absolute start rank for every cluster, computed
@@ -583,9 +625,15 @@ fn rank_items(
     }
     debug_assert_eq!(visited, m, "cluster_rank: item-level graph must be acyclic");
 
-    let height = (0..m).map(|i| rank[i] + duration(items[i])).max().unwrap_or(0);
-    let local_rank: HashMap<Item, usize> =
-        items.iter().enumerate().map(|(i, &it)| (it, rank[i])).collect();
+    let height = (0..m)
+        .map(|i| rank[i] + duration(items[i]))
+        .max()
+        .unwrap_or(0);
+    let local_rank: HashMap<Item, usize> = items
+        .iter()
+        .enumerate()
+        .map(|(i, &it)| (it, rank[i]))
+        .collect();
     (SubRank { height, local_rank }, dropped)
 }
 
@@ -830,7 +878,7 @@ mod tests {
         hierarchy.assign_node(NodeHandle::new(0), pkg_a); // A0
         hierarchy.assign_node(NodeHandle::new(3), pkg_a); // A1
         hierarchy.assign_node(NodeHandle::new(1), pkg_b); // B0
-        // node 2 (C) stays root-level, unclustered.
+                                                          // node 2 (C) stays root-level, unclustered.
 
         // Must not panic (the debug_assert in rank_items would fire on
         // an unbroken cycle); the losing edge C -> A1 must come back

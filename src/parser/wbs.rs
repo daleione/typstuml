@@ -44,7 +44,10 @@ pub fn parse(block: &UmlBlock, compat: CompatMode) -> Result<(Diagram, Vec<Diagn
 /// Parse the marker line at `body[start]` plus any continuation lines if it
 /// opens a multi-line `:label;` block. Returns the parsed node and the
 /// number of body lines consumed (>= 1).
-fn parse_marker_line(body: &[BodyLine], start: usize) -> std::result::Result<(ParsedItem, usize), String> {
+fn parse_marker_line(
+    body: &[BodyLine],
+    start: usize,
+) -> std::result::Result<(ParsedItem, usize), String> {
     let line = &body[start];
     let raw = line.text.trim_start_matches([' ', '\t']);
 
@@ -246,14 +249,7 @@ mod tests {
     #[test]
     fn parses_three_level_tree() {
         let (d, diags) = parse(
-            &block(&[
-                "* Root",
-                "** A",
-                "*** A1",
-                "*** A2",
-                "** B",
-                "*** B1",
-            ]),
+            &block(&["* Root", "** A", "*** A1", "*** A2", "** B", "*** B1"]),
             CompatMode::Warn,
         )
         .unwrap();
@@ -305,12 +301,7 @@ mod tests {
     #[test]
     fn parses_multiline_label() {
         let (d, _) = parse(
-            &block(&[
-                "* :root header",
-                "second line",
-                "third;",
-                "** child",
-            ]),
+            &block(&["* :root header", "second line", "third;", "** child"]),
             CompatMode::Warn,
         )
         .unwrap();
@@ -375,8 +366,11 @@ mod tests {
 
     #[test]
     fn explicit_angle_overrides_arithmetic_side() {
-        let (d, _) = parse(&block(&["+ Root", "++> right", "++< left"]), CompatMode::Warn)
-            .unwrap();
+        let (d, _) = parse(
+            &block(&["+ Root", "++> right", "++< left"]),
+            CompatMode::Warn,
+        )
+        .unwrap();
         let w = wbs(d);
         assert_eq!(w.root.children[0].side, NodeSide::Right);
         // `<` wins over the `+` run's right side.
@@ -420,11 +414,8 @@ mod tests {
 
     #[test]
     fn second_root_warns_and_is_dropped() {
-        let (d, diags) = parse(
-            &block(&["* Root", "** A", "* OtherRoot"]),
-            CompatMode::Warn,
-        )
-        .unwrap();
+        let (d, diags) =
+            parse(&block(&["* Root", "** A", "* OtherRoot"]), CompatMode::Warn).unwrap();
         let w = wbs(d);
         assert_eq!(w.root.label, vec!["Root"]);
         assert_eq!(w.root.children.len(), 1);

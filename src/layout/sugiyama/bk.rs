@@ -258,11 +258,7 @@ impl<'a> BK<'a> {
                 }
                 buf.push(self.vg.pos(*pred).center().x);
             }
-            res.push(if buf.is_empty() {
-                0.
-            } else {
-                median(&buf)
-            });
+            res.push(if buf.is_empty() { 0. } else { median(&buf) });
         }
         res
     }
@@ -348,9 +344,17 @@ impl<'a> BK<'a> {
             hi - lo
         };
         let ref_idx = (0..4)
-            .min_by(|&a, &b| extent(&assignments[a].0).partial_cmp(&extent(&assignments[b].0)).unwrap())
+            .min_by(|&a, &b| {
+                extent(&assignments[a].0)
+                    .partial_cmp(&extent(&assignments[b].0))
+                    .unwrap()
+            })
             .unwrap();
-        let ref_lo = assignments[ref_idx].0.iter().cloned().fold(f64::INFINITY, f64::min);
+        let ref_lo = assignments[ref_idx]
+            .0
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, f64::min);
         let ref_hi = assignments[ref_idx]
             .0
             .iter()

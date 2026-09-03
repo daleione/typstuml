@@ -83,9 +83,7 @@ impl Grid {
     }
 
     pub fn index_of(coords: &[f64], v: f64) -> Option<usize> {
-        coords
-            .iter()
-            .position(|&c| (c - v).abs() < 1e-6)
+        coords.iter().position(|&c| (c - v).abs() < 1e-6)
     }
 
     pub fn horizontal_open(&self, i: usize, j: usize) -> bool {

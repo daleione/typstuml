@@ -307,7 +307,12 @@ impl VisualGraph {
     /// caller (cuca) size gaps from its own `Spacing` table without
     /// changing the halo every other diagram family gets from
     /// `Element::new_box`.
-    pub fn add_node_with_halo(&mut self, size: Point, halo: Point, orientation: Orientation) -> NodeHandle {
+    pub fn add_node_with_halo(
+        &mut self,
+        size: Point,
+        halo: Point,
+        orientation: Orientation,
+    ) -> NodeHandle {
         let elem = Element {
             kind: NodeKind::Box,
             pos: Position::new(Point::zero(), size, Point::zero(), halo),
@@ -398,7 +403,12 @@ impl VisualGraph {
                 .edges
                 .iter()
                 .map(|(e, lst)| {
-                    (lst[0].get_index(), lst[1].get_index(), e.min_rank.max(1) as f64, 1.0)
+                    (
+                        lst[0].get_index(),
+                        lst[1].get_index(),
+                        e.min_rank.max(1) as f64,
+                        1.0,
+                    )
                 })
                 .collect();
             let ranks = crate::layout::sugiyama::ns::solve(n, &ns_edges);

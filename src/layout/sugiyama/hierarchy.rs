@@ -323,9 +323,7 @@ impl HierarchyMap {
             let c = &chains[idx];
             &c[..depth.min(c.len())]
         };
-        let cluster_at = |idx: usize| -> Option<ClusterId> {
-            chains[idx].get(depth).copied()
-        };
+        let cluster_at = |idx: usize| -> Option<ClusterId> { chains[idx].get(depth).copied() };
 
         let mut new_row: Vec<NodeHandle> = Vec::with_capacity(row.len());
         let mut i = 0;
@@ -373,7 +371,11 @@ impl HierarchyMap {
                         }
                     }
                 }
-                barys.push(if count == 0 { None } else { Some(sum / count as f64) });
+                barys.push(if count == 0 {
+                    None
+                } else {
+                    Some(sum / count as f64)
+                });
             }
 
             let mut order: Vec<usize> = (0..sub_spans.len()).collect();
@@ -460,8 +462,7 @@ impl HierarchyMap {
                         continue;
                     }
                     let opens_left = i == 0 || !vg.hierarchy.is_inside(row[i - 1], c);
-                    let opens_right =
-                        i + 1 == row.len() || !vg.hierarchy.is_inside(row[i + 1], c);
+                    let opens_right = i + 1 == row.len() || !vg.hierarchy.is_inside(row[i + 1], c);
                     if opens_left {
                         margin.left += pad;
                     }

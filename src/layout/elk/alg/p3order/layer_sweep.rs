@@ -107,7 +107,11 @@ pub fn layer_sweep_crossing_minimizer(
     let hierarchical =
         arena.graphs[graph.0].props.hierarchy_handling == HierarchyHandling::IncludeChildren;
     let n_layers = arena.graphs[graph.0].layers.len();
-    let empty = n_layers == 0 || arena.graphs[graph.0].layers.iter().all(|l| l.nodes.is_empty());
+    let empty = n_layers == 0
+        || arena.graphs[graph.0]
+            .layers
+            .iter()
+            .all(|l| l.nodes.is_empty());
     let single_node = n_layers == 1 && arena.graphs[graph.0].layers[0].nodes.len() == 1;
     if empty || (single_node && !hierarchical) {
         return;
@@ -146,7 +150,11 @@ impl<'a> Orchestrator<'a> {
     }
 
     fn dbg_node_name(&self, node: LNodeId) -> String {
-        self.arena.nodes[node.0].props.origin.clone().unwrap_or_else(|| "·".into())
+        self.arena.nodes[node.0]
+            .props
+            .origin
+            .clone()
+            .unwrap_or_else(|| "·".into())
     }
 
     // -- initialize (BFS build) ---------------------------------------
@@ -184,8 +192,11 @@ impl<'a> Orchestrator<'a> {
             arena.graphs[g.0].id = i;
 
             // currentNodeOrder + node.id (pos in layer) + dense port.id.
-            let order: Vec<Vec<LNodeId>> =
-                arena.graphs[g.0].layers.iter().map(|l| l.nodes.clone()).collect();
+            let order: Vec<Vec<LNodeId>> = arena.graphs[g.0]
+                .layers
+                .iter()
+                .map(|l| l.nodes.clone())
+                .collect();
             for layer in &order {
                 for (pos, &node) in layer.iter().enumerate() {
                     arena.nodes[node.0].id = pos;
@@ -233,7 +244,10 @@ impl<'a> Orchestrator<'a> {
             let consider_model_order =
                 arena.graphs[g.0].props.consider_model_order != OrderingStrategy::None;
 
-            let bary = order.iter().map(|l| vec![BaryState::default(); l.len()]).collect();
+            let bary = order
+                .iter()
+                .map(|l| vec![BaryState::default(); l.len()])
+                .collect();
             let node_pos = order.iter().map(|l| (0..l.len()).collect()).collect();
 
             graphs.push(GraphInfo {
@@ -267,7 +281,15 @@ impl<'a> Orchestrator<'a> {
         }
 
         let changed = vec![false; graphs.len()];
-        Orchestrator { arena, random, child_randoms, graphs, to_sweep, changed, run_seed }
+        Orchestrator {
+            arena,
+            random,
+            child_randoms,
+            graphs,
+            to_sweep,
+            changed,
+            run_seed,
+        }
     }
 
     // -- per-graph randoms (BarycenterHeuristic draws) ------------------
@@ -322,7 +344,10 @@ impl<'a> Orchestrator<'a> {
         if self.graphs[gi].consider_model_order {
             self.graphs[gi].first_try = true;
         }
-        let thoroughness = self.arena.graphs[self.graphs[gi].lgraph.0].props.thoroughness.max(1);
+        let thoroughness = self.arena.graphs[self.graphs[gi].lgraph.0]
+            .props
+            .thoroughness
+            .max(1);
         let mut best_crossings = i32::MAX;
         for _ in 0..thoroughness {
             let crossings = self.minimize_crossings_with_counter(gi);
@@ -433,8 +458,11 @@ impl<'a> Orchestrator<'a> {
         let first_layer = self.graphs[gi].order[first].clone();
         self.sweep_in_hierarchical_nodes(gi, &first_layer, forward, first_sweep);
 
-        let range: Vec<usize> =
-            if forward { (1..length).collect() } else { (0..length - 1).rev().collect() };
+        let range: Vec<usize> = if forward {
+            (1..length).collect()
+        } else {
+            (0..length - 1).rev().collect()
+        };
         let count_as_first =
             first_sweep && !self.graphs[gi].first_try && !self.graphs[gi].second_try;
         for idx in range {
@@ -484,7 +512,11 @@ impl<'a> Orchestrator<'a> {
         let start = if forward { 0 } else { len - 1 };
         let first_node = self.graphs[ci].order[start][0];
         if self.arena.nodes[first_node.0].node_type == NodeType::ExternalPort {
-            let side = if forward { PortSide::West } else { PortSide::East };
+            let side = if forward {
+                PortSide::West
+            } else {
+                PortSide::East
+            };
             let sorted = self.sort_port_dummies_by_port_positions(parent_node, start, ci, side);
             self.graphs[ci].order[start] = sorted;
         } else {
@@ -535,14 +567,26 @@ impl<'a> Orchestrator<'a> {
         let len = self.graphs[ci].order.len();
         let end = if on_rightmost { len - 1 } else { 0 };
         let last_layer = self.graphs[ci].order[end].clone();
-        let mut j = if on_rightmost { 0i64 } else { last_layer.len() as i64 - 1 };
+        let mut j = if on_rightmost {
+            0i64
+        } else {
+            last_layer.len() as i64 - 1
+        };
         let step: i64 = if on_rightmost { 1 } else { -1 };
         // Only proceed if the boundary node is an external-port dummy.
-        let first = last_layer[if on_rightmost { 0 } else { last_layer.len() - 1 }];
+        let first = last_layer[if on_rightmost {
+            0
+        } else {
+            last_layer.len() - 1
+        }];
         if self.arena.nodes[first.0].node_type != NodeType::ExternalPort {
             return;
         }
-        let exit_side = if on_rightmost { PortSide::East } else { PortSide::West };
+        let exit_side = if on_rightmost {
+            PortSide::East
+        } else {
+            PortSide::West
+        };
         let mut ports = self.arena.nodes[parent.0].ports.clone();
         let mut dbg_log: Vec<String> = Vec::new();
         for (i, slot) in ports.iter_mut().enumerate() {
@@ -553,24 +597,23 @@ impl<'a> Orchestrator<'a> {
                 let dummy = last_layer[j as usize];
                 if let Some(origin) = self.arena.nodes[dummy.0].props.origin_port {
                     if dbg_on() {
-                        let tgts: Vec<String> = self.arena.ports[origin.0]
-                            .incoming_edges
-                            .iter()
-                            .chain(self.arena.ports[origin.0].outgoing_edges.iter())
-                            .map(|&e| {
-                                let other = if self.arena.edges[e.0].source == Some(origin) {
-                                    self.arena.edges[e.0].target.unwrap()
-                                } else {
-                                    self.arena.edges[e.0].source.unwrap()
-                                };
-                                let on = self.arena.ports[other.0].owner.unwrap();
-                                self.arena.nodes[on.0]
-                                    .props
-                                    .origin
-                                    .clone()
-                                    .unwrap_or_else(|| format!("T{:?}", self.arena.nodes[on.0].node_type))
-                            })
-                            .collect();
+                        let tgts: Vec<String> =
+                            self.arena.ports[origin.0]
+                                .incoming_edges
+                                .iter()
+                                .chain(self.arena.ports[origin.0].outgoing_edges.iter())
+                                .map(|&e| {
+                                    let other = if self.arena.edges[e.0].source == Some(origin) {
+                                        self.arena.edges[e.0].target.unwrap()
+                                    } else {
+                                        self.arena.edges[e.0].source.unwrap()
+                                    };
+                                    let on = self.arena.ports[other.0].owner.unwrap();
+                                    self.arena.nodes[on.0].props.origin.clone().unwrap_or_else(
+                                        || format!("T{:?}", self.arena.nodes[on.0].node_type),
+                                    )
+                                })
+                                .collect();
                         dbg_log.push(format!("slot{i}<-j{j}({})", tgts.join("+")));
                     }
                     *slot = origin;
@@ -580,7 +623,10 @@ impl<'a> Orchestrator<'a> {
         }
         if dbg_on() && !dbg_log.is_empty() {
             let pname = self.dbg_node_name(parent);
-            eprintln!("SPBD parent={pname} right={on_rightmost} {}", dbg_log.join(" "));
+            eprintln!(
+                "SPBD parent={pname} right={on_rightmost} {}",
+                dbg_log.join(" ")
+            );
         }
         self.arena.nodes[parent.0].ports = ports;
     }
@@ -625,9 +671,17 @@ impl<'a> Orchestrator<'a> {
         let port_orders = self.graphs[gi]
             .order
             .iter()
-            .map(|layer| layer.iter().map(|&n| self.arena.nodes[n.0].ports.clone()).collect())
+            .map(|layer| {
+                layer
+                    .iter()
+                    .map(|&n| self.arena.nodes[n.0].ports.clone())
+                    .collect()
+            })
             .collect();
-        SweepCopy { node_order, port_orders }
+        SweepCopy {
+            node_order,
+            port_orders,
+        }
     }
 
     fn set_currently_best(&mut self) {
@@ -656,8 +710,13 @@ impl<'a> Orchestrator<'a> {
                 for (j, &node) in best.node_order[i].iter().enumerate() {
                     self.arena.nodes[node.0].id = j;
                     self.arena.nodes[node.0].ports = best.port_orders[i][j].clone();
-                    if !self.arena.nodes[node.0].props.port_constraints.is_order_fixed() {
-                        self.arena.nodes[node.0].props.port_constraints = PortConstraints::FixedOrder;
+                    if !self.arena.nodes[node.0]
+                        .props
+                        .port_constraints
+                        .is_order_fixed()
+                    {
+                        self.arena.nodes[node.0].props.port_constraints =
+                            PortConstraints::FixedOrder;
                     }
                 }
                 self.arena.graphs[g.0].layers[i].nodes = best.node_order[i].clone();
@@ -667,11 +726,22 @@ impl<'a> Orchestrator<'a> {
 
     // -- BarycenterHeuristic (per graph) ------------------------------
 
-    fn minimize_crossings_layer(&mut self, gi: usize, free_index: usize, forward: bool, is_first_sweep: bool) {
+    fn minimize_crossings_layer(
+        &mut self,
+        gi: usize,
+        free_index: usize,
+        forward: bool,
+        is_first_sweep: bool,
+    ) {
         let length = self.graphs[gi].order.len();
         let is_first_layer = free_index == if forward { 0 } else { length - 1 };
         if !is_first_layer {
-            let fixed = self.graphs[gi].order[if forward { free_index - 1 } else { free_index + 1 }].clone();
+            let fixed = self.graphs[gi].order[if forward {
+                free_index - 1
+            } else {
+                free_index + 1
+            }]
+            .clone();
             self.calculate_port_ranks(gi, &fixed, forward);
         }
         // `preOrdered = !isFirstSweep || isExternalPortDummy(order[i][0])`
@@ -679,8 +749,8 @@ impl<'a> Orchestrator<'a> {
         // external-port dummy — a compound boundary layer — is always
         // treated as pre-ordered, even on a first sweep.
         let first_node = self.graphs[gi].order[free_index][0];
-        let pre_ordered = !is_first_sweep
-            || self.arena.nodes[first_node.0].node_type == NodeType::ExternalPort;
+        let pre_ordered =
+            !is_first_sweep || self.arena.nodes[first_node.0].node_type == NodeType::ExternalPort;
         let mut nodes = self.graphs[gi].order[free_index].clone();
         self.minimize_crossings_nodes(gi, &mut nodes, pre_ordered, false, forward);
         self.graphs[gi].order[free_index] = nodes;
@@ -879,12 +949,24 @@ impl<'a> Orchestrator<'a> {
     fn distribute_ports_while_sweeping(&mut self, gi: usize, current_index: usize, forward: bool) {
         self.update_node_positions(gi, current_index);
         let free_layer = self.graphs[gi].order[current_index].clone();
-        let side = if forward { PortSide::West } else { PortSide::East };
+        let side = if forward {
+            PortSide::West
+        } else {
+            PortSide::East
+        };
         let length = self.graphs[gi].order.len();
-        let not_first = if forward { current_index != 0 } else { current_index != length - 1 };
+        let not_first = if forward {
+            current_index != 0
+        } else {
+            current_index != length - 1
+        };
         if not_first {
-            let fixed_layer =
-                self.graphs[gi].order[if forward { current_index - 1 } else { current_index + 1 }].clone();
+            let fixed_layer = self.graphs[gi].order[if forward {
+                current_index - 1
+            } else {
+                current_index + 1
+            }]
+            .clone();
             self.calculate_port_ranks(gi, &fixed_layer, forward);
             for &node in &free_layer {
                 self.distribute_ports(gi, node, side);
@@ -922,7 +1004,13 @@ impl<'a> Orchestrator<'a> {
         }
     }
 
-    fn calculate_port_ranks_node(&mut self, gi: usize, node: LNodeId, rank_sum: f64, output: bool) -> f64 {
+    fn calculate_port_ranks_node(
+        &mut self,
+        gi: usize,
+        node: LNodeId,
+        rank_sum: f64,
+        output: bool,
+    ) -> f64 {
         let ports: Vec<LPortId> = self.arena.nodes[node.0]
             .ports
             .iter()
@@ -976,7 +1064,11 @@ impl<'a> Orchestrator<'a> {
     /// *are* the normalized E/W ones handled here — so the two extra
     /// calls are intentionally absent.
     fn distribute_ports(&mut self, gi: usize, node: LNodeId, side: PortSide) {
-        if self.arena.nodes[node.0].props.port_constraints.is_order_fixed() {
+        if self.arena.nodes[node.0]
+            .props
+            .port_constraints
+            .is_order_fixed()
+        {
             return;
         }
         let side_ports: Vec<LPortId> = self.arena.nodes[node.0]
@@ -1070,7 +1162,8 @@ impl<'a> Orchestrator<'a> {
     ) {
         let node_layer = self.arena.nodes[node.0].layer;
         let l = node_layer.unwrap();
-        let node_index_in_layer = self.graphs[gi].node_pos[l][self.arena.nodes[node.0].id] as f64 + 1.0;
+        let node_index_in_layer =
+            self.graphs[gi].node_pos[l][self.arena.nodes[node.0].id] as f64 + 1.0;
         let layer_size = self.graphs[gi].order[l].len() as f64 + 1.0;
         for &in_layer_port in in_layer_ports {
             let mut sum = 0i32;

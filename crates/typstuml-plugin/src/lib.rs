@@ -58,8 +58,7 @@ pub fn protocol_version() -> Result<Vec<u8>, String> {
 
 #[wasm_func]
 pub fn referenced_symbols() -> Result<Vec<u8>, String> {
-    serde_json::to_vec(typstuml::codegen::REFERENCED_BLOCKCELL_SYMBOLS)
-        .map_err(|e| e.to_string())
+    serde_json::to_vec(typstuml::codegen::REFERENCED_BLOCKCELL_SYMBOLS).map_err(|e| e.to_string())
 }
 
 #[wasm_func]

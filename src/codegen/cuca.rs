@@ -28,9 +28,9 @@ mod elk;
 mod emit;
 mod geom;
 mod layout;
-mod scope;
 pub(super) mod probe;
 mod route;
+mod scope;
 mod text;
 mod theme;
 
@@ -46,14 +46,13 @@ use crate::runtime::MeasurementSet;
 
 use self::emit::{emit_class, emit_couple_edge, emit_edge, emit_packages, EmitGeom};
 use self::geom::{
-    Side, anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor,
-    right_anchor, top_anchor, ClassGeom,
+    anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor, right_anchor,
+    top_anchor, ClassGeom, Side,
 };
 use self::layout::{compound_layout, spacing as cuca_spacing, LabelBand};
 use self::route::{
-    cubic_from_straight, line_of_sight_clear, pick_edge_sides,
-    side_tangent, smart_align_coord, straight_fallback, try_manhattan_route,
-    SMART_ALIGN_HEADROOM_PT,
+    cubic_from_straight, line_of_sight_clear, pick_edge_sides, side_tangent, smart_align_coord,
+    straight_fallback, try_manhattan_route, SMART_ALIGN_HEADROOM_PT,
 };
 use self::scope::foreign_frame_obstacles;
 use self::text::typst_escape;
@@ -207,9 +206,8 @@ pub fn emit(
     // chord at C's row and connects it horizontally to C; placing C
     // mid-rank lets us reproduce that with a horizontal dashed
     // connector + a small dot on the chord.
-    let mut layout_edges: Vec<(usize, usize)> = Vec::with_capacity(
-        oriented.len() + 2 * couple_edges.len(),
-    );
+    let mut layout_edges: Vec<(usize, usize)> =
+        Vec::with_capacity(oriented.len() + 2 * couple_edges.len());
     for oe in &oriented {
         layout_edges.push((oe.src_idx, oe.dst_idx));
     }
@@ -258,7 +256,13 @@ pub fn emit(
                 Some((label, m.width_pt, m.height_pt))
             })
             .collect();
-        Some(elk::layout(diag, &geoms, &layout_edges, &edge_labels, &label_bands))
+        Some(elk::layout(
+            diag,
+            &geoms,
+            &layout_edges,
+            &edge_labels,
+            &label_bands,
+        ))
     } else {
         None
     };
@@ -270,13 +274,7 @@ pub fn emit(
             entity_container: elk.entity_container.clone(),
         }
     } else {
-        compound_layout(
-            diag,
-            &geoms,
-            orientation,
-            &layout_edges,
-            &label_bands,
-        )
+        compound_layout(diag, &geoms, orientation, &layout_edges, &label_bands)
     };
     // Sugiyama now sizes gaps directly from each node's halo (§3.1's
     // `Spacing`, wired in `layout::node_halo`), so the top-lefts it
@@ -496,18 +494,19 @@ pub fn emit(
         // Bbox overlap, not a same-rank y-proximity gate — see the
         // leaf-recenter conflict check above for why the gate is
         // unsound in a multi-cluster layout.
-        let conflict_at_y = |new_box: (Point, Point), self_idx: usize, top_lefts: &[Point]| -> bool {
-            (0..entity_count).any(|j| {
-                if j == self_idx {
-                    return false;
-                }
-                let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
-                new_box.0.x < other.1.x
-                    && other.0.x < new_box.1.x
-                    && new_box.0.y < other.1.y
-                    && other.0.y < new_box.1.y
-            })
-        };
+        let conflict_at_y =
+            |new_box: (Point, Point), self_idx: usize, top_lefts: &[Point]| -> bool {
+                (0..entity_count).any(|j| {
+                    if j == self_idx {
+                        return false;
+                    }
+                    let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
+                    new_box.0.x < other.1.x
+                        && other.0.x < new_box.1.x
+                        && new_box.0.y < other.1.y
+                        && other.0.y < new_box.1.y
+                })
+            };
         for ce in &couple_edges {
             // Shift A and B (independently) to share an x column, so
             // the chord renders straight. Use the average of their
@@ -561,10 +560,18 @@ pub fn emit(
             };
             let new_x = if push_right {
                 let needed_left = chord_x_eff + chord_pad;
-                if c_tl.x >= needed_left { c_tl.x } else { needed_left }
+                if c_tl.x >= needed_left {
+                    c_tl.x
+                } else {
+                    needed_left
+                }
             } else {
                 let needed_right = chord_x_eff - chord_pad;
-                if c_br.x <= needed_right { c_tl.x } else { needed_right - c_w }
+                if c_br.x <= needed_right {
+                    c_tl.x
+                } else {
+                    needed_right - c_w
+                }
             };
             let c_new_box = (
                 Point::new(new_x, c_tl.y),
@@ -623,7 +630,6 @@ pub fn emit(
         // produced by the ELK pipeline above.
         elk::emit_edges(out, diag, &oriented, elk, line_mode);
     } else {
-
         // Pre-pass 1: pick from/to sides for every edge. Distribution needs
         // side info before we can group siblings by shared face.
         let edge_sides: Vec<(Side, Side)> = oriented
@@ -673,8 +679,7 @@ pub fn emit(
         let mut to_aligned_flag: Vec<bool> = Vec::with_capacity(oriented.len());
         for (i, oe) in oriented.iter().enumerate() {
             let (from_side, to_side) = edge_sides[i];
-            let default_end =
-                anchor_for_side(&geoms[oe.dst_idx], top_lefts[oe.dst_idx], to_side);
+            let default_end = anchor_for_side(&geoms[oe.dst_idx], top_lefts[oe.dst_idx], to_side);
             let aligned = smart_align_coord(
                 &geoms[oe.src_idx],
                 top_lefts[oe.src_idx],
@@ -823,20 +828,19 @@ pub fn emit(
             // anchors at the same coord inside the overlap. The distribution
             // overrides take precedence: once we've assigned a sibling-spread
             // coord to either end, smart-align is no longer applicable.
-            let aligned_coord = if from_overrides[edge_idx].is_none()
-                && to_overrides[edge_idx].is_none()
-            {
-                smart_align_coord(
-                    &geoms[from],
-                    top_lefts[from],
-                    &geoms[to],
-                    top_lefts[to],
-                    from_side,
-                    to_side,
-                )
-            } else {
-                None
-            };
+            let aligned_coord =
+                if from_overrides[edge_idx].is_none() && to_overrides[edge_idx].is_none() {
+                    smart_align_coord(
+                        &geoms[from],
+                        top_lefts[from],
+                        &geoms[to],
+                        top_lefts[to],
+                        from_side,
+                        to_side,
+                    )
+                } else {
+                    None
+                };
 
             let (mut from_emit_override, mut to_emit_override) =
                 (from_overrides[edge_idx], to_overrides[edge_idx]);
@@ -921,35 +925,34 @@ pub fn emit(
             // is stashed for now — `separate_overlapping` (§3.5.2) needs
             // every edge's polyline at once, so rounding happens in the
             // second pass below.
-            let ortho_polyline: Option<Vec<Point>> = if line_mode != LineMode::Spline
-                && !edge_prefers_spline
-            {
-                let sp = cuca_spacing();
-                let mut ortho_obstacles = obstacles.clone();
-                ortho_obstacles.extend(foreign_frame_obstacles(
-                    diag,
-                    &container_bboxes,
-                    entity_container,
-                    from,
-                    to,
-                ));
-                let opts = ortho::RouteOpts {
-                    clearance: sp.edge_node,
-                    bend_penalty: 4.0 * sp.edge_node,
-                    stub_len: sp.edge_node,
+            let ortho_polyline: Option<Vec<Point>> =
+                if line_mode != LineMode::Spline && !edge_prefers_spline {
+                    let sp = cuca_spacing();
+                    let mut ortho_obstacles = obstacles.clone();
+                    ortho_obstacles.extend(foreign_frame_obstacles(
+                        diag,
+                        &container_bboxes,
+                        entity_container,
+                        from,
+                        to,
+                    ));
+                    let opts = ortho::RouteOpts {
+                        clearance: sp.edge_node,
+                        bend_penalty: 4.0 * sp.edge_node,
+                        stub_len: sp.edge_node,
+                    };
+                    ortho::route(
+                        start,
+                        ortho::Dir::from_tangent(side_tangent(from_side)),
+                        end,
+                        ortho::Dir::from_tangent(side_tangent(to_side).neg()),
+                        &ortho_obstacles,
+                        &opts,
+                    )
+                    .map(|pts| ortho::simplify(&pts, 1.0))
+                } else {
+                    None
                 };
-                ortho::route(
-                    start,
-                    ortho::Dir::from_tangent(side_tangent(from_side)),
-                    end,
-                    ortho::Dir::from_tangent(side_tangent(to_side).neg()),
-                    &ortho_obstacles,
-                    &opts,
-                )
-                .map(|pts| ortho::simplify(&pts, 1.0))
-            } else {
-                None
-            };
 
             // Routing priority (cuca-edge-routing-redesign.md §2.1),
             // superseded by `ortho_polyline` when ortho mode is active:
@@ -969,16 +972,19 @@ pub fn emit(
                 PendingRoute::Ortho(pts)
             } else if line_of_sight {
                 PendingRoute::Final(vec![cubic_from_straight(start, end)])
-            } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical) {
+            } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical)
+            {
                 PendingRoute::Final(segs)
             } else {
-                PendingRoute::Final(match pathplan::route_edge(start, end, &obstacles, route_opts) {
-                    Ok(cubics) => cubics
-                        .into_iter()
-                        .map(|c| c.into_painter_segment())
-                        .collect(),
-                    Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
-                })
+                PendingRoute::Final(
+                    match pathplan::route_edge(start, end, &obstacles, route_opts) {
+                        Ok(cubics) => cubics
+                            .into_iter()
+                            .map(|c| c.into_painter_segment())
+                            .collect(),
+                        Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
+                    },
+                )
             };
 
             // For direct cubics, codegen owns the chord tangent — the head
@@ -1036,7 +1042,8 @@ pub fn emit(
             let (segments, label_pos) = match &pe.route {
                 PendingRoute::Final(segs) => (segs.clone(), None),
                 PendingRoute::Ortho(_) => {
-                    let (_, separated) = ortho_result_iter.next().expect("one entry per ortho edge");
+                    let (_, separated) =
+                        ortho_result_iter.next().expect("one entry per ortho edge");
                     let arc = if line_mode == LineMode::Polyline {
                         0.0
                     } else {
@@ -1333,7 +1340,10 @@ mod tests {
     #[test]
     fn members_emit_with_visibility_glyphs() {
         let mut e = entity("Foo", ClassFamilyKind::Class);
-        if let EntityKindData::Compartment { fields, methods, .. } = &mut e.kind_data {
+        if let EntityKindData::Compartment {
+            fields, methods, ..
+        } = &mut e.kind_data
+        {
             fields.push(Member {
                 visibility: Visibility::Public,
                 is_static: false,

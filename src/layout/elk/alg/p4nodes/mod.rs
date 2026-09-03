@@ -73,7 +73,11 @@ pub fn prepare_placement(arena: &mut LGraphArena, graph: LGraphId) {
                 // (0). The router only reads `y`, but the edge export needs
                 // the correct `x` so a source anchor lands on the node's exit
                 // edge and a target anchor on its entry edge.
-                let side_x = if side == PortSide::East { arena.nodes[node.0].size.x } else { 0.0 };
+                let side_x = if side == PortSide::East {
+                    arena.nodes[node.0].size.x
+                } else {
+                    0.0
+                };
                 for (i, p) in side_ports.into_iter().enumerate() {
                     // EAST ports ascend (top→bottom); WEST ports descend
                     // (bottom→top) — the clockwise placement ELK produces.

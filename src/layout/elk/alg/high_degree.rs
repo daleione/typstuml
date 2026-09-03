@@ -228,13 +228,7 @@ fn calculate_information(
 /// Java `moveTree(root, edgesFun, layers)` — root into `layers[0]`,
 /// children (following `dir` away from the high-degree node) into the
 /// remaining layers recursively.
-fn move_tree(
-    arena: &mut LGraphArena,
-    graph: LGraphId,
-    root: LNodeId,
-    dir: Dir,
-    layers: &[usize],
-) {
+fn move_tree(arena: &mut LGraphArena, graph: LGraphId, root: LNodeId, dir: Dir, layers: &[usize]) {
     assert!(!layers.is_empty());
     arena.node_set_layer(graph, root, Some(layers[0]));
     for e in edges_of(arena, root, dir) {

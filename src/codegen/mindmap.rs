@@ -47,8 +47,7 @@ pub fn emit(
     for root in &mm.roots {
         let root_id = counter;
         counter += 1;
-        let root_size =
-            tree_graph::resolve_node_size(root, root_id, measurements, diagram_idx, em);
+        let root_size = tree_graph::resolve_node_size(root, root_id, measurements, diagram_idx, em);
         let mut root_input = TreeLayoutInput {
             id: root_id,
             size: root_size,
@@ -75,7 +74,11 @@ pub fn emit(
         }
 
         let layout = layout_mindmap(&root_input, &lefts, &rights, &cfg);
-        layouts.push(if ttb { transpose_layout(layout) } else { layout });
+        layouts.push(if ttb {
+            transpose_layout(layout)
+        } else {
+            layout
+        });
     }
 
     // Multi-root: left-right maps stack vertically (PlantUML's
@@ -154,9 +157,18 @@ mod tests {
         let s = render(&mm);
         assert_eq!(s.matches("body: node[").count(), 4, "got: {s}");
         assert_eq!(s.matches("(points: (").count(), 3, "got: {s}");
-        assert!(coord_of(&s, "L1", "x") < coord_of(&s, "Root", "x"), "got: {s}");
-        assert!(coord_of(&s, "R1", "x") > coord_of(&s, "Root", "x"), "got: {s}");
-        assert!(coord_of(&s, "D1", "x") > coord_of(&s, "Root", "x"), "got: {s}");
+        assert!(
+            coord_of(&s, "L1", "x") < coord_of(&s, "Root", "x"),
+            "got: {s}"
+        );
+        assert!(
+            coord_of(&s, "R1", "x") > coord_of(&s, "Root", "x"),
+            "got: {s}"
+        );
+        assert!(
+            coord_of(&s, "D1", "x") > coord_of(&s, "Root", "x"),
+            "got: {s}"
+        );
     }
 
     #[test]
@@ -165,8 +177,16 @@ mod tests {
             name: None,
             title: None,
             roots: vec![
-                n("Root 1", NodeSide::Default, vec![n("Foo", NodeSide::Default, vec![])]),
-                n("Root 2", NodeSide::Default, vec![n("Lorem", NodeSide::Default, vec![])]),
+                n(
+                    "Root 1",
+                    NodeSide::Default,
+                    vec![n("Foo", NodeSide::Default, vec![])],
+                ),
+                n(
+                    "Root 2",
+                    NodeSide::Default,
+                    vec![n("Lorem", NodeSide::Default, vec![])],
+                ),
             ],
             direction: MapDirection::LeftToRight,
         };
@@ -200,7 +220,10 @@ mod tests {
         let s = render(&mm);
         // Left side grows up, right side grows down; all share x-ish.
         assert!(coord_of(&s, "up", "y") < coord_of(&s, "1", "y"), "got: {s}");
-        assert!(coord_of(&s, "down", "y") > coord_of(&s, "1", "y"), "got: {s}");
+        assert!(
+            coord_of(&s, "down", "y") > coord_of(&s, "1", "y"),
+            "got: {s}"
+        );
     }
 
     #[test]
@@ -232,6 +255,9 @@ mod tests {
         ));
         let s = render(&mm);
         assert!(coord_of(&s, "B1", "x") < coord_of(&s, "B", "x"), "got: {s}");
-        assert!(coord_of(&s, "B", "x") < coord_of(&s, "Root", "x"), "got: {s}");
+        assert!(
+            coord_of(&s, "B", "x") < coord_of(&s, "Root", "x"),
+            "got: {s}"
+        );
     }
 }

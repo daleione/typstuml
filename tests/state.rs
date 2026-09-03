@@ -30,151 +30,248 @@ fn render_state_svg(name: &str) {
         "state {name} render did not produce SVG"
     );
     let width = svg_viewbox_width(&svg).expect("viewBox missing");
-    assert!(width > 50.0, "state {name} viewBox suspiciously narrow: {width}");
+    assert!(
+        width > 50.0,
+        "state {name} viewBox suspiciously narrow: {width}"
+    );
 }
 
 #[test]
-fn golden_emit_typst_state_basic() { golden_state("basic"); }
+fn golden_emit_typst_state_basic() {
+    golden_state("basic");
+}
 
 #[test]
-fn golden_emit_typst_state_initial_final() { golden_state("initial-final"); }
+fn golden_emit_typst_state_initial_final() {
+    golden_state("initial-final");
+}
 
 #[test]
-fn golden_emit_typst_state_choice() { golden_state("choice"); }
+fn golden_emit_typst_state_choice() {
+    golden_state("choice");
+}
 
 #[test]
-fn golden_emit_typst_state_fork_join() { golden_state("fork-join"); }
+fn golden_emit_typst_state_fork_join() {
+    golden_state("fork-join");
+}
 
 #[test]
-fn golden_emit_typst_state_labels_eg_action() { golden_state("labels-eg-action"); }
+fn golden_emit_typst_state_labels_eg_action() {
+    golden_state("labels-eg-action");
+}
 
 #[test]
-fn golden_emit_typst_state_auto_create() { golden_state("auto-create"); }
+fn golden_emit_typst_state_auto_create() {
+    golden_state("auto-create");
+}
 
 // `A -> B` (single dash) is a horizontal link: State1 / State2 must land
 // on the same rank, side by side — not stacked vertically.
 #[test]
-fn golden_emit_typst_state_horizontal() { golden_state("horizontal"); }
+fn golden_emit_typst_state_horizontal() {
+    golden_state("horizontal");
+}
 
 #[test]
-fn golden_emit_typst_state_colors() { golden_state("colors"); }
+fn golden_emit_typst_state_colors() {
+    golden_state("colors");
+}
 
 #[test]
-fn golden_emit_typst_state_multiline_label() { golden_state("multiline-label"); }
+fn golden_emit_typst_state_multiline_label() {
+    golden_state("multiline-label");
+}
 
 #[test]
-fn golden_emit_typst_state_direction_lr() { golden_state("direction-lr"); }
+fn golden_emit_typst_state_direction_lr() {
+    golden_state("direction-lr");
+}
 
 #[test]
-fn golden_emit_typst_state_composite() { golden_state("composite"); }
+fn golden_emit_typst_state_composite() {
+    golden_state("composite");
+}
 
 #[test]
-fn golden_emit_typst_state_composite_nested() { golden_state("composite-nested"); }
+fn golden_emit_typst_state_composite_nested() {
+    golden_state("composite-nested");
+}
 
 #[test]
-fn golden_emit_typst_state_cross_composite_cycle() { golden_state("cross-composite-cycle"); }
+fn golden_emit_typst_state_cross_composite_cycle() {
+    golden_state("cross-composite-cycle");
+}
 
 #[test]
-fn golden_emit_typst_state_notes() { golden_state("notes"); }
+fn golden_emit_typst_state_notes() {
+    golden_state("notes");
+}
 
 #[test]
-fn golden_emit_typst_state_concurrent_horizontal() { golden_state("concurrent-horizontal"); }
+fn golden_emit_typst_state_concurrent_horizontal() {
+    golden_state("concurrent-horizontal");
+}
 
 #[test]
-fn golden_emit_typst_state_concurrent_vertical() { golden_state("concurrent-vertical"); }
+fn golden_emit_typst_state_concurrent_vertical() {
+    golden_state("concurrent-vertical");
+}
 
 #[test]
-fn golden_emit_typst_state_note_on_link() { golden_state("note-on-link"); }
+fn golden_emit_typst_state_note_on_link() {
+    golden_state("note-on-link");
+}
 
 #[test]
-fn golden_emit_typst_state_synchro_bar() { golden_state("synchro-bar"); }
+fn golden_emit_typst_state_synchro_bar() {
+    golden_state("synchro-bar");
+}
 
 #[test]
-fn golden_emit_typst_state_floating_note() { golden_state("floating-note"); }
+fn golden_emit_typst_state_floating_note() {
+    golden_state("floating-note");
+}
 
 #[test]
-fn golden_emit_typst_state_entry_exit() { golden_state("entry-exit"); }
+fn golden_emit_typst_state_entry_exit() {
+    golden_state("entry-exit");
+}
 
 #[test]
-fn golden_emit_typst_state_history() { golden_state("history"); }
+fn golden_emit_typst_state_history() {
+    golden_state("history");
+}
 
 #[test]
-fn golden_emit_typst_state_deep_history() { golden_state("deep-history"); }
+fn golden_emit_typst_state_deep_history() {
+    golden_state("deep-history");
+}
 
 #[test]
-fn golden_emit_typst_state_self_transition() { golden_state("self-transition"); }
+fn golden_emit_typst_state_self_transition() {
+    golden_state("self-transition");
+}
 
 #[test]
-fn golden_emit_typst_state_composite_exit_routing() { golden_state("composite-exit-routing"); }
+fn golden_emit_typst_state_composite_exit_routing() {
+    golden_state("composite-exit-routing");
+}
 
 #[test]
-fn renders_svg_for_state_composite_exit_routing() { render_state_svg("composite-exit-routing"); }
+fn renders_svg_for_state_composite_exit_routing() {
+    render_state_svg("composite-exit-routing");
+}
 
 // `fork1 ---> State1` (3 dashes → minlen 2) must rank State1 one level
 // below `fork1 --> State2` (minlen 1); also exercises every pseudostate
 // stereotype + label nodes.
 #[test]
-fn golden_emit_typst_state_stereotype_pseudostates() { golden_state("stereotype-pseudostates"); }
+fn golden_emit_typst_state_stereotype_pseudostates() {
+    golden_state("stereotype-pseudostates");
+}
 
 #[test]
-fn renders_svg_for_state_stereotype_pseudostates() { render_state_svg("stereotype-pseudostates"); }
+fn renders_svg_for_state_stereotype_pseudostates() {
+    render_state_svg("stereotype-pseudostates");
+}
 
 #[test]
-fn renders_svg_for_state_basic() { render_state_svg("basic"); }
+fn renders_svg_for_state_basic() {
+    render_state_svg("basic");
+}
 
 #[test]
-fn renders_svg_for_state_initial_final() { render_state_svg("initial-final"); }
+fn renders_svg_for_state_initial_final() {
+    render_state_svg("initial-final");
+}
 
 #[test]
-fn renders_svg_for_state_choice() { render_state_svg("choice"); }
+fn renders_svg_for_state_choice() {
+    render_state_svg("choice");
+}
 
 #[test]
-fn renders_svg_for_state_fork_join() { render_state_svg("fork-join"); }
+fn renders_svg_for_state_fork_join() {
+    render_state_svg("fork-join");
+}
 
 #[test]
-fn renders_svg_for_state_labels_eg_action() { render_state_svg("labels-eg-action"); }
+fn renders_svg_for_state_labels_eg_action() {
+    render_state_svg("labels-eg-action");
+}
 
 #[test]
-fn renders_svg_for_state_auto_create() { render_state_svg("auto-create"); }
+fn renders_svg_for_state_auto_create() {
+    render_state_svg("auto-create");
+}
 
 #[test]
-fn renders_svg_for_state_horizontal() { render_state_svg("horizontal"); }
+fn renders_svg_for_state_horizontal() {
+    render_state_svg("horizontal");
+}
 
 #[test]
-fn renders_svg_for_state_colors() { render_state_svg("colors"); }
+fn renders_svg_for_state_colors() {
+    render_state_svg("colors");
+}
 
 #[test]
-fn renders_svg_for_state_multiline_label() { render_state_svg("multiline-label"); }
+fn renders_svg_for_state_multiline_label() {
+    render_state_svg("multiline-label");
+}
 
 #[test]
-fn renders_svg_for_state_direction_lr() { render_state_svg("direction-lr"); }
+fn renders_svg_for_state_direction_lr() {
+    render_state_svg("direction-lr");
+}
 
 #[test]
-fn renders_svg_for_state_composite() { render_state_svg("composite"); }
+fn renders_svg_for_state_composite() {
+    render_state_svg("composite");
+}
 
 #[test]
-fn renders_svg_for_state_composite_nested() { render_state_svg("composite-nested"); }
+fn renders_svg_for_state_composite_nested() {
+    render_state_svg("composite-nested");
+}
 
 #[test]
-fn renders_svg_for_state_cross_composite_cycle() { render_state_svg("cross-composite-cycle"); }
+fn renders_svg_for_state_cross_composite_cycle() {
+    render_state_svg("cross-composite-cycle");
+}
 
 #[test]
-fn renders_svg_for_state_notes() { render_state_svg("notes"); }
+fn renders_svg_for_state_notes() {
+    render_state_svg("notes");
+}
 
 #[test]
-fn renders_svg_for_state_concurrent_horizontal() { render_state_svg("concurrent-horizontal"); }
+fn renders_svg_for_state_concurrent_horizontal() {
+    render_state_svg("concurrent-horizontal");
+}
 
 #[test]
-fn renders_svg_for_state_concurrent_vertical() { render_state_svg("concurrent-vertical"); }
+fn renders_svg_for_state_concurrent_vertical() {
+    render_state_svg("concurrent-vertical");
+}
 
 #[test]
-fn renders_svg_for_state_note_on_link() { render_state_svg("note-on-link"); }
+fn renders_svg_for_state_note_on_link() {
+    render_state_svg("note-on-link");
+}
 
 #[test]
-fn renders_svg_for_state_synchro_bar() { render_state_svg("synchro-bar"); }
+fn renders_svg_for_state_synchro_bar() {
+    render_state_svg("synchro-bar");
+}
 
 #[test]
-fn renders_svg_for_state_floating_note() { render_state_svg("floating-note"); }
+fn renders_svg_for_state_floating_note() {
+    render_state_svg("floating-note");
+}
 
 #[test]
-fn renders_svg_for_state_entry_exit() { render_state_svg("entry-exit"); }
+fn renders_svg_for_state_entry_exit() {
+    render_state_svg("entry-exit");
+}

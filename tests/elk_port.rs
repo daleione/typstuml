@@ -31,7 +31,9 @@ fn stages() -> Value {
 fn elk_graph_model_roundtrips_oracle_stages() {
     let stages = stages();
     for stage in ["pass1Input", "pass1Output", "pass2Input", "pass2Output"] {
-        let original = stages.get(stage).unwrap_or_else(|| panic!("golden lacks stage {stage}"));
+        let original = stages
+            .get(stage)
+            .unwrap_or_else(|| panic!("golden lacks stage {stage}"));
         let node: ElkNode = serde_json::from_value(original.clone())
             .unwrap_or_else(|e| panic!("{stage}: model cannot parse oracle output: {e}"));
         let round = serde_json::to_value(&node).unwrap();
@@ -74,7 +76,11 @@ fn oracle_golden_has_expected_shape() {
     // Every leaf the layout ran on must have resolved coordinates.
     output.walk(&mut |n| {
         if n.id != output.id {
-            assert!(n.x.is_some() && n.y.is_some(), "node {} lacks coordinates", n.id);
+            assert!(
+                n.x.is_some() && n.y.is_some(),
+                "node {} lacks coordinates",
+                n.id
+            );
         }
     });
 
@@ -82,7 +88,10 @@ fn oracle_golden_has_expected_shape() {
     let mut routed = 0usize;
     output.walk(&mut |n| {
         if let Some(es) = &n.edges {
-            routed += es.iter().filter(|e| e.sections.as_ref().is_some_and(|s| !s.is_empty())).count();
+            routed += es
+                .iter()
+                .filter(|e| e.sections.as_ref().is_some_and(|s| !s.is_empty()))
+                .count();
         }
     });
     assert_eq!(routed, 20, "all 20 edges must have routed sections");
@@ -112,8 +121,11 @@ fn importer_builds_hierarchical_lgraph_matching_reference() {
     };
 
     // Root graph: REST, M, RC + 5 groups, in document order.
-    let root_nodes: Vec<String> =
-        arena.graphs[top.0].layerless_nodes.iter().map(origin).collect();
+    let root_nodes: Vec<String> = arena.graphs[top.0]
+        .layerless_nodes
+        .iter()
+        .map(origin)
+        .collect();
     assert_eq!(
         root_nodes,
         ["REST", "M", "RC", "group_1", "group_2", "group_3", "group_4", "group_5"]
@@ -121,36 +133,60 @@ fn importer_builds_hierarchical_lgraph_matching_reference() {
 
     // Every group node owns a nested graph with the right children.
     let nested_of = |group: &str| -> Vec<String> {
-        let gnode = arena
-            .graphs[top.0]
+        let gnode = arena.graphs[top.0]
             .layerless_nodes
             .iter()
             .find(|n| arena.nodes[n.0].props.origin.as_deref() == Some(group))
             .unwrap();
-        let ng = arena.nodes[gnode.0].nested_graph.expect("group must have nested graph");
-        arena.graphs[ng.0].layerless_nodes.iter().map(origin).collect()
+        let ng = arena.nodes[gnode.0]
+            .nested_graph
+            .expect("group must have nested graph");
+        arena.graphs[ng.0]
+            .layerless_nodes
+            .iter()
+            .map(origin)
+            .collect()
     };
     assert_eq!(nested_of("group_1"), ["FE", "SV", "ED"]);
     assert_eq!(nested_of("group_2"), ["API"]);
     assert_eq!(nested_of("group_3"), ["GEN", "RES", "EDIT", "REG"]);
-    assert_eq!(nested_of("group_4"), ["AST", "LAY", "TPL", "SCN", "RHTML", "RPPTX", "STO"]);
+    assert_eq!(
+        nested_of("group_4"),
+        ["AST", "LAY", "TPL", "SCN", "RHTML", "RPPTX", "STO"]
+    );
     assert_eq!(nested_of("group_5"), ["DAO"]);
 
     // Node model order: root children 0..8 in document order; nested
     // children get NONE (their parent groups don't set
     // considerModelOrder — Java decides by the direct parent).
     for (i, n) in arena.graphs[top.0].layerless_nodes.iter().enumerate() {
-        assert_eq!(arena.nodes[n.0].props.model_order, Some(i as i32), "root child {i}");
+        assert_eq!(
+            arena.nodes[n.0].props.model_order,
+            Some(i as i32),
+            "root child {i}"
+        );
     }
     assert_eq!(arena.graphs[top.0].props.max_model_order_nodes, 8);
-    let fe = arena.nodes.iter().find(|n| n.props.origin.as_deref() == Some("FE")).unwrap();
+    let fe = arena
+        .nodes
+        .iter()
+        .find(|n| n.props.origin.as_deref() == Some("FE"))
+        .unwrap();
     assert_eq!(fe.props.model_order, None);
 
     // Edges: 20 total, each with a model order (root strategy applies
     // at every level), each endpoint on a fresh port.
     assert_eq!(arena.edges.len(), 20);
-    assert_eq!(arena.ports.len(), 40, "every edge endpoint gets its own anonymous port");
-    let orders: Vec<i32> = arena.edges.iter().map(|e| e.props.model_order.unwrap()).collect();
+    assert_eq!(
+        arena.ports.len(),
+        40,
+        "every edge endpoint gets its own anonymous port"
+    );
+    let orders: Vec<i32> = arena
+        .edges
+        .iter()
+        .map(|e| e.props.model_order.unwrap())
+        .collect();
     let mut sorted = orders.clone();
     sorted.sort_unstable();
     assert_eq!(sorted, (0..20).collect::<Vec<_>>());
@@ -169,12 +205,21 @@ fn importer_builds_hierarchical_lgraph_matching_reference() {
         .find(|g| g.props.origin.as_deref() == Some("group_1"))
         .unwrap();
     assert_eq!(
-        (g1.padding.top, g1.padding.left, g1.padding.bottom, g1.padding.right),
+        (
+            g1.padding.top,
+            g1.padding.left,
+            g1.padding.bottom,
+            g1.padding.right
+        ),
         (50.0, 30.0, 30.0, 30.0)
     );
 
     // Sizes copied verbatim.
-    let api = arena.nodes.iter().find(|n| n.props.origin.as_deref() == Some("API")).unwrap();
+    let api = arena
+        .nodes
+        .iter()
+        .find(|n| n.props.origin.as_deref() == Some("API"))
+        .unwrap();
     assert_eq!((api.size.x, api.size.y), (200.0, 63.0));
 }
 
@@ -208,7 +253,11 @@ fn compound_preprocessor_splits_cross_hierarchy_edges() {
     // group↔root edges (FE→REST, REST→API, RPPTX→RC, DAO→M): 2 segments;
     // group↔group edges (the other 9): 3 segments.
     assert_eq!(seg_counts, [2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
-    assert_eq!(arena.edges.len() - edges_before, 4 * 2 + 9 * 3, "35 dummy edges");
+    assert_eq!(
+        arena.edges.len() - edges_before,
+        4 * 2 + 9 * 3,
+        "35 dummy edges"
+    );
 
     // External-port dummies per nested graph: g1=2, g2=4, g3=8, g4=5,
     // g5=3 (one per crossing edge endpoint inside that group), and 22
@@ -220,7 +269,11 @@ fn compound_preprocessor_splits_cross_hierarchy_edges() {
         .filter(|(_, n)| n.node_type == NodeType::ExternalPort)
         .collect();
     assert_eq!(dummies.len(), 22);
-    assert_eq!(arena.ports.len() - ports_before, 22 + 22, "port per dummy + port per group");
+    assert_eq!(
+        arena.ports.len() - ports_before,
+        22 + 22,
+        "port per dummy + port per group"
+    );
 
     let group_dummy_count = |group: &str| -> usize {
         let g = arena
@@ -256,7 +309,10 @@ fn compound_preprocessor_splits_cross_hierarchy_edges() {
             .unwrap();
         assert_eq!(gnode.props.port_constraints, PortConstraints::FixedSide);
         for &p in &gnode.ports {
-            assert!(matches!(arena.ports[p.0].side, PortSide::North | PortSide::South));
+            assert!(matches!(
+                arena.ports[p.0].side,
+                PortSide::North | PortSide::South
+            ));
             assert!(arena.ports[p.0].props.port_dummy.is_some());
         }
     }
@@ -274,7 +330,10 @@ fn compound_preprocessor_splits_cross_hierarchy_edges() {
     let root_seg = &rest_api[1];
     assert_eq!(root_seg.graph, top);
     let seg_source = arena.edge_source_node(root_seg.edge).unwrap();
-    assert_eq!(arena.nodes[seg_source.0].props.origin.as_deref(), Some("REST"));
+    assert_eq!(
+        arena.nodes[seg_source.0].props.origin.as_deref(),
+        Some("REST")
+    );
 }
 
 /// E3 (greedy cycle breaker): run phase 1 on every graph of the
@@ -331,7 +390,10 @@ fn greedy_cycle_breaker_reverses_rest_to_api_segment() {
         .find(|(e, _)| arena.edges[e.0].props.origin.as_deref() == Some("e4"))
         .map(|(_, segs)| segs)
         .unwrap();
-    assert!(e4_segments.iter().any(|s| s.edge == reversed), "reversed edge must be e4's segment");
+    assert!(
+        e4_segments.iter().any(|s| s.edge == reversed),
+        "reversed edge must be e4's segment"
+    );
     let src = arena.edge_source_node(reversed).unwrap();
     let tgt = arena.edge_target_node(reversed).unwrap();
     assert_eq!(arena.nodes[src.0].props.origin.as_deref(), Some("group_2"));
@@ -355,9 +417,11 @@ fn run_through_crossing_min(
     typstuml::layout::elk::alg::graph::LGraphId,
 ) {
     use typstuml::layout::elk::alg::graph::LGraphArena;
-    use typstuml::layout::elk::alg::random::JavaRandom;
-    use typstuml::layout::elk::alg::{components, intermediate, p1_cycles, p2_layers, preserve_order};
     use typstuml::layout::elk::alg::p3order::layer_sweep;
+    use typstuml::layout::elk::alg::random::JavaRandom;
+    use typstuml::layout::elk::alg::{
+        components, intermediate, p1_cycles, p2_layers, preserve_order,
+    };
 
     let mut arena = LGraphArena::default();
     let top = typstuml::layout::elk::alg::transform::import_graph(&mut arena, input);
@@ -376,7 +440,12 @@ fn run_through_crossing_min(
         intermediate::port_list_sorter(&mut arena, comp);
         preserve_order::sort_by_input_model(&mut arena, comp);
         // phase 3
-        layer_sweep::layer_sweep_crossing_minimizer(&mut arena, comp, &mut random, &mut std::collections::HashMap::new());
+        layer_sweep::layer_sweep_crossing_minimizer(
+            &mut arena,
+            comp,
+            &mut random,
+            &mut std::collections::HashMap::new(),
+        );
     }
     (arena, top)
 }
@@ -409,8 +478,8 @@ fn run_through_layering(
     // greedy cycle breaker consumes the resulting DFS node order, so the
     // gate matters for which edges get reversed.
     use typstuml::layout::elk::alg::options::HierarchyHandling;
-    let is_compound = arena.graphs[top.0].props.hierarchy_handling
-        == HierarchyHandling::IncludeChildren;
+    let is_compound =
+        arena.graphs[top.0].props.hierarchy_handling == HierarchyHandling::IncludeChildren;
 
     for g in graphs {
         let comps = if is_compound {
@@ -576,15 +645,16 @@ fn long_edge_splitter_makes_layering_proper() {
     let mut expected_dummies = 0usize;
     for e in 0..arena.edges.len() {
         let eid = typstuml::layout::elk::alg::graph::LEdgeId(e);
-        let (Some(s), Some(t)) =
-            (arena.edge_source_node(eid), arena.edge_target_node(eid))
-        else {
+        let (Some(s), Some(t)) = (arena.edge_source_node(eid), arena.edge_target_node(eid)) else {
             continue;
         };
         if arena.nodes[s.0].graph != top || arena.nodes[t.0].graph != top {
             continue;
         }
-        let (ls, lt) = (arena.nodes[s.0].layer.unwrap(), arena.nodes[t.0].layer.unwrap());
+        let (ls, lt) = (
+            arena.nodes[s.0].layer.unwrap(),
+            arena.nodes[t.0].layer.unwrap(),
+        );
         expected_dummies += ls.abs_diff(lt).saturating_sub(1);
     }
 
@@ -593,28 +663,38 @@ fn long_edge_splitter_makes_layering_proper() {
     // Postcondition 1: proper layering — every edge spans one layer.
     for e in 0..arena.edges.len() {
         let eid = typstuml::layout::elk::alg::graph::LEdgeId(e);
-        let (Some(s), Some(t)) =
-            (arena.edge_source_node(eid), arena.edge_target_node(eid))
-        else {
+        let (Some(s), Some(t)) = (arena.edge_source_node(eid), arena.edge_target_node(eid)) else {
             continue;
         };
         if arena.nodes[s.0].graph != top {
             continue;
         }
-        let (ls, lt) = (arena.nodes[s.0].layer.unwrap(), arena.nodes[t.0].layer.unwrap());
-        assert_eq!(ls.abs_diff(lt), 1, "edge {e} spans {ls}->{lt}, not adjacent");
+        let (ls, lt) = (
+            arena.nodes[s.0].layer.unwrap(),
+            arena.nodes[t.0].layer.unwrap(),
+        );
+        assert_eq!(
+            ls.abs_diff(lt),
+            1,
+            "edge {e} spans {ls}->{lt}, not adjacent"
+        );
     }
 
     // Postcondition 2: exactly the expected number of LONG_EDGE dummies.
-    let dummies = arena
-        .graphs[top.0]
+    let dummies = arena.graphs[top.0]
         .layers
         .iter()
         .flat_map(|l| l.nodes.iter())
         .filter(|&&n| arena.nodes[n.0].node_type == NodeType::LongEdge)
         .count();
-    assert_eq!(dummies, expected_dummies, "unexpected long-edge dummy count");
-    assert!(expected_dummies > 0, "stress-flat should have long edges to split");
+    assert_eq!(
+        dummies, expected_dummies,
+        "unexpected long-edge dummy count"
+    );
+    assert!(
+        expected_dummies > 0,
+        "stress-flat should have long edges to split"
+    );
 }
 
 /// E5 stage B: after `PortSideProcessor` + `PortListSorter` every port
@@ -654,7 +734,10 @@ fn port_side_and_list_processing_assign_sides() {
                 sides.push(s as i32);
             }
             // Ports grouped ascending by side ordinal (EAST=2 before WEST=4).
-            assert!(sides.windows(2).all(|w| w[0] <= w[1]), "ports not side-grouped: {sides:?}");
+            assert!(
+                sides.windows(2).all(|w| w[0] <= w[1]),
+                "ports not side-grouped: {sides:?}"
+            );
             // Real nodes tightened to FIXED_SIDE; dummies stay FIXED_POS.
             if node.node_type == NodeType::Normal {
                 assert_eq!(node.props.port_constraints, PortConstraints::FixedSide);
@@ -695,7 +778,10 @@ fn crossing_min_matches_oracle_in_layer_order() {
     let mut by_band: std::collections::HashMap<usize, Vec<(f64, String)>> = Default::default();
     for c in output.children.as_deref().unwrap() {
         let band = ys.binary_search(&(c.y.unwrap().round() as i64)).unwrap();
-        by_band.entry(band).or_default().push((c.x.unwrap(), c.id.clone()));
+        by_band
+            .entry(band)
+            .or_default()
+            .push((c.x.unwrap(), c.id.clone()));
     }
     for (band, mut v) in by_band {
         v.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -722,7 +808,11 @@ fn crossing_min_matches_oracle_in_layer_order() {
         .filter(|(_, (a, b))| a != b)
         .map(|(i, (a, b))| format!("L{i}: mine={a:?} oracle={b:?}"))
         .collect();
-    assert!(mismatches.is_empty(), "in-layer order mismatches:\n{}", mismatches.join("\n"));
+    assert!(
+        mismatches.is_empty(),
+        "in-layer order mismatches:\n{}",
+        mismatches.join("\n")
+    );
 }
 
 /// E4c (stress): a 50-node flat graph with 8 backward edges
@@ -753,8 +843,7 @@ fn check_flat_layering_against_oracle(fixture: &str) {
         .unwrap()
     };
     let input: ElkNode = serde_json::from_str(&read(&format!("{fixture}.input.json"))).unwrap();
-    let output: ElkNode =
-        serde_json::from_str(&read(&format!("{fixture}.output.json"))).unwrap();
+    let output: ElkNode = serde_json::from_str(&read(&format!("{fixture}.output.json"))).unwrap();
 
     // Oracle layers: rank of each distinct y.
     let mut ys: Vec<i64> = output
@@ -812,8 +901,6 @@ fn coord_diff_detects_perturbation() {
     assert_eq!(diffs[0].field, "x");
 }
 
-
-
 /// E6 stage 1: the inputs the Brandes-Köpf placer consumes — node sizes
 /// (transposed to the internal rightward orientation), margins, and the
 /// per-side port distribution — must match elkjs exactly. The golden is
@@ -847,7 +934,16 @@ fn bk_placement_inputs_match_oracle() {
                 .to_string()
         };
         let id: usize = f("id=").parse().unwrap();
-        expected.insert(id, (f("t=").parse().unwrap(), f("sy="), f("mt="), f("mb="), f("ports=")));
+        expected.insert(
+            id,
+            (
+                f("t=").parse().unwrap(),
+                f("sy="),
+                f("mt="),
+                f("mb="),
+                f("ports="),
+            ),
+        );
     }
 
     let mut id = 0usize;
@@ -855,7 +951,11 @@ fn bk_placement_inputs_match_oracle() {
     for l in 0..arena.graphs[top.0].layers.len() {
         for n in arena.graphs[top.0].layers[l].nodes.clone() {
             let node = &arena.nodes[n.0];
-            let t = if node.node_type == NodeType::Normal { 0 } else { 1 };
+            let t = if node.node_type == NodeType::Normal {
+                0
+            } else {
+                1
+            };
             let ports: Vec<String> = node
                 .ports
                 .iter()
@@ -883,7 +983,11 @@ fn bk_placement_inputs_match_oracle() {
         }
     }
     assert_eq!(id, expected.len(), "node count");
-    assert!(mismatches.is_empty(), "BK input mismatches:\n{}", mismatches.join("\n"));
+    assert!(
+        mismatches.is_empty(),
+        "BK input mismatches:\n{}",
+        mismatches.join("\n")
+    );
 }
 
 /// E6: the Brandes-Köpf node placer must assign every node the same
@@ -909,10 +1013,18 @@ fn bk_node_placement_matches_oracle() {
     .unwrap();
     let mut exp: std::collections::HashMap<usize, f64> = Default::default();
     for line in golden.lines() {
-        let id: usize =
-            line.split_whitespace().find_map(|t| t.strip_prefix("id=")).unwrap().parse().unwrap();
-        let y: f64 =
-            line.split_whitespace().find_map(|t| t.strip_prefix("y=")).unwrap().parse().unwrap();
+        let id: usize = line
+            .split_whitespace()
+            .find_map(|t| t.strip_prefix("id="))
+            .unwrap()
+            .parse()
+            .unwrap();
+        let y: f64 = line
+            .split_whitespace()
+            .find_map(|t| t.strip_prefix("y="))
+            .unwrap()
+            .parse()
+            .unwrap();
         exp.insert(id, y);
     }
     let mut id = 0usize;
@@ -923,15 +1035,20 @@ fn bk_node_placement_matches_oracle() {
             let d = (arena.nodes[n.0].position.y - exp[&id]).abs();
             if d > max_diff {
                 max_diff = d;
-                worst = format!("id={id}: mine={} elk={}", arena.nodes[n.0].position.y, exp[&id]);
+                worst = format!(
+                    "id={id}: mine={} elk={}",
+                    arena.nodes[n.0].position.y, exp[&id]
+                );
             }
             id += 1;
         }
     }
     assert_eq!(id, exp.len(), "node count");
-    assert!(max_diff < 0.5, "BK y-coordinate off by {max_diff} ({worst})");
+    assert!(
+        max_diff < 0.5,
+        "BK y-coordinate off by {max_diff} ({worst})"
+    );
 }
-
 
 /// E7 (coordinate framing): given elkjs's per-gap slot counts, the
 /// layer-axis x-positions the `OrthogonalEdgeRouter` assigns
@@ -958,12 +1075,28 @@ fn edge_router_coordinate_framing_matches_oracle() {
     let slots: Vec<i32> = g
         .lines()
         .filter(|l| l.starts_with("SLOTS "))
-        .map(|l| l.split_whitespace().find_map(|t| t.strip_prefix("slots=")).unwrap().parse().unwrap())
+        .map(|l| {
+            l.split_whitespace()
+                .find_map(|t| t.strip_prefix("slots="))
+                .unwrap()
+                .parse()
+                .unwrap()
+        })
         .collect();
     let mut nx: std::collections::HashMap<usize, f64> = Default::default();
     for l in g.lines().filter(|l| l.starts_with("NX ")) {
-        let id: usize = l.split_whitespace().find_map(|t| t.strip_prefix("id=")).unwrap().parse().unwrap();
-        let x: f64 = l.split_whitespace().find_map(|t| t.strip_prefix("x=")).unwrap().parse().unwrap();
+        let id: usize = l
+            .split_whitespace()
+            .find_map(|t| t.strip_prefix("id="))
+            .unwrap()
+            .parse()
+            .unwrap();
+        let x: f64 = l
+            .split_whitespace()
+            .find_map(|t| t.strip_prefix("x="))
+            .unwrap()
+            .parse()
+            .unwrap();
         nx.insert(id, x);
     }
     let gx: f64 = g
@@ -977,11 +1110,12 @@ fn edge_router_coordinate_framing_matches_oracle() {
         .unwrap();
 
     let mut call = 0;
-    let width = typstuml::layout::elk::alg::p5edges::route_and_place(&mut arena, top, |_a, _l, _r, _s| {
-        let s = slots[call];
-        call += 1;
-        s
-    });
+    let width =
+        typstuml::layout::elk::alg::p5edges::route_and_place(&mut arena, top, |_a, _l, _r, _s| {
+            let s = slots[call];
+            call += 1;
+            s
+        });
     assert!((width - gx).abs() < 0.5, "graph width {width} vs {gx}");
     let mut max_diff = 0.0f64;
     for l in 0..arena.graphs[top.0].layers.len() {
@@ -993,18 +1127,22 @@ fn edge_router_coordinate_framing_matches_oracle() {
     assert!(max_diff < 0.5, "node x off by {max_diff}");
 }
 
-
 /// Full layout through phase 5, threading one JavaRandom from cycle
 /// breaking through crossing-min into the orthogonal router (as ELK's
 /// shared InternalProperties.RANDOM does). Flat single-component scope.
 fn run_full_layout(
     input: &ElkNode,
-) -> (typstuml::layout::elk::alg::graph::LGraphArena, typstuml::layout::elk::alg::graph::LGraphId) {
+) -> (
+    typstuml::layout::elk::alg::graph::LGraphArena,
+    typstuml::layout::elk::alg::graph::LGraphId,
+) {
     use typstuml::layout::elk::alg::graph::LGraphArena;
-    use typstuml::layout::elk::alg::random::JavaRandom;
-    use typstuml::layout::elk::alg::{components, intermediate, p1_cycles, p2_layers, preserve_order, p4nodes};
     use typstuml::layout::elk::alg::p3order::layer_sweep;
     use typstuml::layout::elk::alg::p5edges::orthogonal;
+    use typstuml::layout::elk::alg::random::JavaRandom;
+    use typstuml::layout::elk::alg::{
+        components, intermediate, p1_cycles, p2_layers, p4nodes, preserve_order,
+    };
 
     let mut arena = LGraphArena::default();
     let top = typstuml::layout::elk::alg::transform::import_graph(&mut arena, input);
@@ -1023,7 +1161,12 @@ fn run_full_layout(
         intermediate::inverted_port_processor(&mut arena, comp);
         intermediate::port_list_sorter(&mut arena, comp);
         preserve_order::sort_by_input_model(&mut arena, comp);
-        layer_sweep::layer_sweep_crossing_minimizer(&mut arena, comp, &mut random, &mut std::collections::HashMap::new());
+        layer_sweep::layer_sweep_crossing_minimizer(
+            &mut arena,
+            comp,
+            &mut random,
+            &mut std::collections::HashMap::new(),
+        );
         p4nodes::prepare_placement(&mut arena, comp);
         if arena.graphs[comp.0].props.graph_properties.center_labels {
             intermediate::label_dummy_switcher(&mut arena, comp);
@@ -1057,21 +1200,48 @@ fn orthogonal_routing_slots_match_oracle() {
     .unwrap();
     let mut nx: std::collections::HashMap<usize, f64> = Default::default();
     for l in g.lines().filter(|l| l.starts_with("NX ")) {
-        let id: usize = l.split_whitespace().find_map(|t| t.strip_prefix("id=")).unwrap().parse().unwrap();
-        let x: f64 = l.split_whitespace().find_map(|t| t.strip_prefix("x=")).unwrap().parse().unwrap();
+        let id: usize = l
+            .split_whitespace()
+            .find_map(|t| t.strip_prefix("id="))
+            .unwrap()
+            .parse()
+            .unwrap();
+        let x: f64 = l
+            .split_whitespace()
+            .find_map(|t| t.strip_prefix("x="))
+            .unwrap()
+            .parse()
+            .unwrap();
         nx.insert(id, x);
     }
-    let gx: f64 = g.lines().find(|l| l.starts_with("GX ")).unwrap()
-        .split_whitespace().find_map(|t| t.strip_prefix("x=")).unwrap().parse().unwrap();
+    let gx: f64 = g
+        .lines()
+        .find(|l| l.starts_with("GX "))
+        .unwrap()
+        .split_whitespace()
+        .find_map(|t| t.strip_prefix("x="))
+        .unwrap()
+        .parse()
+        .unwrap();
 
-    assert!((arena.graphs[top.0].size.x - gx).abs() < 0.5, "graph width {} vs {gx}", arena.graphs[top.0].size.x);
+    assert!(
+        (arena.graphs[top.0].size.x - gx).abs() < 0.5,
+        "graph width {} vs {gx}",
+        arena.graphs[top.0].size.x
+    );
     let mut max_diff = 0.0f64;
     let mut worst = String::new();
     for l in 0..arena.graphs[top.0].layers.len() {
         for nd in arena.graphs[top.0].layers[l].nodes.clone() {
             let id = arena.nodes[nd.0].id;
             let d = (arena.nodes[nd.0].position.x - nx[&id]).abs();
-            if d > max_diff { max_diff = d; worst = format!("id={id} mine={} elk={}", arena.nodes[nd.0].position.x, nx[&id]); }
+            if d > max_diff {
+                max_diff = d;
+                worst = format!(
+                    "id={id} mine={} elk={}",
+                    arena.nodes[nd.0].position.x, nx[&id]
+                );
+            }
         }
     }
     assert!(max_diff < 0.5, "node x off by {max_diff} ({worst})");
@@ -1135,7 +1305,10 @@ fn final_node_coordinates_match_oracle() {
             }
         }
     }
-    assert!(max_diff < 0.5, "node coordinate off by {max_diff} ({worst})");
+    assert!(
+        max_diff < 0.5,
+        "node coordinate off by {max_diff} ({worst})"
+    );
 }
 
 /// E7 (waypoints): after node placement + orthogonal routing, the
@@ -1187,7 +1360,12 @@ fn edge_waypoints_match_oracle() {
 
     // Oracle sections keyed by edge id.
     let oracle: std::collections::HashMap<String, &typstuml::layout::elk::graph::ElkEdgeSection> =
-        out.edges.as_deref().unwrap().iter().map(|e| (e.id.clone(), &e.sections.as_ref().unwrap()[0])).collect();
+        out.edges
+            .as_deref()
+            .unwrap()
+            .iter()
+            .map(|e| (e.id.clone(), &e.sections.as_ref().unwrap()[0]))
+            .collect();
 
     let mut checked = 0usize;
     let mut max_diff = 0.0f64;
@@ -1197,26 +1375,44 @@ fn edge_waypoints_match_oracle() {
         let (Some(src), Some(tgt)) = (arena.edges[eid.0].source, arena.edges[eid.0].target) else {
             continue; // dropped dummy edge
         };
-        let Some(origin) = arena.edges[eid.0].props.origin.clone() else { continue };
-        let sec = oracle.get(&origin).unwrap_or_else(|| panic!("no oracle edge {origin}"));
+        let Some(origin) = arena.edges[eid.0].props.origin.clone() else {
+            continue;
+        };
+        let sec = oracle
+            .get(&origin)
+            .unwrap_or_else(|| panic!("no oracle edge {origin}"));
 
         let start = tp(arena.port_absolute_anchor(src));
         let end = tp(arena.port_absolute_anchor(tgt));
-        let bends: Vec<(f64, f64)> =
-            arena.edges[eid.0].bend_points.iter().map(|&b| tp(b)).collect();
+        let bends: Vec<(f64, f64)> = arena.edges[eid.0]
+            .bend_points
+            .iter()
+            .map(|&b| tp(b))
+            .collect();
 
-        let mut d = (start.0 - sec.start_point.x).abs().max((start.1 - sec.start_point.y).abs());
-        d = d.max((end.0 - sec.end_point.x).abs()).max((end.1 - sec.end_point.y).abs());
+        let mut d = (start.0 - sec.start_point.x)
+            .abs()
+            .max((start.1 - sec.start_point.y).abs());
+        d = d
+            .max((end.0 - sec.end_point.x).abs())
+            .max((end.1 - sec.end_point.y).abs());
         let obends = sec.bend_points.clone().unwrap_or_default();
         if bends.len() != obends.len() {
-            panic!("edge {origin}: {} bend points vs oracle {}", bends.len(), obends.len());
+            panic!(
+                "edge {origin}: {} bend points vs oracle {}",
+                bends.len(),
+                obends.len()
+            );
         }
         for (b, ob) in bends.iter().zip(&obends) {
             d = d.max((b.0 - ob.x).abs()).max((b.1 - ob.y).abs());
         }
         if d > max_diff {
             max_diff = d;
-            worst = format!("{origin}: start mine={start:?} elk=({},{})", sec.start_point.x, sec.start_point.y);
+            worst = format!(
+                "{origin}: start mine={start:?} elk=({},{})",
+                sec.start_point.x, sec.start_point.y
+            );
         }
         checked += 1;
     }
@@ -1233,7 +1429,9 @@ fn layer_sweep_type_decider_matches_oracle_map() {
     use typstuml::layout::elk::alg::graph::{LGraphArena, LGraphId, NodeType};
     use typstuml::layout::elk::alg::p3order::layer_sweep_type_decider::use_bottom_up;
     use typstuml::layout::elk::alg::random::JavaRandom;
-    use typstuml::layout::elk::alg::{compound, high_degree, intermediate, p1_cycles, p2_layers, preserve_order, transform};
+    use typstuml::layout::elk::alg::{
+        compound, high_degree, intermediate, p1_cycles, p2_layers, preserve_order, transform,
+    };
 
     let stages = stages_bench();
     let input: ElkNode = serde_json::from_value(stages["pass2Input"].clone()).unwrap();
@@ -1268,7 +1466,12 @@ fn layer_sweep_type_decider_matches_oracle_map() {
         intermediate::port_list_sorter(&mut arena, g);
         preserve_order::sort_by_input_model(&mut arena, g);
         for l in 0..arena.graphs[g.0].layers.len() {
-            for (pos, n) in arena.graphs[g.0].layers[l].nodes.clone().into_iter().enumerate() {
+            for (pos, n) in arena.graphs[g.0].layers[l]
+                .nodes
+                .clone()
+                .into_iter()
+                .enumerate()
+            {
                 arena.nodes[n.0].id = pos;
             }
         }
@@ -1284,7 +1487,10 @@ fn layer_sweep_type_decider_matches_oracle_map() {
         let bu = use_bottom_up(&arena, g, false);
         // root=8 → true; group_1=3 → true; groups 2/3/4/5 (1/4/7/1) → false.
         let expected = matches!(real, 8 | 3);
-        assert_eq!(bu, expected, "graph with {real} real nodes: useBottomUp={bu}, expected {expected}");
+        assert_eq!(
+            bu, expected,
+            "graph with {real} real nodes: useBottomUp={bu}, expected {expected}"
+        );
     }
 }
 
@@ -1333,7 +1539,11 @@ fn nested_layering_matches_oracle() {
     let mut layer_of: std::collections::HashMap<String, usize> = Default::default();
     let mut layer_count: std::collections::HashMap<String, usize> = Default::default();
     for &g in &graphs {
-        let gname = arena.graphs[g.0].props.origin.clone().unwrap_or_else(|| "root".into());
+        let gname = arena.graphs[g.0]
+            .props
+            .origin
+            .clone()
+            .unwrap_or_else(|| "root".into());
         layer_count.insert(gname, arena.graphs[g.0].layers.len());
         for (li, layer) in arena.graphs[g.0].layers.iter().enumerate() {
             for &n in &layer.nodes {
@@ -1348,19 +1558,41 @@ fn nested_layering_matches_oracle() {
 
     // Expected from the elkjs internal-order dump (transferNodeAndPortOrders).
     let expected_layers = [
-        ("group_1", 5), ("group_2", 3), ("group_3", 4),
-        ("group_4", 6), ("group_5", 3), ("root", 7),
+        ("group_1", 5),
+        ("group_2", 3),
+        ("group_3", 4),
+        ("group_4", 6),
+        ("group_5", 3),
+        ("root", 7),
     ];
     for (g, n) in expected_layers {
         assert_eq!(layer_count.get(g), Some(&n), "{g} layer count");
     }
     let expected_layer_of = [
-        ("FE", 1), ("SV", 2), ("ED", 3),           // group_1
-        ("API", 1),                                 // group_2
-        ("REG", 1), ("EDIT", 1), ("GEN", 1), ("RES", 2), // group_3
-        ("LAY", 1), ("TPL", 1), ("AST", 1), ("SCN", 2), ("RHTML", 3), ("RPPTX", 3), ("STO", 4), // group_4
-        ("DAO", 1),                                 // group_5
-        ("group_2", 0), ("group_3", 1), ("group_5", 2), ("M", 3), ("group_4", 4), ("group_1", 5), ("RC", 5), ("REST", 6), // root
+        ("FE", 1),
+        ("SV", 2),
+        ("ED", 3),  // group_1
+        ("API", 1), // group_2
+        ("REG", 1),
+        ("EDIT", 1),
+        ("GEN", 1),
+        ("RES", 2), // group_3
+        ("LAY", 1),
+        ("TPL", 1),
+        ("AST", 1),
+        ("SCN", 2),
+        ("RHTML", 3),
+        ("RPPTX", 3),
+        ("STO", 4), // group_4
+        ("DAO", 1), // group_5
+        ("group_2", 0),
+        ("group_3", 1),
+        ("group_5", 2),
+        ("M", 3),
+        ("group_4", 4),
+        ("group_1", 5),
+        ("RC", 5),
+        ("REST", 6), // root
     ];
     for (origin, li) in expected_layer_of {
         assert_eq!(layer_of.get(origin), Some(&li), "{origin} layer index");
@@ -1427,49 +1659,80 @@ fn nested_crossing_min_matches_oracle_order() {
         }
     }
 
-    layer_sweep::layer_sweep_crossing_minimizer(&mut arena, top, &mut root_random, &mut child_randoms);
+    layer_sweep::layer_sweep_crossing_minimizer(
+        &mut arena,
+        top,
+        &mut root_random,
+        &mut child_randoms,
+    );
 
     // elkjs `transferNodeAndPortOrdersToGraph` dump for the benchmark.
     let expected: &[(&str, &[&[&str]])] = &[
-        ("root", &[
-            &["group_2", "·"],
-            &["group_3", "·"],
-            &["·", "·", "group_5", "·", "·"],
-            &["·", "·", "M", "·", "·"],
-            &["group_4", "·"],
-            &["group_1", "RC", "·"],
-            &["REST"],
-        ]),
-        ("group_1", &[&["·"], &["·", "FE"], &["SV", "·"], &["ED", "·"], &["·"]]),
+        (
+            "root",
+            &[
+                &["group_2", "·"],
+                &["group_3", "·"],
+                &["·", "·", "group_5", "·", "·"],
+                &["·", "·", "M", "·", "·"],
+                &["group_4", "·"],
+                &["group_1", "RC", "·"],
+                &["REST"],
+            ],
+        ),
+        (
+            "group_1",
+            &[&["·"], &["·", "FE"], &["SV", "·"], &["ED", "·"], &["·"]],
+        ),
         ("group_2", &[&["·"], &["API"], &["·", "·", "·"]]),
-        ("group_3", &[
-            &["·", "·", "·"],
-            &["REG", "·", "EDIT", "GEN"],
-            &["RES", "·", "·"],
-            &["·", "·", "·", "·", "·"],
-        ]),
-        ("group_4", &[
-            &["·", "·", "·"],
-            &["LAY", "TPL", "AST"],
-            &["SCN"],
-            &["·", "RHTML", "RPPTX"],
-            &["·", "·", "STO"],
-            &["·", "·"],
-        ]),
+        (
+            "group_3",
+            &[
+                &["·", "·", "·"],
+                &["REG", "·", "EDIT", "GEN"],
+                &["RES", "·", "·"],
+                &["·", "·", "·", "·", "·"],
+            ],
+        ),
+        (
+            "group_4",
+            &[
+                &["·", "·", "·"],
+                &["LAY", "TPL", "AST"],
+                &["SCN"],
+                &["·", "RHTML", "RPPTX"],
+                &["·", "·", "STO"],
+                &["·", "·"],
+            ],
+        ),
         ("group_5", &[&["·", "·"], &["DAO"], &["·"]]),
     ];
     let expect_map: std::collections::HashMap<&str, &[&[&str]]> =
         expected.iter().copied().collect();
 
     for &g in &graphs {
-        let gname = arena.graphs[g.0].props.origin.clone().unwrap_or_else(|| "root".into());
+        let gname = arena.graphs[g.0]
+            .props
+            .origin
+            .clone()
+            .unwrap_or_else(|| "root".into());
         let want = expect_map[gname.as_str()];
-        assert_eq!(arena.graphs[g.0].layers.len(), want.len(), "{gname} layer count");
+        assert_eq!(
+            arena.graphs[g.0].layers.len(),
+            want.len(),
+            "{gname} layer count"
+        );
         for (li, layer) in arena.graphs[g.0].layers.iter().enumerate() {
             let got: Vec<String> = layer
                 .nodes
                 .iter()
-                .map(|&n| arena.nodes[n.0].props.origin.clone().unwrap_or_else(|| "·".into()))
+                .map(|&n| {
+                    arena.nodes[n.0]
+                        .props
+                        .origin
+                        .clone()
+                        .unwrap_or_else(|| "·".into())
+                })
                 .collect();
             assert_eq!(got, want[li], "{gname} L{li} in-layer order");
         }
@@ -1595,10 +1858,14 @@ fn check_flat_export(fixture: &str) {
         diffs.is_empty(),
         "{fixture}: {} geometry diffs, first 10:\n{}",
         diffs.len(),
-        diffs.iter().take(10).map(|d| d.to_string()).collect::<Vec<_>>().join("\n")
+        diffs
+            .iter()
+            .take(10)
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }
-
 
 /// Adapter (draw-uml layer): the measured model — structure and order
 /// from the golden `model` stage, extents from `pass1Input` (sizes are
@@ -1661,7 +1928,11 @@ fn check_adapter_stages(stages: Value) {
     fn index_measures(node: &Value, out: &mut std::collections::HashMap<String, Measured>) {
         let children: Vec<String> = node["children"]
             .as_array()
-            .map(|a| a.iter().map(|c| c["id"].as_str().unwrap().to_string()).collect())
+            .map(|a| {
+                a.iter()
+                    .map(|c| c["id"].as_str().unwrap().to_string())
+                    .collect()
+            })
             .unwrap_or_default();
         let label = node["labels"].as_array().and_then(|a| a.first()).map(|l| {
             (
@@ -1739,10 +2010,7 @@ fn check_adapter_stages(stages: Value) {
     // distributed over their LCA containers).
     let mut edge_labels: std::collections::HashMap<String, Vec<Value>> =
         std::collections::HashMap::new();
-    fn index_edge_labels(
-        node: &Value,
-        out: &mut std::collections::HashMap<String, Vec<Value>>,
-    ) {
+    fn index_edge_labels(node: &Value, out: &mut std::collections::HashMap<String, Vec<Value>>) {
         for e in node["edges"].as_array().unwrap_or(&Vec::new()) {
             if let Some(labels) = e["labels"].as_array() {
                 out.insert(e["id"].as_str().unwrap().to_string(), labels.clone());
@@ -1781,18 +2049,29 @@ fn check_adapter_stages(stages: Value) {
         });
     }
     let title = &stages["final"]["nodes"]["__title__"];
-    model.title = Some((title["width"].as_f64().unwrap(), title["height"].as_f64().unwrap()));
+    model.title = Some((
+        title["width"].as_f64().unwrap(),
+        title["height"].as_f64().unwrap(),
+    ));
 
     // ---- pass inputs must match the goldens ---------------------------
     let my_pass1 = serde_json::to_value(adapter::to_elk_simple(&model)).unwrap();
     let d1 = json_semantic_diff(pass1_input, &my_pass1, 1e-9);
-    assert!(d1.is_empty(), "pass1Input diffs: {:#?}", &d1[..d1.len().min(15)]);
+    assert!(
+        d1.is_empty(),
+        "pass1Input diffs: {:#?}",
+        &d1[..d1.len().min(15)]
+    );
 
     let laid1 = adapter::run_engine(&serde_json::from_value(my_pass1).unwrap());
     let positions = adapter::collect_node_positions(&laid1);
     let my_pass2 = serde_json::to_value(adapter::to_elk(&model, &positions)).unwrap();
     let d2 = json_semantic_diff(&stages["pass2Input"], &my_pass2, 1e-9);
-    assert!(d2.is_empty(), "pass2Input diffs: {:#?}", &d2[..d2.len().min(15)]);
+    assert!(
+        d2.is_empty(),
+        "pass2Input diffs: {:#?}",
+        &d2[..d2.len().min(15)]
+    );
 
     // ---- full pipeline vs extracted / final ----------------------------
     let layout = adapter::layout_model(&model);
@@ -1807,7 +2086,10 @@ fn check_adapter_stages(stages: Value) {
             if id == "__title__" && !with_title {
                 continue;
             }
-            let mine = layout.nodes.get(id).unwrap_or_else(|| panic!("missing node {id}"));
+            let mine = layout
+                .nodes
+                .get(id)
+                .unwrap_or_else(|| panic!("missing node {id}"));
             for (field, got) in [
                 ("x", mine.x),
                 ("y", mine.y),
@@ -1819,13 +2101,22 @@ fn check_adapter_stages(stages: Value) {
             }
             if let Some(xl) = n.get("xlabelPos").filter(|v| !v.is_null()) {
                 let got = mine.xlabel_pos.expect("expected xlabelPos");
-                assert!((xl["x"].as_f64().unwrap() - got.0).abs() < tol, "{id} xlabel x");
-                assert!((xl["y"].as_f64().unwrap() - got.1).abs() < tol, "{id} xlabel y");
+                assert!(
+                    (xl["x"].as_f64().unwrap() - got.0).abs() < tol,
+                    "{id} xlabel x"
+                );
+                assert!(
+                    (xl["y"].as_f64().unwrap() - got.1).abs() < tol,
+                    "{id} xlabel y"
+                );
             }
         }
         let groups = stage["groups"].as_object().unwrap();
         for (id, g) in groups {
-            let mine = layout.groups.get(id).unwrap_or_else(|| panic!("missing group {id}"));
+            let mine = layout
+                .groups
+                .get(id)
+                .unwrap_or_else(|| panic!("missing group {id}"));
             for (field, got) in [
                 ("x", mine.x),
                 ("y", mine.y),
@@ -1833,7 +2124,10 @@ fn check_adapter_stages(stages: Value) {
                 ("height", mine.height),
             ] {
                 let want = g[field].as_f64().unwrap();
-                assert!((want - got).abs() < tol, "group {id}.{field}: {want} != {got}");
+                assert!(
+                    (want - got).abs() < tol,
+                    "group {id}.{field}: {want} != {got}"
+                );
             }
         }
         let edges = stage["edges"].as_array().unwrap();

@@ -615,8 +615,7 @@ fn annotation_emit_attaches_to_stereotype_and_member_body() {
     );
     // Field-level @Id should land in the field body, not the stereotype.
     assert!(
-        order_line.contains("body: [Id orderId: Long]")
-            || order_line.contains("body: [Id orderId"),
+        order_line.contains("body: [Id orderId: Long]") || order_line.contains("body: [Id orderId"),
         "@Id should prepend the field body: {order_line}",
     );
 }

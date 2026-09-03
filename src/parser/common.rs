@@ -155,7 +155,10 @@ mod tests {
 
     #[test]
     fn strip_keyword_trimmed_trims_remainder() {
-        assert_eq!(strip_keyword_trimmed("title  Hello ", "title"), Some("Hello"));
+        assert_eq!(
+            strip_keyword_trimmed("title  Hello ", "title"),
+            Some("Hello")
+        );
         assert_eq!(strip_keyword_trimmed("title", "title"), Some(""));
         assert!(strip_keyword_trimmed("titles", "title").is_none());
     }

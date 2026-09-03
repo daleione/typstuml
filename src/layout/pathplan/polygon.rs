@@ -277,8 +277,7 @@ mod tests {
     #[test]
     fn contains_interior_and_excludes_exterior() {
         // Unit square.
-        let p =
-            Polygon::new(vec![pt(0., 0.), pt(2., 0.), pt(2., 2.), pt(0., 2.)]).unwrap();
+        let p = Polygon::new(vec![pt(0., 0.), pt(2., 0.), pt(2., 2.), pt(0., 2.)]).unwrap();
         assert!(p.contains(pt(1., 1.)));
         assert!(!p.contains(pt(3., 1.)));
         assert!(!p.contains(pt(-1., 1.)));
@@ -286,8 +285,7 @@ mod tests {
 
     #[test]
     fn triangulates_square_into_two_triangles() {
-        let p =
-            Polygon::new(vec![pt(0., 0.), pt(2., 0.), pt(2., 2.), pt(0., 2.)]).unwrap();
+        let p = Polygon::new(vec![pt(0., 0.), pt(2., 0.), pt(2., 2.), pt(0., 2.)]).unwrap();
         let tris = p.triangulate();
         assert_eq!(tris.len(), 2);
         // Each triangle must have at least one neighbour (the diagonal).

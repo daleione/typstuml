@@ -26,13 +26,13 @@ use std::collections::HashMap;
 use super::graph::{LGraphArena, LGraphId, LNodeId, NodeType};
 use super::math::{Insets, KVector};
 use super::options::{PortConstraints, PortSide};
+use super::p3order::layer_sweep;
+use super::p5edges::orthogonal;
 use super::random::JavaRandom;
 use super::{
     compound, high_degree, intermediate, layer_constraint, p1_cycles, p2_layers, p4nodes,
     preserve_order,
 };
-use super::p3order::layer_sweep;
-use super::p5edges::orthogonal;
 
 /// Normalize a side into the rightward frame (NORTH→WEST, SOUTH→EAST).
 fn rightward(side: PortSide) -> PortSide {
@@ -49,7 +49,12 @@ fn rightward(side: PortSide) -> PortSide {
 /// paddings, so internal-frame code transposes here instead.
 pub fn internal_padding(arena: &LGraphArena, graph: LGraphId) -> Insets {
     let p = arena.graphs[graph.0].padding;
-    Insets { left: p.top, right: p.bottom, top: p.left, bottom: p.right }
+    Insets {
+        left: p.top,
+        right: p.bottom,
+        top: p.left,
+        bottom: p.right,
+    }
 }
 
 // ----------------------------------------------------------------------
@@ -188,8 +193,12 @@ fn correct_slanted_edge_segments(arena: &mut LGraphArena, graph: LGraphId, layer
 pub fn absolute_anchor(arena: &LGraphArena, port: super::graph::LPortId) -> KVector {
     let node = arena.ports[port.0].owner.unwrap();
     KVector::new(
-        arena.nodes[node.0].position.x + arena.ports[port.0].position.x + arena.ports[port.0].anchor.x,
-        arena.nodes[node.0].position.y + arena.ports[port.0].position.y + arena.ports[port.0].anchor.y,
+        arena.nodes[node.0].position.x
+            + arena.ports[port.0].position.x
+            + arena.ports[port.0].anchor.x,
+        arena.nodes[node.0].position.y
+            + arena.ports[port.0].position.y
+            + arena.ports[port.0].anchor.y,
     )
 }
 
@@ -197,11 +206,7 @@ pub fn absolute_anchor(arena: &LGraphArena, port: super::graph::LPortId) -> KVec
 /// vector to add to an `old`-frame point to express it in the `new`
 /// frame. Walks both graphs to the root, adding each level's offset,
 /// internal-frame padding and parent-node position.
-pub fn change_coord_system(
-    arena: &LGraphArena,
-    old: LGraphId,
-    new: LGraphId,
-) -> KVector {
+pub fn change_coord_system(arena: &LGraphArena, old: LGraphId, new: LGraphId) -> KVector {
     if old == new {
         return KVector::default();
     }
@@ -210,7 +215,9 @@ pub fn change_coord_system(
         loop {
             v.x += arena.graphs[g.0].offset.x;
             v.y += arena.graphs[g.0].offset.y;
-            let Some(parent) = arena.graphs[g.0].parent_node else { break };
+            let Some(parent) = arena.graphs[g.0].parent_node else {
+                break;
+            };
             let pad = internal_padding(arena, g);
             v.x += pad.left + arena.nodes[parent.0].position.x;
             v.y += pad.top + arena.nodes[parent.0].position.y;
@@ -228,7 +235,9 @@ pub fn change_coord_system(
 pub fn is_descendant(arena: &LGraphArena, node: LNodeId, ancestor: LNodeId) -> bool {
     let mut g = arena.nodes[node.0].graph;
     loop {
-        let Some(parent) = arena.graphs[g.0].parent_node else { return false };
+        let Some(parent) = arena.graphs[g.0].parent_node else {
+            return false;
+        };
         if parent == ancestor {
             return true;
         }
@@ -299,7 +308,9 @@ fn graph_layout_to_node(arena: &mut LGraphArena, graph: LGraphId) {
         if arena.nodes[n.0].node_type != NodeType::ExternalPort {
             continue;
         }
-        let Some(origin_port) = arena.nodes[n.0].props.origin_port else { continue };
+        let Some(origin_port) = arena.nodes[n.0].props.origin_port else {
+            continue;
+        };
         let port_size = arena.ports[origin_port.0].size;
         let pos = get_external_port_position(arena, graph, n, port_size.x, port_size.y);
         arena.ports[origin_port.0].position = pos;
@@ -343,7 +354,8 @@ fn get_external_port_position(
         PortSide::East => {
             port_position.x = graph_size.x + pad.left + pad.right + port_offset;
             port_position.y += pad.top + graph_offset.y - port_height / 2.0;
-            arena.nodes[dummy.0].position.x = graph_size.x + pad.right + port_offset - graph_offset.x;
+            arena.nodes[dummy.0].position.x =
+                graph_size.x + pad.right + port_offset - graph_offset.x;
         }
         PortSide::West => {
             port_position.x = -port_width - port_offset;
@@ -436,8 +448,11 @@ pub fn layout_compound(arena: &mut LGraphArena, top: LGraphId) -> CompoundLayout
         p4nodes::bk::place(arena, g);
         layer_size_and_graph_height_calculator(arena, g);
         {
-            let random =
-                if g == top { &mut root_random } else { child_randoms.get_mut(&g).unwrap() };
+            let random = if g == top {
+                &mut root_random
+            } else {
+                child_randoms.get_mut(&g).unwrap()
+            };
             let width = orthogonal::route_orthogonal(arena, g, random);
             arena.graphs[g.0].size.x = width;
         }

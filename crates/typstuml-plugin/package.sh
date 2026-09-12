@@ -38,6 +38,7 @@ mkdir -p "$DEST"
 cp package/typst.toml    "$DEST/typst.toml"
 cp package/lib.typ       "$DEST/lib.typ"
 cp package/README.md     "$DEST/README.md"
+cp -R package/examples    "$DEST/examples"
 cp ../../LICENSE         "$DEST/LICENSE"
 cp pkg/typstuml.wasm     "$DEST/typstuml.wasm"
 

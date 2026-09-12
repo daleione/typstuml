@@ -91,6 +91,7 @@ fn shared_fonts() -> Arc<FontCache> {
     FONTS
         .get_or_init(|| {
             let mut store = FontStore::new();
+            #[cfg(feature = "embedded-fonts")]
             store.extend(typst_kit::fonts::embedded());
             store.extend(typst_kit::fonts::system());
             Arc::new(FontCache { store })

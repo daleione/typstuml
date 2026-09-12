@@ -51,6 +51,7 @@ Then in your `.typ`:
 | Function              | Returns   | What it does                       |
 | --------------------- | --------- | ---------------------------------- |
 | `render-puml(source)` | `content` | Render a PlantUML source string    |
+| `render-mermaid(source)` | `content` | Render the Mermaid flowchart subset (strict). |
 
 The returned value is regular Typst content — wrap it in `figure`,
 `box`, `scale`, etc. as needed.
@@ -72,3 +73,25 @@ main repository's `README.md` for the per-feature status matrix.
 ## License
 
 MIT — same as the rest of the typstuml project.
+
+## Mermaid
+
+```typst
+#import "@local/typstuml:0.1.0": render-mermaid
+#render-mermaid("flowchart LR; A[Start] --> B{Ready?} -->|yes| C([Done])")
+```
+
+Supports seven basic node shapes, four edge styles, chains, labels, nested
+subgraphs, and TD/TB/BT/LR/RL. Other diagram types, styling directives,
+HTML/Markdown labels, subgraph endpoints and local directions are rejected.
+Labels remain plain text and repeated label declarations use the last value.
+IDs use ASCII letters/underscore initially and letters/digits/underscore/hyphen
+thereafter. Explicit shape changes and ambiguous subgraph ownership are rejected.
+
+This package requires protocol **2**: ship `lib.typ`, `typstuml.wasm` and
+`blockcell/` together. The WASM retains the three old PlantUML exports with
+their original wire format. New exports use a CBOR probe bundle and validate
+measurement IDs and dimensions. Each render instance has a separate Typst
+measurement scope. Mermaid inherits host text style; PlantUML retains its 10pt
+size default. The example in `examples/mermaid.typ` includes repeated and mixed
+language diagrams.

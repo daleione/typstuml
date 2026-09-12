@@ -1,0 +1,9 @@
+flowchart LR
+X --> A
+subgraph outer [Outer]
+  A[Entry] --> B
+  subgraph inner [Inner]
+    B[Storage] --> C
+  end
+end
+C --> Z

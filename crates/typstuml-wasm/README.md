@@ -14,8 +14,15 @@ fonts are all baked into the `.wasm` module. No network, no filesystem.
 | `renderSvg(source)`    | `string`               | Primary entry point for web use.       |
 | `renderPng(source)`    | `Uint8Array`           | First diagram only on multi-diagram input. |
 | `renderPdf(source)`    | `Uint8Array`           |                                        |
+| `renderSvgAs(source, language)` | `string` | Explicit `"puml"` or `"mermaid"`. |
+| `renderPngAs(source, language, scale)` | `Uint8Array` | Explicit language and PNG scale. |
+| `renderPdfAs(source, language)` | `Uint8Array` | Explicit language. |
+| `emitTypstAs(source, language)` | `string` | Explicit language. |
 | `emitTypst(source)`    | `string`               | The generated Typst source — for debugging. |
 | `addFont(bytes)`       | `number` (face count)  | Append a TTF/OTF/TTC to the font book at runtime — see [Extra fonts](#extra-fonts). |
+
+Mermaid accepts the [flowchart subset](../../README.md#mermaid-flowcharts) in strict mode.
+The original APIs continue to interpret PlantUML.
 
 All throw a JS `Error` with a line-annotated diagnostic message on failure.
 

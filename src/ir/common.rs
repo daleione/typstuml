@@ -38,3 +38,10 @@ pub enum Direction {
     Left,
     Right,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LineWeight {
+    #[default]
+    Normal,
+    Thick,
+}

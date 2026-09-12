@@ -120,3 +120,33 @@ pub fn tree_layout(model: &str, sizes: &str, folded: &str, em: f64) -> Result<St
 fn to_js(err: typstuml::diagnostics::Error) -> JsError {
     JsError::new(&err.to_string())
 }
+
+#[wasm_bindgen(js_name = renderSvgAs)]
+pub fn render_svg_as(source: &str, language: &str) -> Result<String, JsError> {
+    let r =
+        render::render_source_with_language(source, language.parse().map_err(to_js)?, Format::Svg)
+            .map_err(to_js)?;
+    String::from_utf8(r.bytes).map_err(|e| JsError::new(&e.to_string()))
+}
+#[wasm_bindgen(js_name = emitTypstAs)]
+pub fn emit_typst_as(source: &str, language: &str) -> Result<String, JsError> {
+    render::emit_typst_with_language(source, language.parse().map_err(to_js)?).map_err(to_js)
+}
+#[wasm_bindgen(js_name = renderPngAs)]
+pub fn render_png_as(source: &str, language: &str, scale: f32) -> Result<Vec<u8>, JsError> {
+    Ok(render::render_source_with_language(
+        source,
+        language.parse().map_err(to_js)?,
+        Format::Png { scale },
+    )
+    .map_err(to_js)?
+    .bytes)
+}
+#[wasm_bindgen(js_name = renderPdfAs)]
+pub fn render_pdf_as(source: &str, language: &str) -> Result<Vec<u8>, JsError> {
+    Ok(
+        render::render_source_with_language(source, language.parse().map_err(to_js)?, Format::Pdf)
+            .map_err(to_js)?
+            .bytes,
+    )
+}

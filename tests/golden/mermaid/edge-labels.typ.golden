@@ -1,0 +1,16 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  direction: "lr",
+  nodes: (
+    (x: 16.67pt, y: 8.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("A")]),
+    (x: 79.50pt, y: 8.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("B")]),
+    (x: 142.33pt, y: 8.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("C")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 22.33pt, to-y: 22.33pt, label: [#text("inline text")], label-pos: (62.83pt, 46.33pt), path: ((c1: (57.28pt, 22.33pt), c2: (68.39pt, 22.33pt), end: (79.50pt, 22.33pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 22.33pt, to-y: 22.33pt, label: [#text("pipe label")], label-pos: (125.67pt, 46.33pt), path: ((c1: (120.11pt, 22.33pt), c2: (131.22pt, 22.33pt), end: (142.33pt, 22.33pt)),)),
+  ),
+)

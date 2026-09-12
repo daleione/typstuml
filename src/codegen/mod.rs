@@ -17,6 +17,8 @@
 mod activity;
 pub(crate) mod common;
 mod cuca;
+mod flowchart;
+mod graph;
 mod json;
 mod mindmap;
 mod record_graph;
@@ -46,6 +48,42 @@ pub enum ImportStrategy {
     /// Typst plugin: minimal preamble (no `#set page`, no `#import`),
     /// blockcell comes from the eval `scope:`, parbreaks between diagrams.
     EvalScope,
+    /// Host-owned typography, used by the explicit flowchart plugin API.
+    EvalScopeInherit,
+}
+
+/// Output container and typography are independent choices.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OutputTarget {
+    #[default]
+    Document,
+    Embedded,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Typography {
+    #[default]
+    DefaultSize,
+    Inherit,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CodegenOptions {
+    pub target: OutputTarget,
+    pub typography: Typography,
+}
+impl From<ImportStrategy> for CodegenOptions {
+    fn from(value: ImportStrategy) -> Self {
+        match value {
+            ImportStrategy::VirtualFs => Self::default(),
+            ImportStrategy::EvalScope => Self {
+                target: OutputTarget::Embedded,
+                typography: Typography::DefaultSize,
+            },
+            ImportStrategy::EvalScopeInherit => Self {
+                target: OutputTarget::Embedded,
+                typography: Typography::Inherit,
+            },
+        }
+    }
 }
 
 /// Every blockcell symbol the emitted Typst code references — both
@@ -69,6 +107,9 @@ pub const REFERENCED_BLOCKCELL_SYMBOLS: &[&str] = &[
     "tree-probe",
     "tree-em-probe",
     // cuca (class / use-case / component painters + their probes)
+    "flowchart-layout",
+    "flowchart-probe",
+    "graph-edge-label-probe",
     "cuca-layout",
     "cuca-probe",
     "container-probe",
@@ -119,13 +160,22 @@ pub fn emit(
     measurements: Option<&MeasurementSet>,
     imports: ImportStrategy,
 ) -> Result<String> {
+    emit_with_options(doc, theme, measurements, imports.into())
+}
+
+pub fn emit_with_options(
+    doc: &Document,
+    theme: &Theme,
+    measurements: Option<&MeasurementSet>,
+    options: CodegenOptions,
+) -> Result<String> {
     let mut out = String::new();
 
-    write_preamble(&mut out, theme, imports)?;
+    write_preamble(&mut out, theme, options)?;
 
-    let separator = match imports {
-        ImportStrategy::VirtualFs => "\n#pagebreak()\n\n",
-        ImportStrategy::EvalScope => "\n\n",
+    let separator = match options.target {
+        OutputTarget::Document => "\n#pagebreak()\n\n",
+        OutputTarget::Embedded => "\n\n",
     };
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {
@@ -138,6 +188,7 @@ pub fn emit(
             Diagram::Yaml(y) => yaml::emit(&mut out, y, measurements, idx),
             Diagram::Wbs(w) => wbs::emit(&mut out, w, measurements, idx),
             Diagram::MindMap(m) => mindmap::emit(&mut out, m, measurements, idx),
+            Diagram::Flowchart(f) => flowchart::emit(&mut out, f, measurements, idx),
             Diagram::Cuca(c) => cuca::emit(&mut out, c, measurements, idx),
             Diagram::Activity(a) => activity::emit(&mut out, a, measurements, idx),
             Diagram::State(s) => state::emit(&mut out, s, measurements, idx),
@@ -162,8 +213,17 @@ pub fn emit_probes(
     theme: &Theme,
     imports: ImportStrategy,
 ) -> Result<Option<(String, Vec<String>)>> {
+    emit_probes_with_options(doc, theme, imports.into())
+}
+
+pub fn emit_probes_with_options(
+    doc: &Document,
+    theme: &Theme,
+    options: CodegenOptions,
+) -> Result<Option<(String, Vec<String>)>> {
     let any_probes = doc.diagrams.iter().any(|d| match d {
         Diagram::Cuca(c) => cuca::probe::has_probes(c),
+        Diagram::Flowchart(f) => flowchart::has_probes(f),
         Diagram::Json(j) => record_graph::has_records(&j.root),
         Diagram::Yaml(y) => record_graph::has_records(&y.root),
         Diagram::State(s) => state::has_probes(s),
@@ -180,11 +240,14 @@ pub fn emit_probes(
     }
 
     let mut out = String::new();
-    write_preamble(&mut out, theme, imports)?;
+    write_preamble(&mut out, theme, options)?;
     let mut expected_ids: Vec<String> = Vec::new();
 
     for (idx, diagram) in doc.diagrams.iter().enumerate() {
         match diagram {
+            Diagram::Flowchart(f) if flowchart::has_probes(f) => {
+                flowchart::collect_probes(f, idx, &mut out, &mut expected_ids);
+            }
             Diagram::Cuca(c) if cuca::probe::has_probes(c) => {
                 cuca::probe::collect(c, idx, &mut out, &mut expected_ids);
             }
@@ -218,40 +281,30 @@ pub fn emit_probes(
     Ok(Some((out, expected_ids)))
 }
 
-/// Shared preamble. Two shapes per [`ImportStrategy`] — see module docs.
-fn write_preamble(out: &mut String, theme: &Theme, imports: ImportStrategy) -> Result<()> {
-    match imports {
-        ImportStrategy::VirtualFs => {
-            out.push_str(
-                "#set page(width: auto, height: auto, margin: 8pt)\n\
-                 #set text(size: 10pt)\n\
-                 #import \"/blockcell/lib.typ\": *\n\n",
-            );
-
-            if let Some(tpl_path) = &theme.preamble {
-                let content = std::fs::read_to_string(tpl_path).map_err(|e| Error::Io {
-                    path: tpl_path.clone(),
-                    source: e,
-                })?;
-                out.push_str("// --- user preamble ---\n");
-                out.push_str(&content);
-                if !out.ends_with('\n') {
-                    out.push('\n');
-                }
-                out.push_str("// --- end user preamble ---\n\n");
+/// The same target and typography are applied to both measurement and painting.
+fn write_preamble(out: &mut String, theme: &Theme, options: CodegenOptions) -> Result<()> {
+    if options.target == OutputTarget::Document {
+        out.push_str("#set page(width: auto, height: auto, margin: 8pt)\n");
+    }
+    if options.typography == Typography::DefaultSize {
+        out.push_str("#set text(size: 10pt)\n");
+    }
+    if options.target == OutputTarget::Document {
+        out.push_str("#import \"/blockcell/lib.typ\": *\n\n");
+        if let Some(path) = &theme.preamble {
+            let content = std::fs::read_to_string(path).map_err(|source| Error::Io {
+                path: path.clone(),
+                source,
+            })?;
+            out.push_str("// --- user preamble ---\n");
+            out.push_str(&content);
+            if !content.ends_with('\n') {
+                out.push('\n');
             }
+            out.push_str("// --- end user preamble ---\n\n");
         }
-        ImportStrategy::EvalScope => {
-            // The host document owns page setup; blockcell symbols are
-            // injected via the eval `scope:` argument. We still pin
-            // text size so pass-1 measurements line up with pass-2
-            // layout numbers (which were tuned for 10pt). The pin is
-            // scoped to the eval, doesn't leak to the host document.
-            out.push_str("#set text(size: 10pt)\n\n");
-            // theme.preamble is intentionally not applied in plugin
-            // form for v1 — the host document is the place for that.
-            let _ = theme;
-        }
+    } else if options.typography == Typography::DefaultSize {
+        out.push('\n');
     }
     Ok(())
 }

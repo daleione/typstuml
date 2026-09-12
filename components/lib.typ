@@ -7,3 +7,6 @@
 #import "src/atoms.typ": process, decision, terminal, junction, edge, flow-node
 #import "src/composites.typ": flow-col, section
 #import "src/flows.typ": branch, branch-merge, switch, case, n-way, fork-bar, flow-loop, start-marker, stop-marker, end-marker, detach-marker, partition, flow-note, with-notes, swimlane, lane, swimlane-layout, swimlane-probe
+
+#import "src/flowchart.typ": flowchart-layout, flowchart-probe
+#import "src/graph/probe.typ": graph-edge-label-probe

@@ -603,26 +603,26 @@
 /// Measure protocol: report the natural size of one tree node's rendered
 /// content. `body` is the full `node(...)` call so shape-specific sizing
 /// (circle floor, insets) is captured exactly.
-#let tree-probe(id: none, body) = context {
+#let tree-probe(measure-scope: none, id: none, body) = context {
   let m = measure(body)
   [#metadata((
     id: id,
     w: m.width.pt(),
     h: m.height.pt(),
-  )) <typstuml_measure>]
+  ) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }
 
 /// Measure protocol: report the resolved size of `1em` under the active
 /// text style. Rust-side layout derives every gap constant (`x-gap:
 /// 1.6em`, …) from this so a theme that changes the font size keeps the
 /// same proportions the Typst-side layout had.
-#let tree-em-probe(id: none) = context {
+#let tree-em-probe(measure-scope: none, id: none) = context {
   let em = 1em.to-absolute()
   [#metadata((
     id: id,
     w: em.pt(),
     h: em.pt(),
-  )) <typstuml_measure>]
+  ) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }
 
 /// Dumb painter for Rust-precomputed tree layouts. Mirrors

@@ -734,7 +734,7 @@
 
 /// Natural box size of a simple / composite state — name plus, when the
 /// state has `entry/exit/do` body rows, a name band + divider + body block.
-#let state-probe(id: none, display: "", body: ()) = context {
+#let state-probe(measure-scope: none, id: none, display: "", body: ()) = context {
   let name = measure(text(fill: _text-fill, _with-breaks(display)))
   let (w, h) = if body.len() == 0 {
     // Name centered in the box; 22pt horizontal breathing room.
@@ -747,15 +747,15 @@
     let band = _name-band-h(display)
     (calc.max(name.width, bm.width) + 16pt, band + bm.height + 8pt)
   }
-  [#metadata((id: id, w: w.pt(), h: h.pt())) <typstuml_measure>]
+  [#metadata((id: id, w: w.pt(), h: h.pt()) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }
 
 /// Natural box size of a note's yellow sticky — body text plus the
 /// painter's `(x: 6pt, y: 4pt)` inset and a little slack so the widest
 /// line isn't measured edge-to-edge (which makes Typst re-wrap it).
-#let state-note-probe(id: none, body: "") = context {
+#let state-note-probe(measure-scope: none, id: none, body: "") = context {
   let m = measure(text(size: _body-size, fill: _text-fill, _with-breaks(body)))
-  [#metadata((id: id, w: (m.width + 16pt).pt(), h: (m.height + 10pt).pt())) <typstuml_measure>]
+  [#metadata((id: id, w: (m.width + 16pt).pt(), h: (m.height + 10pt).pt()) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }
 
 /// Natural size of a transition's `event [guard] / action` label, measured
@@ -763,7 +763,7 @@
 /// the label virtual node from this instead of a char-count estimate (which
 /// is wrong for proportional / CJK text). Emits `(0pt, 0pt)` for an empty
 /// label so the read-back can fall back to "no label".
-#let state-edge-label-probe(id: none, event: none, guard: none, action: none) = context {
+#let state-edge-label-probe(measure-scope: none, id: none, event: none, guard: none, action: none) = context {
   let lbl = _join-label(event, guard, action)
   let (w, h) = if lbl == none {
     (0pt, 0pt)
@@ -771,5 +771,5 @@
     let m = measure(text(size: _label-size, _with-breaks(lbl)))
     (m.width, m.height)
   }
-  [#metadata((id: id, w: w.pt(), h: h.pt())) <typstuml_measure>]
+  [#metadata((id: id, w: w.pt(), h: h.pt()) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }

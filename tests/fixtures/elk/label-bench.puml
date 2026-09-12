@@ -1,0 +1,33 @@
+@startuml
+title 标签基准（边标签进引擎）
+
+package "前端" {
+  component "App Store" as FE
+  component "SceneView" as SV
+}
+
+package "服务层" {
+  component "Generate Svc" as GEN
+  component "Edit Svc" as EDIT
+  component "Registry" as REG
+}
+
+package "核心库" {
+  component "ast codec" as AST
+  component "layout engine" as LAY
+}
+
+component "API Gateway" as API
+database "MongoDB" as M
+
+FE --> SV : 渲染 Scene IR
+FE --> API : REST + SSE
+API --> GEN : prompt 编排
+API --> EDIT
+GEN ..> AST : 生成 AST
+EDIT --> LAY : ops 应用
+REG ..> GEN
+LAY --> M : 持久化
+M --> API : 变更通知
+SV --> AST
+@enduml

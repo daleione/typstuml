@@ -1,0 +1,19 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 8.33pt, y: 16.67pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("A")]),
+    (x: 8.33pt, y: 78.00pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("B")]),
+    (x: 8.33pt, y: 139.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("C")]),
+    (x: 8.33pt, y: 200.67pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("D")]),
+    (x: 8.33pt, y: 262.00pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("E")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 23.08pt, to-x: 23.08pt, path: ((c1: (23.08pt, 55.78pt), c2: (23.08pt, 66.89pt), end: (23.08pt, 78.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "none", style: "solid", from-side: "bot", to-side: "top", from-x: 23.08pt, to-x: 23.08pt, path: ((c1: (23.08pt, 117.11pt), c2: (23.08pt, 128.22pt), end: (23.08pt, 139.33pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 23.08pt, to-x: 23.08pt, path: ((c1: (23.08pt, 178.44pt), c2: (23.08pt, 189.56pt), end: (23.08pt, 200.67pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 23.08pt, to-x: 23.08pt, weight: 2, path: ((c1: (23.08pt, 239.78pt), c2: (23.08pt, 250.89pt), end: (23.08pt, 262.00pt)),)),
+  ),
+)

@@ -1,6 +1,6 @@
 //! Pure-Rust port of the ELK `layered` layout algorithm (work in
 //! progress — see `docs/elk-port-plan.md` for the milestone plan and
-//! `tools/elk-oracle/` for the elkjs ground-truth harness).
+//! `tests/fixtures/elk/README.md` for the elkjs reference data).
 //!
 //! Verification model: every ported phase must reproduce elkjs's
 //! output *numerically* on identical inputs. The [`graph`] module is

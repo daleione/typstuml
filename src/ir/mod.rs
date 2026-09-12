@@ -25,6 +25,7 @@
 mod activity;
 mod common;
 mod cuca;
+mod flowchart;
 mod record;
 mod sequence;
 mod state;
@@ -33,6 +34,7 @@ mod tree;
 pub use activity::*;
 pub use common::*;
 pub use cuca::*;
+pub use flowchart::*;
 pub use record::*;
 pub use sequence::*;
 pub use state::*;
@@ -51,6 +53,7 @@ pub enum Diagram {
     Wbs(WbsDiagram),
     MindMap(MindMapDiagram),
     Cuca(CucaDiagram),
+    Flowchart(FlowchartDiagram),
     Activity(ActivityDiagram),
     State(StateDiagram),
 }

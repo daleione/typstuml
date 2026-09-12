@@ -1,0 +1,19 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 18.04pt, y: 16.67pt, width: 136.00pt, height: 56.00pt, kind: "flow-diamond", name: [#text("Question")]),
+    (x: 28.47pt, y: 106.00pt, width: 49.24pt, height: 49.24pt, kind: "flow-circle", name: [#text("One")]),
+    (x: 94.37pt, y: 106.00pt, width: 49.24pt, height: 49.24pt, kind: "flow-circle", name: [#text("Two")]),
+    (x: 15.33pt, y: 188.57pt, width: 75.50pt, height: 28.00pt, kind: "flow-asymmetric", name: [#text("Merge")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 86.04pt, to-x: 53.08pt, path: ((c1: (75.05pt, 83.78pt), c2: (64.07pt, 94.89pt), end: (53.08pt, 106.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 86.04pt, to-x: 118.99pt, path: ((c1: (97.02pt, 83.78pt), c2: (108.00pt, 94.89pt), end: (118.99pt, 106.00pt)),)),
+    (from: 1, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 53.08pt, to-x: 53.08pt, path: ((c1: (53.08pt, 166.35pt), c2: (53.08pt, 177.46pt), end: (53.08pt, 188.57pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 118.99pt, to-x: 53.08pt, path: ((c1: (97.02pt, 166.35pt), c2: (75.05pt, 177.46pt), end: (53.08pt, 188.57pt)),)),
+    (from: 3, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "top", from-y: 202.57pt, to-x: 53.08pt, path: ((c1: (98.83pt, 202.57pt), c2: (106.83pt, 202.57pt), end: (114.83pt, 202.57pt)), (c1: (114.83pt, 189.90pt), c2: (114.83pt, 177.24pt), end: (114.83pt, 164.57pt)), (c1: (94.25pt, 164.57pt), c2: (73.67pt, 164.57pt), end: (53.08pt, 164.57pt)), (c1: (53.08pt, 172.57pt), c2: (53.08pt, 180.57pt), end: (53.08pt, 188.57pt)))),
+  ),
+)

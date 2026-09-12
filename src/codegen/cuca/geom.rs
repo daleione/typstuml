@@ -34,30 +34,9 @@ pub(super) const NOTE_DOG_EAR_PT: f64 = 8.0;
 pub(super) const LOLLIPOP_DIAMETER_PT: f64 = 14.0;
 pub(super) const LOLLIPOP_LABEL_GAP_PT: f64 = 2.0;
 
-pub(super) struct ClassGeom {
-    pub size: Point,
-    /// Mid-x within the local frame. Used to anchor edge endpoints.
-    pub mid_x: f64,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) enum Side {
-    Top,
-    Bot,
-    Left,
-    Right,
-}
-
-impl Side {
-    pub(super) fn keyword(self) -> &'static str {
-        match self {
-            Side::Top => "top",
-            Side::Bot => "bot",
-            Side::Left => "left",
-            Side::Right => "right",
-        }
-    }
-}
+pub(super) use crate::codegen::graph::geom::{
+    bot_anchor, box_center, left_anchor, right_anchor, top_anchor, NodeGeom as ClassGeom, Side,
+};
 
 pub(super) fn class_geom_filtered(entity: &Entity, hide: &HideOptions) -> ClassGeom {
     if matches!(entity.kind_data, EntityKindData::Note { .. }) {
@@ -274,35 +253,6 @@ fn glyph_width_pt(c: char, em: f64) -> f64 {
 
 pub(super) fn text_width_pt(s: &str, em: f64) -> f64 {
     s.chars().map(|c| glyph_width_pt(c, em)).sum()
-}
-
-pub(super) fn bot_anchor(g: &ClassGeom, top_left: Point) -> Point {
-    Point::new(top_left.x + g.mid_x, top_left.y + g.size.y)
-}
-
-pub(super) fn top_anchor(g: &ClassGeom, top_left: Point) -> Point {
-    Point::new(top_left.x + g.mid_x, top_left.y)
-}
-
-pub(super) fn left_anchor(g: &ClassGeom, top_left: Point) -> Point {
-    Point::new(top_left.x, top_left.y + g.size.y / 2.0)
-}
-
-pub(super) fn right_anchor(g: &ClassGeom, top_left: Point) -> Point {
-    Point::new(top_left.x + g.size.x, top_left.y + g.size.y / 2.0)
-}
-
-pub(super) fn box_center(g: &ClassGeom, top_left: Point) -> Point {
-    Point::new(top_left.x + g.size.x / 2.0, top_left.y + g.size.y / 2.0)
-}
-
-pub(super) fn anchor_for_side(g: &ClassGeom, top_left: Point, side: Side) -> Point {
-    match side {
-        Side::Top => top_anchor(g, top_left),
-        Side::Bot => bot_anchor(g, top_left),
-        Side::Left => left_anchor(g, top_left),
-        Side::Right => right_anchor(g, top_left),
-    }
 }
 
 #[cfg(test)]

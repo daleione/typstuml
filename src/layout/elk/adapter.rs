@@ -7,7 +7,7 @@
 //! `src/layout/post-process.ts`; GPL-3.0-only / commercial dual license —
 //! this module is a scoped behavioral reimplementation kept isolated
 //! here; see docs/elk-port-plan.md for the licensing note). Verified
-//! stage-by-stage against `tools/elk-oracle/golden/*.stages.json`.
+//! stage-by-stage against `tests/fixtures/elk/*.stages.json`.
 //!
 //! Scope (matching the cuca desc-flavor architecture diagrams TypstUML
 //! feeds it): DOWN direction, plain node-to-node edges (optional center /

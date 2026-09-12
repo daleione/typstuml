@@ -1,5 +1,5 @@
 //! Numeric comparison utilities for verifying the ELK port against
-//! elkjs ground truth (`tools/elk-oracle/`).
+//! elkjs ground truth (`tests/fixtures/elk/`).
 //!
 //! Two levels:
 //! - [`json_semantic_diff`] — order-insensitive-for-numbers JSON

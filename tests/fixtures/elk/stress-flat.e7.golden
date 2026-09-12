@@ -1,0 +1,130 @@
+SLOTS left=0 right=1 start=0.0000 slots=0 xposBefore=0.0000
+SLOTS left=1 right=1 start=60.0000 slots=1 xposBefore=50.0000
+SLOTS left=1 right=1 start=150.0000 slots=6 xposBefore=140.0000
+SLOTS left=1 right=1 start=270.0000 slots=2 xposBefore=260.0000
+SLOTS left=1 right=1 start=360.0000 slots=7 xposBefore=350.0000
+SLOTS left=1 right=1 start=490.0000 slots=3 xposBefore=480.0000
+SLOTS left=1 right=1 start=580.0000 slots=15 xposBefore=570.0000
+SLOTS left=1 right=1 start=790.0000 slots=9 xposBefore=780.0000
+SLOTS left=1 right=1 start=940.0000 slots=3 xposBefore=930.0000
+SLOTS left=1 right=1 start=1030.0000 slots=1 xposBefore=1020.0000
+SLOTS left=1 right=1 start=1120.0000 slots=1 xposBefore=1110.0000
+SLOTS left=1 right=0 start=1210.0000 slots=0 xposBefore=1200.0000
+NX id=0 x=0.0000
+NX id=1 x=115.0000
+NX id=2 x=90.0000
+NX id=3 x=90.0000
+NX id=4 x=235.0000
+NX id=5 x=210.0000
+NX id=6 x=235.0000
+NX id=7 x=235.0000
+NX id=8 x=235.0000
+NX id=9 x=235.0000
+NX id=10 x=235.0000
+NX id=11 x=235.0000
+NX id=12 x=235.0000
+NX id=13 x=210.0000
+NX id=14 x=235.0000
+NX id=15 x=235.0000
+NX id=16 x=210.0000
+NX id=17 x=235.0000
+NX id=18 x=325.0000
+NX id=19 x=325.0000
+NX id=20 x=325.0000
+NX id=21 x=325.0000
+NX id=22 x=325.0000
+NX id=23 x=300.0000
+NX id=24 x=325.0000
+NX id=25 x=300.0000
+NX id=26 x=300.0000
+NX id=27 x=325.0000
+NX id=28 x=325.0000
+NX id=29 x=325.0000
+NX id=30 x=325.0000
+NX id=31 x=300.0000
+NX id=32 x=325.0000
+NX id=33 x=300.0000
+NX id=34 x=325.0000
+NX id=35 x=455.0000
+NX id=36 x=455.0000
+NX id=37 x=455.0000
+NX id=38 x=455.0000
+NX id=39 x=455.0000
+NX id=40 x=455.0000
+NX id=41 x=430.0000
+NX id=42 x=455.0000
+NX id=43 x=430.0000
+NX id=44 x=430.0000
+NX id=45 x=455.0000
+NX id=46 x=455.0000
+NX id=47 x=455.0000
+NX id=48 x=455.0000
+NX id=49 x=430.0000
+NX id=50 x=455.0000
+NX id=51 x=455.0000
+NX id=52 x=430.0000
+NX id=53 x=455.0000
+NX id=54 x=430.0000
+NX id=55 x=545.0000
+NX id=56 x=545.0000
+NX id=57 x=545.0000
+NX id=58 x=545.0000
+NX id=59 x=520.0000
+NX id=60 x=545.0000
+NX id=61 x=520.0000
+NX id=62 x=520.0000
+NX id=63 x=520.0000
+NX id=64 x=545.0000
+NX id=65 x=545.0000
+NX id=66 x=520.0000
+NX id=67 x=545.0000
+NX id=68 x=545.0000
+NX id=69 x=545.0000
+NX id=70 x=520.0000
+NX id=71 x=545.0000
+NX id=72 x=755.0000
+NX id=73 x=755.0000
+NX id=74 x=755.0000
+NX id=75 x=730.0000
+NX id=76 x=730.0000
+NX id=77 x=755.0000
+NX id=78 x=755.0000
+NX id=79 x=730.0000
+NX id=80 x=730.0000
+NX id=81 x=730.0000
+NX id=82 x=730.0000
+NX id=83 x=755.0000
+NX id=84 x=755.0000
+NX id=85 x=730.0000
+NX id=86 x=730.0000
+NX id=87 x=755.0000
+NX id=88 x=730.0000
+NX id=89 x=755.0000
+NX id=90 x=730.0000
+NX id=91 x=730.0000
+NX id=92 x=755.0000
+NX id=93 x=905.0000
+NX id=94 x=880.0000
+NX id=95 x=880.0000
+NX id=96 x=880.0000
+NX id=97 x=905.0000
+NX id=98 x=880.0000
+NX id=99 x=905.0000
+NX id=100 x=880.0000
+NX id=101 x=880.0000
+NX id=102 x=880.0000
+NX id=103 x=880.0000
+NX id=104 x=880.0000
+NX id=105 x=880.0000
+NX id=106 x=905.0000
+NX id=107 x=880.0000
+NX id=108 x=905.0000
+NX id=109 x=995.0000
+NX id=110 x=970.0000
+NX id=111 x=970.0000
+NX id=112 x=995.0000
+NX id=113 x=970.0000
+NX id=114 x=1085.0000
+NX id=115 x=1060.0000
+NX id=116 x=1150.0000
+GX x=1200.0000

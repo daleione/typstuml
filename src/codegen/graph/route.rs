@@ -1,6 +1,6 @@
-//! Edge routing primitives for class diagrams.
+//! Edge routing primitives for directed graphs.
 //!
-//! Routing is layered (see `super::emit`):
+//! Routing is layered (see `super::routing`):
 //!
 //! 1. Line of sight — single diagonal cubic.
 //! 2. Manhattan Z (`try_manhattan_route`) — down-across-down (TB) /
@@ -15,13 +15,13 @@
 use crate::layout::geometry::Point;
 use crate::layout::pathplan;
 
-use super::geom::{ClassGeom, Side};
+use super::geom::{NodeGeom, Side};
 
 /// Headroom required inside the perpendicular-axis intersection
 /// before we'll smart-align the anchors there. Below this, alignment
 /// would push the anchor too close to a corner — fall back to the
 /// default mid-side anchor instead.
-pub(super) const SMART_ALIGN_HEADROOM_PT: f64 = 4.0;
+pub(crate) const SMART_ALIGN_HEADROOM_PT: f64 = 4.0;
 
 /// Pick (from-side, to-side) for an edge.
 ///
@@ -33,7 +33,7 @@ pub(super) const SMART_ALIGN_HEADROOM_PT: f64 = 4.0;
 /// be ugly).
 ///
 /// `from_bbox` / `to_bbox` are `(top_left, bot_right)`.
-pub(super) fn pick_edge_sides(
+pub(crate) fn pick_edge_sides(
     from_center: Point,
     to_center: Point,
     from_bbox: (Point, Point),
@@ -74,7 +74,7 @@ pub(super) fn pick_edge_sides(
 /// Unit tangent pointing *outward* from a box face — used as the
 /// launch / arrival tangent for cubic edge routing so the bezier
 /// leaves the anchor perpendicular to the face it attaches to.
-pub(super) fn side_tangent(side: Side) -> Point {
+pub(crate) fn side_tangent(side: Side) -> Point {
     match side {
         Side::Top => Point::new(0.0, -1.0),
         Side::Bot => Point::new(0.0, 1.0),
@@ -95,10 +95,10 @@ pub(super) fn side_tangent(side: Side) -> Point {
 /// source's anchor far from its own mid, making the edge appear to
 /// leave a corner of the parent box rather than the centre — the
 /// look that makes fan-outs read as "lines hooked to nowhere".
-pub(super) fn smart_align_coord(
-    from_g: &ClassGeom,
+pub(crate) fn smart_align_coord(
+    from_g: &NodeGeom,
     from_tl: Point,
-    to_g: &ClassGeom,
+    to_g: &NodeGeom,
     to_tl: Point,
     from_side: Side,
     to_side: Side,
@@ -143,7 +143,7 @@ pub(super) fn smart_align_coord(
 /// (vertical = true), a "down → across → down" Z; for LR (vertical =
 /// false), a "right → up/down → right" Z. Returns `None` if any
 /// segment would clip a class bbox in `obstacles`.
-pub(super) fn try_manhattan_route(
+pub(crate) fn try_manhattan_route(
     start: Point,
     end: Point,
     obstacles: &[pathplan::Box],
@@ -256,7 +256,7 @@ fn try_z_with_bend(
 /// obstacle bbox (open boundary — touching a corner is allowed).
 /// Used to decide whether an edge can take a single diagonal cubic
 /// instead of detouring through Manhattan or pathplan.
-pub(super) fn line_of_sight_clear(a: Point, b: Point, obstacles: &[pathplan::Box]) -> bool {
+pub(crate) fn line_of_sight_clear(a: Point, b: Point, obstacles: &[pathplan::Box]) -> bool {
     obstacles
         .iter()
         .all(|ob| !segment_strictly_crosses_box(a, b, ob))
@@ -317,7 +317,7 @@ fn segment_strictly_crosses_box(a: Point, b: Point, ob: &pathplan::Box) -> bool 
 
 /// Express a straight line a→b as a (c1, c2, end) cubic Bezier whose
 /// path is exactly the line. Control handles sit at 1/3 and 2/3 along.
-pub(super) fn cubic_from_straight(a: Point, b: Point) -> (Point, Point, Point) {
+pub(crate) fn cubic_from_straight(a: Point, b: Point) -> (Point, Point, Point) {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     (
@@ -356,7 +356,7 @@ fn seg_intersects_box(a: Point, b: Point, ob: &pathplan::Box) -> bool {
     false
 }
 
-pub(super) fn straight_fallback(
+pub(crate) fn straight_fallback(
     start: Point,
     end: Point,
     force_max: f64,
@@ -372,8 +372,8 @@ pub(super) fn straight_fallback(
 mod tests {
     use super::*;
 
-    fn g(w: f64, h: f64) -> ClassGeom {
-        ClassGeom {
+    fn g(w: f64, h: f64) -> NodeGeom {
+        NodeGeom {
             size: Point::new(w, h),
             mid_x: w / 2.0,
         }

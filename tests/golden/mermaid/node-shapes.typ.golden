@@ -1,0 +1,23 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 44.55pt, y: 16.67pt, width: 73.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("Rectangle")]),
+    (x: 50.05pt, y: 78.00pt, width: 62.50pt, height: 28.00pt, kind: "flow-rounded", name: [#text("Rounded")]),
+    (x: 36.05pt, y: 139.33pt, width: 90.50pt, height: 28.00pt, kind: "flow-stadium", name: [#text("Stadium")]),
+    (x: 13.30pt, y: 200.67pt, width: 136.00pt, height: 56.00pt, kind: "flow-diamond", name: [#text("Decision")]),
+    (x: 8.33pt, y: 290.00pt, width: 63.51pt, height: 63.51pt, kind: "flow-circle", name: [#text("Circle")]),
+    (x: 88.51pt, y: 290.00pt, width: 68.00pt, height: 40.00pt, kind: "flow-cylinder", name: [#text("Database")]),
+    (x: 71.01pt, y: 386.84pt, width: 103.00pt, height: 28.00pt, kind: "flow-asymmetric", name: [#text("Asymmetric")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 81.30pt, to-x: 81.30pt, path: ((c1: (81.30pt, 55.78pt), c2: (81.30pt, 66.89pt), end: (81.30pt, 78.00pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 81.30pt, to-x: 81.30pt, path: ((c1: (81.30pt, 117.11pt), c2: (81.30pt, 128.22pt), end: (81.30pt, 139.33pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 81.30pt, to-x: 81.30pt, path: ((c1: (81.30pt, 178.44pt), c2: (81.30pt, 189.56pt), end: (81.30pt, 200.67pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 81.30pt, to-x: 40.09pt, label: [#text("yes")], label-pos: (60.69pt, 273.33pt), path: ((c1: (67.56pt, 267.78pt), c2: (53.82pt, 278.89pt), end: (40.09pt, 290.00pt)),)),
+    (from: 3, to: 5, head-from: "none", head-to: "arrow-open", style: "dashed", from-side: "bot", to-side: "top", from-x: 81.30pt, to-x: 122.51pt, label: [#text("no")], label-pos: (101.90pt, 273.33pt), path: ((c1: (95.03pt, 267.78pt), c2: (108.77pt, 278.89pt), end: (122.51pt, 290.00pt)),)),
+    (from: 5, to: 6, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 122.51pt, to-x: 122.51pt, weight: 2, path: ((c1: (122.51pt, 348.95pt), c2: (122.51pt, 367.89pt), end: (122.51pt, 386.84pt)),)),
+  ),
+)

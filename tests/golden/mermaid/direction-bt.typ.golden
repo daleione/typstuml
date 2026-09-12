@@ -1,0 +1,13 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 11.08pt, y: 78.00pt, width: 51.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("First")]),
+    (x: 8.33pt, y: 16.67pt, width: 57.00pt, height: 28.00pt, kind: "flow-rect", name: [#text("Second")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "top", to-side: "bot", from-x: 36.83pt, to-x: 36.83pt, path: ((c1: (36.83pt, 66.89pt), c2: (36.83pt, 55.78pt), end: (36.83pt, 44.67pt)),)),
+  ),
+)

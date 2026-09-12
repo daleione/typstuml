@@ -1,0 +1,32 @@
+@startuml
+title 小红书图文链路（markdown → Typst → publish work）
+
+component "AI 生成" as AI
+
+package "前端" {
+  component "图文编辑器" as FE
+}
+
+package "Typst 服务" {
+  component "模版渲染\nmarkdown → 图片 + 源码" as RENDER
+  component "源码编译模式\n（校验）" as COMPILE
+  database "模版库\n模版ID ⇔ layoutID（一对一）" as TPL
+}
+
+package "算法端" {
+  component "Publish Work" as PW
+  component "源码修改服务" as EDIT
+}
+
+actor "用户" as USER
+
+AI --> FE : 生成 markdown
+FE --> RENDER : markdown + 模版ID + layoutID
+RENDER ..> TPL : 按 ID 取模版
+RENDER --> FE : 图片 + typst 源码
+FE --> PW : typst 源码（保存 publish work）
+USER --> EDIT : 修改 typst 源码
+EDIT --> PW : 更新源码
+EDIT --> COMPILE : 源码编译校验
+COMPILE --> FE : 生成图片展示
+@enduml

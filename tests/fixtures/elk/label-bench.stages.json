@@ -1,0 +1,2920 @@
+{
+ "meta": {
+  "input": "tests/fixtures/elk/label-bench.puml",
+  "diagramType": "uml",
+  "diagramContext": "deployment"
+ },
+ "model": {
+  "diagramType": "uml",
+  "nodes": [
+   {
+    "id": "FE",
+    "type": "class",
+    "label": "App Store",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">App Store</span>"
+   },
+   {
+    "id": "SV",
+    "type": "class",
+    "label": "SceneView",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">SceneView</span>"
+   },
+   {
+    "id": "GEN",
+    "type": "class",
+    "label": "Generate Svc",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">Generate Svc</span>"
+   },
+   {
+    "id": "EDIT",
+    "type": "class",
+    "label": "Edit Svc",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">Edit Svc</span>"
+   },
+   {
+    "id": "REG",
+    "type": "class",
+    "label": "Registry",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">Registry</span>"
+   },
+   {
+    "id": "AST",
+    "type": "class",
+    "label": "ast codec",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">ast codec</span>"
+   },
+   {
+    "id": "LAY",
+    "type": "class",
+    "label": "layout engine",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">layout engine</span>"
+   },
+   {
+    "id": "API",
+    "type": "class",
+    "label": "API Gateway",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">API Gateway</span>"
+   },
+   {
+    "id": "M",
+    "type": "class",
+    "label": "MongoDB",
+    "stereotype": "database",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">MongoDB</span>"
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "type": "association",
+    "from": "FE",
+    "to": "SV",
+    "label": "渲染 Scene IR",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">渲染 Scene IR</span>"
+   },
+   {
+    "id": "e2",
+    "type": "association",
+    "from": "FE",
+    "to": "API",
+    "label": "REST + SSE",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">REST + SSE</span>"
+   },
+   {
+    "id": "e3",
+    "type": "association",
+    "from": "API",
+    "to": "GEN",
+    "label": "prompt 编排",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">prompt 编排</span>"
+   },
+   {
+    "id": "e4",
+    "type": "association",
+    "from": "API",
+    "to": "EDIT",
+    "label": "",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2
+   },
+   {
+    "id": "e5",
+    "type": "dependency",
+    "from": "GEN",
+    "to": "AST",
+    "label": "生成 AST",
+    "arrow": "..>",
+    "arrowMeta": {
+     "token": "..>",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "..",
+     "lineStyle": "dashed",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">生成 AST</span>"
+   },
+   {
+    "id": "e6",
+    "type": "association",
+    "from": "EDIT",
+    "to": "LAY",
+    "label": "ops 应用",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">ops 应用</span>"
+   },
+   {
+    "id": "e7",
+    "type": "dependency",
+    "from": "REG",
+    "to": "GEN",
+    "label": "",
+    "arrow": "..>",
+    "arrowMeta": {
+     "token": "..>",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "..",
+     "lineStyle": "dashed",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2
+   },
+   {
+    "id": "e8",
+    "type": "association",
+    "from": "LAY",
+    "to": "M",
+    "label": "持久化",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">持久化</span>"
+   },
+   {
+    "id": "e9",
+    "type": "association",
+    "from": "M",
+    "to": "API",
+    "label": "变更通知",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">变更通知</span>"
+   },
+   {
+    "id": "e10",
+    "type": "association",
+    "from": "SV",
+    "to": "AST",
+    "label": "",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2
+   }
+  ],
+  "notes": [],
+  "groups": [
+   {
+    "id": "group_1",
+    "label": "前端",
+    "type": "package",
+    "children": [
+     "FE",
+     "SV"
+    ],
+    "childGroups": [],
+    "labelHtml": "<span style=\"color:#181818;\">前端</span>"
+   },
+   {
+    "id": "group_2",
+    "label": "服务层",
+    "type": "package",
+    "children": [
+     "GEN",
+     "EDIT",
+     "REG"
+    ],
+    "childGroups": [],
+    "labelHtml": "<span style=\"color:#181818;\">服务层</span>"
+   },
+   {
+    "id": "group_3",
+    "label": "核心库",
+    "type": "package",
+    "children": [
+     "AST",
+     "LAY"
+    ],
+    "childGroups": [],
+    "labelHtml": "<span style=\"color:#181818;\">核心库</span>"
+   }
+  ],
+  "errors": [],
+  "rankdir": "TB",
+  "title": "标签基准（边标签进引擎）",
+  "titleHtml": "<span style=\"color:#181818;\">标签基准（边标签进引擎）</span>",
+  "diagramContext": "deployment"
+ },
+ "pass1Input": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.compaction.postCompaction.strategy": "LEFT",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "API",
+    "width": 89,
+    "height": 49
+   },
+   {
+    "id": "M",
+    "width": 74,
+    "height": 40.666666666666664
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 75,
+      "height": 49
+     },
+     {
+      "id": "SV",
+      "width": 80,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e1",
+      "sources": [
+       "FE"
+      ],
+      "targets": [
+       "SV"
+      ],
+      "labels": [
+       {
+        "text": "渲染 Scene IR",
+        "width": 77,
+        "height": 14,
+        "placement": "center"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "GEN",
+      "width": 95,
+      "height": 49
+     },
+     {
+      "id": "EDIT",
+      "width": 68,
+      "height": 49
+     },
+     {
+      "id": "REG",
+      "width": 67,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "REG"
+      ],
+      "targets": [
+       "GEN"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "AST",
+      "width": 75,
+      "height": 49
+     },
+     {
+      "id": "LAY",
+      "width": 94,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "REST + SSE",
+      "width": 71,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e3",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "GEN"
+    ],
+    "labels": [
+     {
+      "text": "prompt 编排",
+      "width": 67,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "EDIT"
+    ]
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "GEN"
+    ],
+    "targets": [
+     "AST"
+    ],
+    "labels": [
+     {
+      "text": "生成 AST",
+      "width": 52,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "LAY"
+    ],
+    "labels": [
+     {
+      "text": "ops 应用",
+      "width": 48,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "LAY"
+    ],
+    "targets": [
+     "M"
+    ],
+    "labels": [
+     {
+      "text": "持久化",
+      "width": 36,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "M"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "变更通知",
+      "width": 48,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e10",
+    "sources": [
+     "SV"
+    ],
+    "targets": [
+     "AST"
+    ]
+   }
+  ]
+ },
+ "pass1Output": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.compaction.postCompaction.strategy": "LEFT",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "API",
+    "width": 89,
+    "height": 49,
+    "$H": 277,
+    "x": 140.53999999999996,
+    "y": 343
+   },
+   {
+    "id": "M",
+    "width": 74,
+    "height": 40.666666666666664,
+    "$H": 279,
+    "x": 246.70666666666665,
+    "y": 1021
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 75,
+      "height": 49,
+      "$H": 283,
+      "x": 84,
+      "y": 50
+     },
+     {
+      "id": "SV",
+      "width": 80,
+      "height": 49,
+      "$H": 285,
+      "x": 69,
+      "y": 153
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e1",
+      "sources": [
+       "FE"
+      ],
+      "targets": [
+       "SV"
+      ],
+      "labels": [
+       {
+        "text": "渲染 Scene IR",
+        "width": 77,
+        "height": 14,
+        "placement": "center",
+        "x": 30,
+        "y": 119
+       }
+      ],
+      "sections": [
+       {
+        "id": "e1_s0",
+        "startPoint": {
+         "x": 109,
+         "y": 99
+        },
+        "endPoint": {
+         "x": 109,
+         "y": 153
+        },
+        "incomingShape": "FE",
+        "outgoingShape": "SV"
+       }
+      ],
+      "container": "group_1"
+     }
+    ],
+    "$H": 281,
+    "x": 26.039999999999964,
+    "y": 12,
+    "width": 190,
+    "height": 232
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "GEN",
+      "width": 95,
+      "height": 49,
+      "$H": 289,
+      "x": 31.833333333333332,
+      "y": 119
+     },
+     {
+      "id": "EDIT",
+      "width": 68,
+      "height": 49,
+      "$H": 291,
+      "x": 118,
+      "y": 50
+     },
+     {
+      "id": "REG",
+      "width": 67,
+      "height": 49,
+      "$H": 293,
+      "x": 30,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "REG"
+      ],
+      "targets": [
+       "GEN"
+      ],
+      "sections": [
+       {
+        "id": "e7_s0",
+        "startPoint": {
+         "x": 63.5,
+         "y": 99
+        },
+        "endPoint": {
+         "x": 63.5,
+         "y": 119
+        },
+        "incomingShape": "REG",
+        "outgoingShape": "GEN"
+       }
+      ],
+      "container": "group_2"
+     }
+    ],
+    "$H": 287,
+    "x": 33.039999999999964,
+    "y": 491,
+    "width": 216,
+    "height": 198
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "AST",
+      "width": 75,
+      "height": 49,
+      "$H": 297,
+      "x": 30,
+      "y": 50
+     },
+     {
+      "id": "LAY",
+      "width": 94,
+      "height": 49,
+      "$H": 299,
+      "x": 125,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "$H": 295,
+    "x": 13.039999999999964,
+    "y": 793,
+    "width": 249,
+    "height": 129
+   }
+  ],
+  "edges": [
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "REST + SSE",
+      "width": 71,
+      "height": 14,
+      "placement": "center",
+      "x": 188.03999999999996,
+      "y": 289
+     }
+    ],
+    "sections": [
+     {
+      "id": "e2_s0",
+      "startPoint": {
+       "x": 160.03999999999996,
+       "y": 111
+      },
+      "endPoint": {
+       "x": 185.03999999999996,
+       "y": 343
+      },
+      "bendPoints": [
+       {
+        "x": 160.03999999999996,
+        "y": 121
+       },
+       {
+        "x": 185.03999999999996,
+        "y": 121
+       }
+      ],
+      "incomingShape": "FE",
+      "outgoingShape": "API"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e3",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "GEN"
+    ],
+    "labels": [
+     {
+      "text": "prompt 编排",
+      "width": 67,
+      "height": 14,
+      "placement": "center",
+      "x": 71.03999999999996,
+      "y": 432
+     }
+    ],
+    "sections": [
+     {
+      "id": "e3_s0",
+      "startPoint": {
+       "x": 162.78999999999996,
+       "y": 392
+      },
+      "endPoint": {
+       "x": 128.20666666666665,
+       "y": 610
+      },
+      "bendPoints": [
+       {
+        "x": 162.78999999999996,
+        "y": 412
+       },
+       {
+        "x": 140.03999999999996,
+        "y": 412
+       },
+       {
+        "x": 140.03999999999996,
+        "y": 600
+       },
+       {
+        "x": 128.20666666666665,
+        "y": 600
+       }
+      ],
+      "incomingShape": "API",
+      "outgoingShape": "GEN"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "EDIT"
+    ],
+    "sections": [
+     {
+      "id": "e4_s0",
+      "startPoint": {
+       "x": 185.03999999999996,
+       "y": 392
+      },
+      "endPoint": {
+       "x": 185.03999999999996,
+       "y": 541
+      },
+      "incomingShape": "API",
+      "outgoingShape": "EDIT"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "GEN"
+    ],
+    "targets": [
+     "AST"
+    ],
+    "labels": [
+     {
+      "text": "生成 AST",
+      "width": 52,
+      "height": 14,
+      "placement": "center",
+      "x": 39.039999999999964,
+      "y": 734
+     }
+    ],
+    "sections": [
+     {
+      "id": "e5_s0",
+      "startPoint": {
+       "x": 112.37333333333329,
+       "y": 659
+      },
+      "endPoint": {
+       "x": 93.03999999999996,
+       "y": 843
+      },
+      "bendPoints": [
+       {
+        "x": 112.37333333333328,
+        "y": 714
+       },
+       {
+        "x": 93.03999999999996,
+        "y": 714
+       }
+      ],
+      "incomingShape": "GEN",
+      "outgoingShape": "AST"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "LAY"
+    ],
+    "labels": [
+     {
+      "text": "ops 应用",
+      "width": 48,
+      "height": 14,
+      "placement": "center",
+      "x": 188.03999999999996,
+      "y": 734
+     }
+    ],
+    "sections": [
+     {
+      "id": "e6_s0",
+      "startPoint": {
+       "x": 185.03999999999996,
+       "y": 590
+      },
+      "endPoint": {
+       "x": 185.03999999999996,
+       "y": 843
+      },
+      "incomingShape": "EDIT",
+      "outgoingShape": "LAY"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "LAY"
+    ],
+    "targets": [
+     "M"
+    ],
+    "labels": [
+     {
+      "text": "持久化",
+      "width": 36,
+      "height": 14,
+      "placement": "center",
+      "x": 147.03999999999996,
+      "y": 967
+     }
+    ],
+    "sections": [
+     {
+      "id": "e8_s0",
+      "startPoint": {
+       "x": 185.03999999999996,
+       "y": 892
+      },
+      "endPoint": {
+       "x": 271.37333333333333,
+       "y": 1021
+      },
+      "bendPoints": [
+       {
+        "x": 185.03999999999996,
+        "y": 1001
+       },
+       {
+        "x": 271.37333333333333,
+        "y": 1001
+       }
+      ],
+      "incomingShape": "LAY",
+      "outgoingShape": "M"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "M"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "变更通知",
+      "width": 48,
+      "height": 14,
+      "placement": "center",
+      "x": 246.03999999999996,
+      "y": 734
+     }
+    ],
+    "sections": [
+     {
+      "id": "e9_s0",
+      "startPoint": {
+       "x": 296.03999999999996,
+       "y": 1021
+      },
+      "endPoint": {
+       "x": 207.28999999999996,
+       "y": 392
+      },
+      "bendPoints": [
+       {
+        "x": 296.03999999999996,
+        "y": 412
+       },
+       {
+        "x": 207.28999999999996,
+        "y": 412
+       }
+      ],
+      "incomingShape": "M",
+      "outgoingShape": "API"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e10",
+    "sources": [
+     "SV"
+    ],
+    "targets": [
+     "AST"
+    ],
+    "sections": [
+     {
+      "id": "e10_s0",
+      "startPoint": {
+       "x": 135.03999999999996,
+       "y": 214
+      },
+      "endPoint": {
+       "x": 68.03999999999996,
+       "y": 843
+      },
+      "bendPoints": [
+       {
+        "x": 135.03999999999996,
+        "y": 269
+       },
+       {
+        "x": 12.039999999999964,
+        "y": 269
+       },
+       {
+        "x": 12.039999999999964,
+        "y": 768
+       },
+       {
+        "x": 68.03999999999996,
+        "y": 768
+       }
+      ],
+      "incomingShape": "SV",
+      "outgoingShape": "AST"
+     }
+    ],
+    "container": "root"
+   }
+  ],
+  "$H": 13,
+  "x": 0,
+  "y": 0,
+  "width": 332.70666666666665,
+  "height": 1073.6666666666667
+ },
+ "pass2Input": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.spacing.edgeLabel": "5",
+   "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+   "elk.contentAlignment": "H_CENTER V_CENTER",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.highDegreeNodes.treatment": "true",
+   "elk.layered.highDegreeNodes.threshold": "8",
+   "elk.layered.mergeEdges": "false",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "API",
+    "width": 89,
+    "height": 49
+   },
+   {
+    "id": "M",
+    "width": 74,
+    "height": 40.666666666666664
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 75,
+      "height": 49
+     },
+     {
+      "id": "SV",
+      "width": 80,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e1",
+      "sources": [
+       "FE"
+      ],
+      "targets": [
+       "SV"
+      ],
+      "labels": [
+       {
+        "text": "渲染 Scene IR",
+        "width": 77,
+        "height": 14,
+        "placement": "center"
+       }
+      ],
+      "layoutOptions": {
+       "org.eclipse.elk.edgeLabels.inline": "true"
+      }
+     }
+    ]
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "GEN",
+      "width": 95,
+      "height": 49
+     },
+     {
+      "id": "EDIT",
+      "width": 68,
+      "height": 49
+     },
+     {
+      "id": "REG",
+      "width": 67,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "REG"
+      ],
+      "targets": [
+       "GEN"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "AST",
+      "width": 75,
+      "height": 49
+     },
+     {
+      "id": "LAY",
+      "width": 94,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "REST + SSE",
+      "width": 71,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e3",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "GEN"
+    ],
+    "labels": [
+     {
+      "text": "prompt 编排",
+      "width": 67,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "EDIT"
+    ]
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "GEN"
+    ],
+    "targets": [
+     "AST"
+    ],
+    "labels": [
+     {
+      "text": "生成 AST",
+      "width": 52,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "LAY"
+    ],
+    "labels": [
+     {
+      "text": "ops 应用",
+      "width": 48,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "LAY"
+    ],
+    "targets": [
+     "M"
+    ],
+    "labels": [
+     {
+      "text": "持久化",
+      "width": 36,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "M"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "变更通知",
+      "width": 48,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e10",
+    "sources": [
+     "SV"
+    ],
+    "targets": [
+     "AST"
+    ]
+   }
+  ]
+ },
+ "pass2Output": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.spacing.edgeLabel": "5",
+   "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+   "elk.contentAlignment": "H_CENTER V_CENTER",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.highDegreeNodes.treatment": "true",
+   "elk.layered.highDegreeNodes.threshold": "8",
+   "elk.layered.mergeEdges": "false",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "API",
+    "width": 89,
+    "height": 49,
+    "$H": 609,
+    "x": 218.95833333333334,
+    "y": 383
+   },
+   {
+    "id": "M",
+    "width": 74,
+    "height": 40.666666666666664,
+    "$H": 611,
+    "x": 245.62500000000003,
+    "y": 1091
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 75,
+      "height": 49,
+      "$H": 615,
+      "x": 84,
+      "y": 50
+     },
+     {
+      "id": "SV",
+      "width": 80,
+      "height": 49,
+      "$H": 617,
+      "x": 69,
+      "y": 193
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e1",
+      "sources": [
+       "FE"
+      ],
+      "targets": [
+       "SV"
+      ],
+      "labels": [
+       {
+        "text": "渲染 Scene IR",
+        "width": 77,
+        "height": 14,
+        "placement": "center",
+        "x": 30,
+        "y": 139
+       }
+      ],
+      "layoutOptions": {
+       "org.eclipse.elk.edgeLabels.inline": "true"
+      },
+      "sections": [
+       {
+        "id": "e1_s0",
+        "startPoint": {
+         "x": 109,
+         "y": 99
+        },
+        "endPoint": {
+         "x": 109,
+         "y": 193
+        },
+        "incomingShape": "FE",
+        "outgoingShape": "SV"
+       }
+      ],
+      "container": "group_1"
+     }
+    ],
+    "$H": 613,
+    "x": 12,
+    "y": 12,
+    "width": 200,
+    "height": 272
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "GEN",
+      "width": 95,
+      "height": 49,
+      "$H": 621,
+      "x": 31.833333333333332,
+      "y": 139
+     },
+     {
+      "id": "EDIT",
+      "width": 68,
+      "height": 49,
+      "$H": 623,
+      "x": 138,
+      "y": 50
+     },
+     {
+      "id": "REG",
+      "width": 67,
+      "height": 49,
+      "$H": 625,
+      "x": 30,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "REG"
+      ],
+      "targets": [
+       "GEN"
+      ],
+      "sections": [
+       {
+        "id": "e7_s0",
+        "startPoint": {
+         "x": 63.5,
+         "y": 99
+        },
+        "endPoint": {
+         "x": 63.5,
+         "y": 139
+        },
+        "incomingShape": "REG",
+        "outgoingShape": "GEN"
+       }
+      ],
+      "container": "group_2"
+     }
+    ],
+    "$H": 619,
+    "x": 75.5,
+    "y": 541,
+    "width": 236,
+    "height": 218
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "AST",
+      "width": 75,
+      "height": 49,
+      "$H": 629,
+      "x": 30,
+      "y": 50
+     },
+     {
+      "id": "LAY",
+      "width": 94,
+      "height": 49,
+      "$H": 631,
+      "x": 125,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "$H": 627,
+    "x": 37.5,
+    "y": 863,
+    "width": 249,
+    "height": 129
+   }
+  ],
+  "edges": [
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "REST + SSE",
+      "width": 71,
+      "height": 14,
+      "placement": "center",
+      "x": 269.45833333333337,
+      "y": 329
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e2_s0",
+      "startPoint": {
+       "x": 146,
+       "y": 111
+      },
+      "endPoint": {
+       "x": 263.45833333333337,
+       "y": 383
+      },
+      "bendPoints": [
+       {
+        "x": 146,
+        "y": 131
+       },
+       {
+        "x": 181,
+        "y": 131
+       },
+       {
+        "x": 181,
+        "y": 309
+       },
+       {
+        "x": 263.45833333333337,
+        "y": 309
+       }
+      ],
+      "incomingShape": "FE",
+      "outgoingShape": "API"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e3",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "GEN"
+    ],
+    "labels": [
+     {
+      "text": "prompt 编排",
+      "width": 67,
+      "height": 14,
+      "placement": "center",
+      "x": 122.45833333333334,
+      "y": 482
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e3_s0",
+      "startPoint": {
+       "x": 241.20833333333334,
+       "y": 432
+      },
+      "endPoint": {
+       "x": 170.66666666666669,
+       "y": 680
+      },
+      "bendPoints": [
+       {
+        "x": 241.20833333333334,
+        "y": 452
+       },
+       {
+        "x": 194.45833333333334,
+        "y": 452
+       },
+       {
+        "x": 194.45833333333334,
+        "y": 516
+       },
+       {
+        "x": 192.5,
+        "y": 516
+       },
+       {
+        "x": 192.5,
+        "y": 660
+       },
+       {
+        "x": 170.66666666666669,
+        "y": 660
+       }
+      ],
+      "incomingShape": "API",
+      "outgoingShape": "GEN"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "API"
+    ],
+    "targets": [
+     "EDIT"
+    ],
+    "sections": [
+     {
+      "id": "e4_s0",
+      "startPoint": {
+       "x": 263.45833333333337,
+       "y": 432
+      },
+      "endPoint": {
+       "x": 247.5,
+       "y": 591
+      },
+      "bendPoints": [
+       {
+        "x": 263.45833333333337,
+        "y": 462
+       },
+       {
+        "x": 231.125,
+        "y": 462
+       },
+       {
+        "x": 231.125,
+        "y": 516
+       },
+       {
+        "x": 247.5,
+        "y": 516
+       }
+      ],
+      "incomingShape": "API",
+      "outgoingShape": "EDIT"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "GEN"
+    ],
+    "targets": [
+     "AST"
+    ],
+    "labels": [
+     {
+      "text": "生成 AST",
+      "width": 52,
+      "height": 14,
+      "placement": "center",
+      "x": 98.16666666666666,
+      "y": 804
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e5_s0",
+      "startPoint": {
+       "x": 154.83333333333331,
+       "y": 729
+      },
+      "endPoint": {
+       "x": 117.5,
+       "y": 913
+      },
+      "bendPoints": [
+       {
+        "x": 154.83333333333331,
+        "y": 784
+       },
+       {
+        "x": 155.16666666666666,
+        "y": 784
+       },
+       {
+        "x": 155.16666666666666,
+        "y": 838
+       },
+       {
+        "x": 117.5,
+        "y": 838
+       }
+      ],
+      "incomingShape": "GEN",
+      "outgoingShape": "AST"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "LAY"
+    ],
+    "labels": [
+     {
+      "text": "ops 应用",
+      "width": 48,
+      "height": 14,
+      "placement": "center",
+      "x": 215.5,
+      "y": 804
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e6_s0",
+      "startPoint": {
+       "x": 247.5,
+       "y": 640
+      },
+      "endPoint": {
+       "x": 209.5,
+       "y": 913
+      },
+      "bendPoints": [
+       {
+        "x": 247.5,
+        "y": 784
+       },
+       {
+        "x": 209.5,
+        "y": 784
+       }
+      ],
+      "incomingShape": "EDIT",
+      "outgoingShape": "LAY"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "LAY"
+    ],
+    "targets": [
+     "M"
+    ],
+    "labels": [
+     {
+      "text": "持久化",
+      "width": 36,
+      "height": 14,
+      "placement": "center",
+      "x": 168.5,
+      "y": 1037
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e8_s0",
+      "startPoint": {
+       "x": 209.5,
+       "y": 962
+      },
+      "endPoint": {
+       "x": 270.2916666666667,
+       "y": 1091
+      },
+      "bendPoints": [
+       {
+        "x": 209.5,
+        "y": 1071
+       },
+       {
+        "x": 270.2916666666667,
+        "y": 1071
+       }
+      ],
+      "incomingShape": "LAY",
+      "outgoingShape": "M"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "M"
+    ],
+    "targets": [
+     "API"
+    ],
+    "labels": [
+     {
+      "text": "变更通知",
+      "width": 48,
+      "height": 14,
+      "placement": "center",
+      "x": 295,
+      "y": 804
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e9_s0",
+      "startPoint": {
+       "x": 294.95833333333337,
+       "y": 1091
+      },
+      "endPoint": {
+       "x": 285.70833333333337,
+       "y": 432
+      },
+      "bendPoints": [
+       {
+        "x": 294.95833333333337,
+        "y": 1071
+       },
+       {
+        "x": 348,
+        "y": 1071
+       },
+       {
+        "x": 348,
+        "y": 452
+       },
+       {
+        "x": 285.70833333333337,
+        "y": 452
+       }
+      ],
+      "incomingShape": "M",
+      "outgoingShape": "API"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e10",
+    "sources": [
+     "SV"
+    ],
+    "targets": [
+     "AST"
+    ],
+    "sections": [
+     {
+      "id": "e10_s0",
+      "startPoint": {
+       "x": 121,
+       "y": 254
+      },
+      "endPoint": {
+       "x": 92.5,
+       "y": 913
+      },
+      "bendPoints": [
+       {
+        "x": 121,
+        "y": 309
+       },
+       {
+        "x": 54.5,
+        "y": 309
+       },
+       {
+        "x": 54.5,
+        "y": 838
+       },
+       {
+        "x": 92.5,
+        "y": 838
+       }
+      ],
+      "incomingShape": "SV",
+      "outgoingShape": "AST"
+     }
+    ],
+    "container": "root"
+   }
+  ],
+  "$H": 607,
+  "x": 0,
+  "y": 0,
+  "width": 361,
+  "height": 1143.6666666666667
+ },
+ "extracted": {
+  "nodes": {
+   "API": {
+    "id": "API",
+    "x": 218.95833333333334,
+    "y": 383,
+    "width": 89,
+    "height": 49
+   },
+   "M": {
+    "id": "M",
+    "x": 245.62500000000003,
+    "y": 1091,
+    "width": 74,
+    "height": 40.666666666666664
+   },
+   "FE": {
+    "id": "FE",
+    "x": 96,
+    "y": 62,
+    "width": 75,
+    "height": 49
+   },
+   "SV": {
+    "id": "SV",
+    "x": 81,
+    "y": 205,
+    "width": 80,
+    "height": 49
+   },
+   "GEN": {
+    "id": "GEN",
+    "x": 107.33333333333333,
+    "y": 680,
+    "width": 95,
+    "height": 49
+   },
+   "EDIT": {
+    "id": "EDIT",
+    "x": 213.5,
+    "y": 591,
+    "width": 68,
+    "height": 49
+   },
+   "REG": {
+    "id": "REG",
+    "x": 105.5,
+    "y": 591,
+    "width": 67,
+    "height": 49
+   },
+   "AST": {
+    "id": "AST",
+    "x": 67.5,
+    "y": 913,
+    "width": 75,
+    "height": 49
+   },
+   "LAY": {
+    "id": "LAY",
+    "x": 162.5,
+    "y": 913,
+    "width": 94,
+    "height": 49
+   }
+  },
+  "edges": [
+   {
+    "id": "e2",
+    "from": "FE",
+    "to": "API",
+    "points": [
+     {
+      "x": 146,
+      "y": 111
+     },
+     {
+      "x": 146,
+      "y": 131
+     },
+     {
+      "x": 181,
+      "y": 131
+     },
+     {
+      "x": 181,
+      "y": 309
+     },
+     {
+      "x": 263.45833333333337,
+      "y": 309
+     },
+     {
+      "x": 263.45833333333337,
+      "y": 383
+     }
+    ],
+    "labelPos": {
+     "x": 304.95833333333337,
+     "y": 336
+    },
+    "labelSize": {
+     "width": 71,
+     "height": 14
+    }
+   },
+   {
+    "id": "e3",
+    "from": "API",
+    "to": "GEN",
+    "points": [
+     {
+      "x": 241.20833333333334,
+      "y": 432
+     },
+     {
+      "x": 241.20833333333334,
+      "y": 452
+     },
+     {
+      "x": 193.47916666666669,
+      "y": 452
+     },
+     {
+      "x": 193.47916666666669,
+      "y": 660
+     },
+     {
+      "x": 170.66666666666669,
+      "y": 660
+     },
+     {
+      "x": 170.66666666666669,
+      "y": 680
+     }
+    ],
+    "labelPos": {
+     "x": 155.95833333333334,
+     "y": 489
+    },
+    "labelSize": {
+     "width": 67,
+     "height": 14
+    }
+   },
+   {
+    "id": "e4",
+    "from": "API",
+    "to": "EDIT",
+    "points": [
+     {
+      "x": 263.45833333333337,
+      "y": 432
+     },
+     {
+      "x": 263.45833333333337,
+      "y": 462
+     },
+     {
+      "x": 231.125,
+      "y": 462
+     },
+     {
+      "x": 231.125,
+      "y": 516
+     },
+     {
+      "x": 247.5,
+      "y": 516
+     },
+     {
+      "x": 247.5,
+      "y": 591
+     }
+    ]
+   },
+   {
+    "id": "e5",
+    "from": "GEN",
+    "to": "AST",
+    "points": [
+     {
+      "x": 154.83333333333331,
+      "y": 729
+     },
+     {
+      "x": 155.16666666666666,
+      "y": 838
+     },
+     {
+      "x": 117.5,
+      "y": 838
+     },
+     {
+      "x": 117.5,
+      "y": 913
+     }
+    ],
+    "labelPos": {
+     "x": 124.16666666666666,
+     "y": 811
+    },
+    "labelSize": {
+     "width": 52,
+     "height": 14
+    }
+   },
+   {
+    "id": "e6",
+    "from": "EDIT",
+    "to": "LAY",
+    "points": [
+     {
+      "x": 247.5,
+      "y": 640
+     },
+     {
+      "x": 247.5,
+      "y": 784
+     },
+     {
+      "x": 209.5,
+      "y": 784
+     },
+     {
+      "x": 209.5,
+      "y": 913
+     }
+    ],
+    "labelPos": {
+     "x": 239.5,
+     "y": 811
+    },
+    "labelSize": {
+     "width": 48,
+     "height": 14
+    }
+   },
+   {
+    "id": "e8",
+    "from": "LAY",
+    "to": "M",
+    "points": [
+     {
+      "x": 209.5,
+      "y": 962
+     },
+     {
+      "x": 209.5,
+      "y": 1071
+     },
+     {
+      "x": 270.2916666666667,
+      "y": 1071
+     },
+     {
+      "x": 270.2916666666667,
+      "y": 1091
+     }
+    ],
+    "labelPos": {
+     "x": 186.5,
+     "y": 1044
+    },
+    "labelSize": {
+     "width": 36,
+     "height": 14
+    }
+   },
+   {
+    "id": "e9",
+    "from": "M",
+    "to": "API",
+    "points": [
+     {
+      "x": 294.95833333333337,
+      "y": 1091
+     },
+     {
+      "x": 294.95833333333337,
+      "y": 1071
+     },
+     {
+      "x": 348,
+      "y": 1071
+     },
+     {
+      "x": 348,
+      "y": 452
+     },
+     {
+      "x": 285.70833333333337,
+      "y": 452
+     },
+     {
+      "x": 285.70833333333337,
+      "y": 432
+     }
+    ],
+    "labelPos": {
+     "x": 319,
+     "y": 811
+    },
+    "labelSize": {
+     "width": 48,
+     "height": 14
+    }
+   },
+   {
+    "id": "e10",
+    "from": "SV",
+    "to": "AST",
+    "points": [
+     {
+      "x": 121,
+      "y": 254
+     },
+     {
+      "x": 121,
+      "y": 309
+     },
+     {
+      "x": 54.5,
+      "y": 309
+     },
+     {
+      "x": 54.5,
+      "y": 838
+     },
+     {
+      "x": 92.5,
+      "y": 838
+     },
+     {
+      "x": 92.5,
+      "y": 913
+     }
+    ]
+   },
+   {
+    "id": "e1",
+    "from": "FE",
+    "to": "SV",
+    "points": [
+     {
+      "x": 121,
+      "y": 111
+     },
+     {
+      "x": 121,
+      "y": 205
+     }
+    ],
+    "labelPos": {
+     "x": 80.5,
+     "y": 158
+    },
+    "labelSize": {
+     "width": 77,
+     "height": 14
+    }
+   },
+   {
+    "id": "e7",
+    "from": "REG",
+    "to": "GEN",
+    "points": [
+     {
+      "x": 139,
+      "y": 640
+     },
+     {
+      "x": 139,
+      "y": 680
+     }
+    ]
+   }
+  ],
+  "groups": {
+   "group_1": {
+    "id": "group_1",
+    "x": 12,
+    "y": 12,
+    "width": 200,
+    "height": 272
+   },
+   "group_2": {
+    "id": "group_2",
+    "x": 75.5,
+    "y": 541,
+    "width": 236,
+    "height": 218
+   },
+   "group_3": {
+    "id": "group_3",
+    "x": 37.5,
+    "y": 863,
+    "width": 249,
+    "height": 129
+   }
+  }
+ },
+ "final": {
+  "nodes": {
+   "API": {
+    "id": "API",
+    "x": 218.95833333333334,
+    "y": 383,
+    "width": 89,
+    "height": 49
+   },
+   "M": {
+    "id": "M",
+    "x": 245.62500000000003,
+    "y": 1091,
+    "width": 74,
+    "height": 40.666666666666664
+   },
+   "FE": {
+    "id": "FE",
+    "x": 96,
+    "y": 62,
+    "width": 75,
+    "height": 49
+   },
+   "SV": {
+    "id": "SV",
+    "x": 81,
+    "y": 205,
+    "width": 80,
+    "height": 49
+   },
+   "GEN": {
+    "id": "GEN",
+    "x": 107.33333333333333,
+    "y": 680,
+    "width": 95,
+    "height": 49
+   },
+   "EDIT": {
+    "id": "EDIT",
+    "x": 213.5,
+    "y": 591,
+    "width": 68,
+    "height": 49
+   },
+   "REG": {
+    "id": "REG",
+    "x": 105.5,
+    "y": 591,
+    "width": 67,
+    "height": 49
+   },
+   "AST": {
+    "id": "AST",
+    "x": 67.5,
+    "y": 913,
+    "width": 75,
+    "height": 49
+   },
+   "LAY": {
+    "id": "LAY",
+    "x": 162.5,
+    "y": 913,
+    "width": 94,
+    "height": 49
+   },
+   "__title__": {
+    "id": "__title__",
+    "x": 74.8125,
+    "y": -25,
+    "width": 182,
+    "height": 37
+   }
+  },
+  "edges": [
+   {
+    "id": "e2",
+    "from": "FE",
+    "to": "API",
+    "points": [
+     {
+      "x": 146,
+      "y": 111
+     },
+     {
+      "x": 146,
+      "y": 131
+     },
+     {
+      "x": 181,
+      "y": 131
+     },
+     {
+      "x": 181,
+      "y": 309
+     },
+     {
+      "x": 263.45833333333337,
+      "y": 309
+     },
+     {
+      "x": 263.45833333333337,
+      "y": 383
+     }
+    ],
+    "labelPos": {
+     "x": 304.95833333333337,
+     "y": 336
+    },
+    "labelSize": {
+     "width": 71,
+     "height": 14
+    }
+   },
+   {
+    "id": "e3",
+    "from": "API",
+    "to": "GEN",
+    "points": [
+     {
+      "x": 241.20833333333334,
+      "y": 432
+     },
+     {
+      "x": 241.20833333333334,
+      "y": 452
+     },
+     {
+      "x": 193.47916666666669,
+      "y": 452
+     },
+     {
+      "x": 193.47916666666669,
+      "y": 660
+     },
+     {
+      "x": 170.66666666666669,
+      "y": 660
+     },
+     {
+      "x": 170.66666666666669,
+      "y": 680
+     }
+    ],
+    "labelPos": {
+     "x": 155.95833333333334,
+     "y": 489
+    },
+    "labelSize": {
+     "width": 67,
+     "height": 14
+    }
+   },
+   {
+    "id": "e4",
+    "from": "API",
+    "to": "EDIT",
+    "points": [
+     {
+      "x": 263.45833333333337,
+      "y": 432
+     },
+     {
+      "x": 263.45833333333337,
+      "y": 462
+     },
+     {
+      "x": 231.125,
+      "y": 462
+     },
+     {
+      "x": 231.125,
+      "y": 516
+     },
+     {
+      "x": 247.5,
+      "y": 516
+     },
+     {
+      "x": 247.5,
+      "y": 591
+     }
+    ]
+   },
+   {
+    "id": "e5",
+    "from": "GEN",
+    "to": "AST",
+    "points": [
+     {
+      "x": 154.83333333333331,
+      "y": 729
+     },
+     {
+      "x": 155.16666666666666,
+      "y": 838
+     },
+     {
+      "x": 117.5,
+      "y": 838
+     },
+     {
+      "x": 117.5,
+      "y": 913
+     }
+    ],
+    "labelPos": {
+     "x": 124.16666666666666,
+     "y": 811
+    },
+    "labelSize": {
+     "width": 52,
+     "height": 14
+    }
+   },
+   {
+    "id": "e6",
+    "from": "EDIT",
+    "to": "LAY",
+    "points": [
+     {
+      "x": 247.5,
+      "y": 640
+     },
+     {
+      "x": 247.5,
+      "y": 784
+     },
+     {
+      "x": 209.5,
+      "y": 784
+     },
+     {
+      "x": 209.5,
+      "y": 913
+     }
+    ],
+    "labelPos": {
+     "x": 239.5,
+     "y": 811
+    },
+    "labelSize": {
+     "width": 48,
+     "height": 14
+    }
+   },
+   {
+    "id": "e8",
+    "from": "LAY",
+    "to": "M",
+    "points": [
+     {
+      "x": 209.5,
+      "y": 962
+     },
+     {
+      "x": 209.5,
+      "y": 1071
+     },
+     {
+      "x": 270.2916666666667,
+      "y": 1071
+     },
+     {
+      "x": 270.2916666666667,
+      "y": 1091
+     }
+    ],
+    "labelPos": {
+     "x": 186.5,
+     "y": 1044
+    },
+    "labelSize": {
+     "width": 36,
+     "height": 14
+    }
+   },
+   {
+    "id": "e9",
+    "from": "M",
+    "to": "API",
+    "points": [
+     {
+      "x": 294.95833333333337,
+      "y": 1091
+     },
+     {
+      "x": 294.95833333333337,
+      "y": 1071
+     },
+     {
+      "x": 348,
+      "y": 1071
+     },
+     {
+      "x": 348,
+      "y": 452
+     },
+     {
+      "x": 285.70833333333337,
+      "y": 452
+     },
+     {
+      "x": 285.70833333333337,
+      "y": 432
+     }
+    ],
+    "labelPos": {
+     "x": 319,
+     "y": 811
+    },
+    "labelSize": {
+     "width": 48,
+     "height": 14
+    }
+   },
+   {
+    "id": "e10",
+    "from": "SV",
+    "to": "AST",
+    "points": [
+     {
+      "x": 121,
+      "y": 254
+     },
+     {
+      "x": 121,
+      "y": 309
+     },
+     {
+      "x": 54.5,
+      "y": 309
+     },
+     {
+      "x": 54.5,
+      "y": 838
+     },
+     {
+      "x": 92.5,
+      "y": 838
+     },
+     {
+      "x": 92.5,
+      "y": 913
+     }
+    ]
+   },
+   {
+    "id": "e1",
+    "from": "FE",
+    "to": "SV",
+    "points": [
+     {
+      "x": 121,
+      "y": 111
+     },
+     {
+      "x": 121,
+      "y": 205
+     }
+    ],
+    "labelPos": {
+     "x": 80.5,
+     "y": 158
+    },
+    "labelSize": {
+     "width": 77,
+     "height": 14
+    }
+   },
+   {
+    "id": "e7",
+    "from": "REG",
+    "to": "GEN",
+    "points": [
+     {
+      "x": 139,
+      "y": 640
+     },
+     {
+      "x": 139,
+      "y": 680
+     }
+    ]
+   }
+  ],
+  "groups": {
+   "group_1": {
+    "id": "group_1",
+    "x": 12,
+    "y": 12,
+    "width": 200,
+    "height": 272
+   },
+   "group_2": {
+    "id": "group_2",
+    "x": 75.5,
+    "y": 541,
+    "width": 236,
+    "height": 218
+   },
+   "group_3": {
+    "id": "group_3",
+    "x": 37.5,
+    "y": 863,
+    "width": 249,
+    "height": 129
+   }
+  }
+ }
+}

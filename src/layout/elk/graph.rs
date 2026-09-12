@@ -1,6 +1,6 @@
 //! The ELK JSON graph model — the exact structure elkjs consumes as
 //! layout input and returns as layout output (see the "ELK JSON
-//! format" docs and `tools/elk-oracle/golden/*.stages.json` for live
+//! format" docs and `tests/fixtures/elk/*.stages.json` for live
 //! examples: `pass1Input`/`pass2Input` are inputs, `pass1Output`/
 //! `pass2Output` are outputs).
 //!

@@ -222,11 +222,11 @@
 }
 
 // Returns true iff the rect (x, y, x+w, y+h) overlaps any class /
-// note / lollipop bbox in `classes` × `metas`.
-#let _overlaps-any-class(x, y, w, h, classes, metas) = {
+// note / lollipop bbox in `nodes` × `metas`.
+#let _overlaps-any-class(x, y, w, h, nodes, metas) = {
   let hit = false
-  for i in range(classes.len()) {
-    let r = classes.at(i)
+  for i in range(nodes.len()) {
+    let r = nodes.at(i)
     let mw = metas.at(i).width
     let mh = metas.at(i).height
     let cx = r.x
@@ -255,13 +255,13 @@
 // absolute point has no single "perpendicular" direction to rotate
 // around.
 //
-// If `classes` and `metas` are non-empty, the label's bbox is checked
+// If `nodes` and `metas` are non-empty, the label's bbox is checked
 // against every class bbox; on overlap the perp offset is doubled,
 // then doubled again, before falling back to the original position
 // (some overlap may remain in dense diagrams — proper avoidance needs
 // a layout solver).
 #let _place-edge-label(start, end, t, body, perp: 0pt, label-pos: none,
-                       classes: (), metas: (), shift-x: 0pt, shift-y: 0pt) = {
+                       nodes: (), metas: (), shift-x: 0pt, shift-y: 0pt) = {
   if body == none { return }
   // Light-tint background — readable text over a line, much less
   // obtrusive than the previous opaque (CC ~80% alpha) box.
@@ -277,8 +277,8 @@
       if not found {
         let x = label-pos.at(0) + ox - m.width / 2
         let y = label-pos.at(1) + oy - m.height / 2
-        let collides = (classes.len() != 0) and _overlaps-any-class(
-          x - shift-x, y - shift-y, m.width, m.height, classes, metas)
+        let collides = (nodes.len() != 0) and _overlaps-any-class(
+          x - shift-x, y - shift-y, m.width, m.height, nodes, metas)
         if not collides {
           chosen = (ox, oy)
           found = true
@@ -315,8 +315,8 @@
       let y = start.at(1) + dy * t + py * p - m.height / 2
       let check-x = x - shift-x
       let check-y = y - shift-y
-      let collides = (classes.len() != 0) and _overlaps-any-class(
-        check-x, check-y, m.width, m.height, classes, metas)
+      let collides = (nodes.len() != 0) and _overlaps-any-class(
+        check-x, check-y, m.width, m.height, nodes, metas)
       if not collides {
         chosen-perp = p
         found = true

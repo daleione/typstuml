@@ -13,3 +13,8 @@ examples/*.svg
 /crates/typstuml-wasm/dist
 /crates/typstuml-plugin/pkg
 /crates/typstuml-plugin/dist
+
+# Ad-hoc CLI outputs at the repository root. Fixtures stay trackable.
+/out.svg
+/out.png
+/out.pdf

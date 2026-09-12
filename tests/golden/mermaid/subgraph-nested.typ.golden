@@ -1,0 +1,24 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  direction: "lr",
+  nodes: (
+    (x: 16.67pt, y: 58.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("X")]),
+    (x: 112.83pt, y: 58.33pt, width: 51.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("Entry")]),
+    (x: 231.00pt, y: 58.33pt, width: 62.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("Storage")]),
+    (x: 326.83pt, y: 58.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("C")]),
+    (x: 439.67pt, y: 58.33pt, width: 29.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("Z")]),
+  ),
+  subgraphs: (
+    (x: 79.50pt, y: 8.33pt, w: 326.83pt, h: 128.00pt, kind: "package", label: [#text("Outer")]),
+    (x: 197.67pt, y: 33.33pt, w: 183.67pt, h: 78.00pt, kind: "package", label: [#text("Inner")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 72.33pt, to-y: 72.33pt, path: ((c1: (68.39pt, 72.33pt), c2: (90.61pt, 72.33pt), end: (112.83pt, 72.33pt)),)),
+    (from: 1, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 72.33pt, to-y: 72.33pt, path: ((c1: (186.56pt, 72.33pt), c2: (208.78pt, 72.33pt), end: (231.00pt, 72.33pt)),)),
+    (from: 2, to: 3, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 72.33pt, to-y: 72.33pt, path: ((c1: (304.61pt, 72.33pt), c2: (315.72pt, 72.33pt), end: (326.83pt, 72.33pt)),)),
+    (from: 3, to: 4, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "right", to-side: "left", from-y: 72.33pt, to-y: 72.33pt, path: ((c1: (384.11pt, 72.33pt), c2: (411.89pt, 72.33pt), end: (439.67pt, 72.33pt)),)),
+  ),
+)

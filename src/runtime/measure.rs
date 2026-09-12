@@ -25,7 +25,6 @@ use typst::utils::PicoStr;
 #[cfg(feature = "embed-typst")]
 use typst_layout::PagedDocument;
 
-#[cfg(feature = "embed-typst")]
 use crate::diagnostics::{Error, Result};
 
 #[cfg(feature = "embed-typst")]
@@ -64,6 +63,66 @@ pub struct MeasurementSet {
 }
 
 impl MeasurementSet {
+    pub fn validate_expected_ids(ids: &[String]) -> Result<()> {
+        let mut seen = std::collections::HashSet::new();
+        for id in ids {
+            if !seen.insert(id) {
+                return Err(Error::MeasureProtocol(format!(
+                    "duplicate expected ID {id:?}"
+                )));
+            }
+        }
+        Ok(())
+    }
+    pub fn insert_checked(&mut self, id: String, m: Measurement) -> Result<()> {
+        if self.items.contains_key(&id) {
+            return Err(Error::MeasureProtocol(format!(
+                "duplicate measurement ID {id:?}"
+            )));
+        }
+        if !m.width_pt.is_finite()
+            || !m.height_pt.is_finite()
+            || m.width_pt < 0.0
+            || m.height_pt < 0.0
+            || m.row_centers.iter().any(|v| !v.is_finite() || *v < 0.0)
+        {
+            return Err(Error::MeasureProtocol(format!(
+                "invalid dimensions for {id:?}"
+            )));
+        }
+        self.items.insert(id, m);
+        Ok(())
+    }
+    pub fn validate(&self, expected: &[String]) -> Result<()> {
+        Self::validate_expected_ids(expected)?;
+        for id in expected {
+            if !self.items.contains_key(id) {
+                return Err(Error::MeasureProtocol(format!(
+                    "missing measurement {id:?}"
+                )));
+            }
+        }
+        let expected: std::collections::HashSet<_> = expected.iter().collect();
+        for (id, m) in &self.items {
+            if !expected.contains(id) {
+                return Err(Error::MeasureProtocol(format!(
+                    "unexpected measurement {id:?}"
+                )));
+            }
+            if !m.width_pt.is_finite()
+                || !m.height_pt.is_finite()
+                || m.width_pt < 0.0
+                || m.height_pt < 0.0
+                || m.row_centers.iter().any(|v| !v.is_finite() || *v < 0.0)
+            {
+                return Err(Error::MeasureProtocol(format!(
+                    "invalid dimensions for {id:?}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     pub fn get(&self, id: &str) -> Option<Measurement> {
         self.items.get(id).cloned()
     }
@@ -145,12 +204,7 @@ pub fn run(
             height_pt: h,
             row_centers,
         };
-        if let Some(existing) = set.items.insert(id.clone(), measurement) {
-            return Err(Error::MeasureProtocol(format!(
-                "duplicate probe id {id:?}: previous = {:?}",
-                existing
-            )));
-        }
+        set.insert_checked(id, measurement)?;
     }
 
     for &id in expected_ids {

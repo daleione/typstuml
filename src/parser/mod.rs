@@ -23,8 +23,11 @@ pub(crate) mod common;
 pub mod cuca;
 pub mod dispatcher;
 pub mod json;
+mod language;
 pub mod lexer;
+pub mod mermaid;
 pub mod mindmap;
+pub use language::InputLanguage;
 pub mod preprocessor;
 pub mod sequence;
 pub mod state;
@@ -52,6 +55,22 @@ pub struct ParseOutput {
 /// Top-level parser entry point. Threads the preprocessor config through,
 /// extracts blocks, and dispatches to per-diagram parsers.
 pub fn parse(source: &str, compat: CompatMode, config: &Config) -> Result<ParseOutput> {
+    parse_with_language(source, InputLanguage::PlantUml, compat, config)
+}
+
+pub fn parse_with_language(
+    source: &str,
+    language: InputLanguage,
+    compat: CompatMode,
+    config: &Config,
+) -> Result<ParseOutput> {
+    match language {
+        InputLanguage::PlantUml => parse_plantuml(source, compat, config),
+        InputLanguage::Mermaid => mermaid::parse(source, compat),
+    }
+}
+
+fn parse_plantuml(source: &str, compat: CompatMode, config: &Config) -> Result<ParseOutput> {
     let pre = preprocessor::run_with(source, compat, config)?;
     let blocks = lexer::extract_uml_blocks(&pre.text);
     let mut diagnostics = pre.diagnostics;

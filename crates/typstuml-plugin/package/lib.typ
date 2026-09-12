@@ -38,7 +38,7 @@
 // ---------------------------------------------------------------------------
 #assert.eq(
   int.from-bytes(_plugin.protocol_version(), endian: "little"),
-  1,
+  2,
   message: "typstuml: lib.typ / typstuml.wasm version mismatch; reinstall the package",
 )
 
@@ -49,6 +49,16 @@
 // goldens diverge.
 // ---------------------------------------------------------------------------
 #let _bc-scope = (
+  "flowchart-layout": bc.flowchart-layout,
+  "flowchart-probe": bc.flowchart-probe,
+  "graph-edge-label-probe": bc.graph-edge-label-probe,
+  "swimlane-probe": bc.swimlane-probe,
+  "swimlane-layout": bc.swimlane-layout,
+  "state-edge-label-probe": bc.state-edge-label-probe,
+  "cuca-edge-label-probe": bc.cuca-edge-label-probe,
+  "tree-em-probe": bc.tree-em-probe,
+  "tree-probe": bc.tree-probe,
+  "tree-layout": bc.tree-layout,
   // records (graph painter + pass-1 probe)
   "record-layout":    bc.record-layout,
   "record-probe":     bc.record-probe,
@@ -125,23 +135,50 @@
 /// contextual content (so multiple-diagram inputs can interleave with
 /// the host document's flow). Throws a Typst error with the plugin's
 /// message on parse / codegen failure.
-#let render-puml(source) = {
-  let src-bytes = bytes(source)
-  let probe-src-bytes = _plugin.emit_probes(src-bytes)
+// Check the actual eval scope, including every probe symbol.
+#for name in json(_plugin.referenced_symbols()) {
+  assert(name in _bc-scope, message: "typstuml: missing eval symbol " + name)
+}
 
-  if probe-src-bytes.len() == 0 {
-    // No measurement-aware diagram in this source — skip the round-trip.
-    let layout-src = str(_plugin.emit_layout_no_measure(src-bytes))
-    eval(layout-src, mode: "markup", scope: _bc-scope)
+#let _probe-scope(instance) = {
+  let scoped = _bc-scope
+  for (name, func) in _bc-scope {
+    if name.ends-with("probe") {
+      scoped.insert(name, func.with(measure-scope: instance))
+    }
+  }
+  scoped
+}
+
+#let _measurements-ready(probes, expected) = {
+  let ids = probes.map(v => v.id)
+  assert.eq(ids.dedup().len(), ids.len(), message: "typstuml: duplicate measurement ID")
+  for id in ids { assert(id in expected, message: "typstuml: unexpected measurement " + id) }
+  ids.len() == expected.len()
+}
+
+#let _render(source, lang) = {
+  let src-bytes = bytes(source)
+  let lang-bytes = bytes(lang)
+  let bundle = cbor(_plugin.emit_probes_v2(lang-bytes, src-bytes))
+  if bundle.expected_ids.len() == 0 {
+    eval(str(_plugin.emit_layout_no_measure_v2(lang-bytes, src-bytes)), mode: "markup", scope: _bc-scope)
   } else {
-    // Measurement round-trip. The `context` block waits for introspection
-    // to converge before `query()` returns probe metadata.
     context {
-      hide(eval(str(probe-src-bytes), mode: "markup", scope: _bc-scope))
+      let instance = here()
+      hide(eval(bundle.source, mode: "markup", scope: _probe-scope(instance)))
       let probes = query(<typstuml_measure>).map(it => it.value)
-      let layout-src = str(_plugin.emit_layout(src-bytes, _encode-measurements(probes)))
-      eval(layout-src, mode: "markup", scope: _bc-scope)
+        .filter(v => v.at("scope", default: none) == instance)
+      if _measurements-ready(probes, bundle.expected_ids) {
+        eval(str(_plugin.emit_layout_v2(lang-bytes, src-bytes, _encode-measurements(probes))), mode: "markup", scope: _bc-scope)
+      } else {
+        text(fill: red)[typstuml: measurement pending]
+      }
     }
   }
 }
 
+/// Render PlantUML using the existing parser compatibility mode.
+#let render-puml(source) = _render(source, "puml")
+/// Render the supported Mermaid flowchart subset in strict mode.
+#let render-mermaid(source) = _render(source, "mermaid")

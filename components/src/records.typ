@@ -502,7 +502,7 @@
 // instead of inferring them from a heuristic estimator. `value_min`
 // matches the `value-min` knob `record-layout` passes — keep them in
 // sync so the probe and the layout see the same column-width floor.
-#let record-probe(
+#let record-probe(measure-scope: none,
   id: none,
   rows: (),
   fill: rgb("#F1F1F1"),
@@ -520,7 +520,7 @@
     w: g.width.pt(),
     h: g.height.pt(),
     row_centers: centers,
-  )) <typstuml_measure>]
+  ) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }
 
 #let record-layout(

@@ -1,0 +1,12 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 8.33pt, y: 16.67pt, width: 51.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("Short")]),
+    (x: 76.50pt, y: 16.67pt, width: 106.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("Very long label")]),
+  ),
+  edges: (
+  ),
+)

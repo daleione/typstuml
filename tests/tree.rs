@@ -139,10 +139,10 @@ fn renders_svg_for_wbs_multiline() {
 }
 
 #[test]
-fn wbs_strict_rejects_orphan_child() {
+fn wbs_strict_accepts_root_at_any_raw_depth() {
     let tmp = tempfile::tempdir().unwrap();
     let bad = tmp.path().join("bad.puml");
-    // depth-3 marker before any root — must fail strict.
+    // Raw depth is relative: the first marker is a root at any depth.
     std::fs::write(&bad, "@startwbs\n*** orphan\n@endwbs\n").unwrap();
     Command::cargo_bin("typstuml")
         .unwrap()
@@ -151,7 +151,7 @@ fn wbs_strict_rejects_orphan_child() {
         .arg("check")
         .arg(&bad)
         .assert()
-        .failure();
+        .success();
 }
 
 #[test]
@@ -298,7 +298,7 @@ fn renders_svg_for_mindmap_colors() {
 }
 
 #[test]
-fn mindmap_strict_rejects_orphan_child() {
+fn mindmap_strict_accepts_root_at_any_raw_depth() {
     let tmp = tempfile::tempdir().unwrap();
     let bad = tmp.path().join("bad.puml");
     std::fs::write(&bad, "@startmindmap\n+++ orphan\n@endmindmap\n").unwrap();
@@ -309,5 +309,25 @@ fn mindmap_strict_rejects_orphan_child() {
         .arg("check")
         .arg(&bad)
         .assert()
-        .failure();
+        .success();
+}
+
+#[test]
+fn strict_tree_check_rejects_actual_invalid_syntax_with_global_options() {
+    let tmp = tempfile::tempdir().unwrap();
+    for tag in ["wbs", "mindmap"] {
+        let input = tmp.path().join(format!("bad-{tag}.puml"));
+        std::fs::write(
+            &input,
+            format!("@start{tag}\n* root\ninvalid unmarked node\n@end{tag}\n"),
+        )
+        .unwrap();
+        Command::cargo_bin("typstuml")
+            .unwrap()
+            .args(["--compat", "strict", "check"])
+            .arg(&input)
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains("parse error"));
+    }
 }

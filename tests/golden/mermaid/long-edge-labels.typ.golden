@@ -1,0 +1,15 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 8.33pt, y: 16.67pt, width: 136.00pt, height: 56.00pt, kind: "flow-diamond", name: [#text("Question")]),
+    (x: 15.13pt, y: 106.00pt, width: 51.50pt, height: 28.00pt, kind: "flow-rect", name: [#text("First")]),
+    (x: 83.29pt, y: 106.00pt, width: 57.00pt, height: 28.00pt, kind: "flow-rect", name: [#text("Second")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 76.33pt, to-x: 40.88pt, label: [#text("A very long affirmative answer")], label-pos: (58.60pt, 89.33pt), path: ((c1: (64.51pt, 83.78pt), c2: (52.69pt, 94.89pt), end: (40.88pt, 106.00pt)),)),
+    (from: 0, to: 2, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 76.33pt, to-x: 111.79pt, label: [#text("A very long negative answer")], label-pos: (94.06pt, 149.33pt), path: ((c1: (88.15pt, 83.78pt), c2: (99.97pt, 94.89pt), end: (111.79pt, 106.00pt)),)),
+  ),
+)

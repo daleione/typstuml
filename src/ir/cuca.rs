@@ -1,7 +1,7 @@
 //! Cuca diagram IR — PlantUML's class / component / deployment / use-case /
 //! object families in one IR. See `docs/cuca-diagram-design.md`.
 
-use super::common::{Direction, LayoutDirection, LineStyle, Skinparam};
+use super::common::{Direction, LayoutDirection, LineStyle, LineWeight, Skinparam};
 
 /// Cuca diagram — covers PlantUML's class / component / deployment /
 /// use case / object families with one IR. The shape of each entity is
@@ -411,6 +411,7 @@ pub struct Relation {
     /// Decoration on the `to` side (the `|>` in `--|>`).
     pub head_to: ArrowHead,
     pub line_style: LineStyle,
+    pub line_weight: LineWeight,
     /// User-supplied direction hint (`-up->`, `-left->`); codegen may use
     /// it to bias Sugiyama orientation but isn't required to honour it.
     pub direction: Option<Direction>,

@@ -39,12 +39,15 @@ use crate::theme::Theme;
 #[command(
     name = "typstuml",
     version,
-    about = "TypstUML — render PlantUML diagrams to SVG / PDF / PNG via Typst",
+    about = "TypstUML — render PlantUML and Mermaid diagrams to SVG / PDF / PNG via Typst",
     long_about = None,
     arg_required_else_help = true,
-    args_conflicts_with_subcommands = true,
+    subcommand_precedence_over_arg = true,
 )]
 pub struct Args {
+    /// Input syntax; defaults to Mermaid for .mmd/.mermaid, PlantUML otherwise.
+    #[arg(long, global = true, value_name = "puml|mermaid")]
+    pub lang: Option<parser::InputLanguage>,
     /// Additional search path for `!include`. Repeatable.
     #[arg(short = 'I', long, value_name = "DIR", global = true)]
     pub include: Vec<PathBuf>,
@@ -177,6 +180,7 @@ pub enum Verbosity {
 /// Per-invocation context shared by every subcommand.
 #[derive(Clone, Debug)]
 pub struct GlobalCtx {
+    pub lang: Option<parser::InputLanguage>,
     pub include: Vec<PathBuf>,
     pub compat: CompatMode,
     pub verbosity: Verbosity,
@@ -193,6 +197,7 @@ impl GlobalCtx {
             Verbosity::Normal
         };
         Self {
+            lang: args.lang,
             include: args.include.clone(),
             compat: args.compat,
             verbosity,
@@ -253,6 +258,7 @@ fn run_compile(args: CompileArgs, global: &GlobalCtx) -> Result<()> {
         &parsed.document,
         &theme,
         parsed.source_dir.as_deref(),
+        parsed.options,
         global,
     )?;
 
@@ -284,6 +290,7 @@ fn run_emit(args: EmitArgs, global: &GlobalCtx) -> Result<()> {
         &parsed.document,
         &theme,
         parsed.source_dir.as_deref(),
+        parsed.options,
         global,
     )?;
     write_output(args.output.as_deref(), typst_source.as_bytes())
@@ -307,6 +314,7 @@ fn render_compile(
         &parsed.document,
         &theme,
         parsed.source_dir.as_deref(),
+        parsed.options,
         global,
     )?;
     let fmt = resolve_format(format, Some(output));
@@ -345,14 +353,8 @@ fn run_watch(args: WatchArgs, global: &GlobalCtx) -> Result<()> {
     };
     let mut tracked: HashSet<PathBuf> = HashSet::new();
     tracked.insert(input_canon.clone());
-    match render() {
-        Ok(includes) => {
-            report_rendered(&args.output, None);
-            tracked.extend(includes.into_iter());
-        }
-        Err(e) => report_error(&e),
-    }
-
+    // Subscribe before rendering: a save as soon as the first output appears
+    // must not be lost between rendering and watcher initialization.
     let (tx, rx) = mpsc::channel();
     let mut debouncer = new_debouncer(Duration::from_millis(150), None, move |res| {
         let _ = tx.send(res);
@@ -364,6 +366,15 @@ fn run_watch(args: WatchArgs, global: &GlobalCtx) -> Result<()> {
     // saves are implemented via temp-file + rename, which the inode-level
     // single-file watcher misses but a directory watcher catches.
     let mut watched_dirs: HashSet<PathBuf> = HashSet::new();
+    sync_watched_dirs(&mut debouncer, &mut watched_dirs, &tracked)?;
+
+    match render() {
+        Ok(includes) => {
+            report_rendered(&args.output, None);
+            tracked.extend(includes.into_iter());
+        }
+        Err(e) => report_error(&e),
+    }
     sync_watched_dirs(&mut debouncer, &mut watched_dirs, &tracked)?;
 
     eprintln!(
@@ -481,6 +492,7 @@ fn print_diagrams() {
     // Listed in pipeline order: native renderers first, then dispatcher-only
     // (parsed but not yet rendered) types. Mirrors `parser::dispatcher`.
     println!("Supported diagram types:");
+    println!("  flowchart   — Mermaid flowchart / graph (.mmd or --lang mermaid)");
     println!("  sequence    — @startuml / @enduml (lifeline grid)");
     println!("  class       — @startuml (class declarations)");
     println!("  component   — @startuml (component / interface)");
@@ -505,56 +517,33 @@ fn print_diagrams() {
 /// resolve local `#image()` / `#read()` references during pass-1; we
 /// reuse it so user-preamble paths work the same as in pass-2.
 ///
-/// The orchestration intentionally lives in CLI rather than `codegen`
-/// so the codegen crate doesn't pull in `runtime::measure` (one less
-/// cycle in the module graph). Codegen exposes the two halves —
-/// `emit_probes` for pass-1 source, `emit` accepting an optional
-/// `MeasurementSet` for pass-2 — and CLI glues them together.
+/// Runtime orchestration is shared with library/WASM callers; CLI owns
+/// the filesystem root and presentation of warnings and timing.
 fn build_typst_source(
     doc: &crate::ir::Document,
     theme: &Theme,
     source_dir: Option<&Path>,
+    options: crate::render::RenderOptions,
     global: &GlobalCtx,
 ) -> Result<String> {
-    let measurement_root = source_dir.map(Path::to_path_buf);
-
-    use crate::codegen::ImportStrategy;
-
-    if !global.measure {
-        return crate::codegen::emit(doc, theme, None, ImportStrategy::VirtualFs);
+    let result =
+        crate::render::pipeline::prepare(doc, theme, source_dir.map(Path::to_path_buf), options)?;
+    for warning in result.warnings {
+        global.print_warning(&warning);
     }
-
-    let Some((probe_source, expected_ids)) =
-        crate::codegen::emit_probes(doc, theme, ImportStrategy::VirtualFs)?
-    else {
-        // No measurement-aware diagrams — skip pass-1 entirely.
-        return crate::codegen::emit(doc, theme, None, ImportStrategy::VirtualFs);
-    };
-
-    let expected_refs: Vec<&str> = expected_ids.iter().map(String::as_str).collect();
-    let start = std::time::Instant::now();
-    let set = match runtime::measure::run(probe_source, measurement_root, &expected_refs) {
-        Ok(s) => s,
-        Err(e) => {
-            // Falling back to heuristic is the safe behavior — never
-            // block rendering on a measure-protocol failure. Surface
-            // the error as a warning so misconfigurations don't go
-            // silently wrong.
-            global.print_warning(&format!(
-                "typstuml: warning: measure pass failed ({e}); falling back to heuristic",
-            ));
-            return crate::codegen::emit(doc, theme, None, ImportStrategy::VirtualFs);
-        }
-    };
-    let elapsed_ms = start.elapsed().as_millis();
-    global.print_info(&format!("measure: {} probes, {elapsed_ms}ms", set.len()));
-
-    crate::codegen::emit(doc, theme, Some(&set), ImportStrategy::VirtualFs)
+    if let Some((count, elapsed)) = result.measurement {
+        global.print_info(&format!(
+            "measure: {count} probes, {}ms",
+            elapsed.as_millis()
+        ));
+    }
+    Ok(result.source)
 }
 
 /// Result of `parse_input`: the document plus the bookkeeping that
 /// downstream code (codegen, watch) needs.
 struct Parsed {
+    options: crate::render::RenderOptions,
     document: crate::ir::Document,
     source_dir: Option<PathBuf>,
     /// Canonical paths of every `!include`d file; empty when input is stdin.
@@ -577,7 +566,24 @@ fn parse_input(input: &Path, global: &GlobalCtx) -> Result<Parsed> {
         // unless the caller explicitly supplies an include search path.
         allow_filesystem: source_dir.is_some() || !global.include.is_empty(),
     };
-    let parsed = parser::parse(&source_text, global.compat, &config)?;
+    let language =
+        global
+            .lang
+            .unwrap_or_else(|| match input.extension().and_then(|s| s.to_str()) {
+                Some("mmd" | "mermaid") => parser::InputLanguage::Mermaid,
+                _ => parser::InputLanguage::PlantUml,
+            });
+    if language == parser::InputLanguage::Mermaid && !global.include.is_empty() {
+        return Err(Error::Cli(
+            "--include is not supported with Mermaid input".into(),
+        ));
+    }
+    let mut options = crate::render::RenderOptions::for_language(language);
+    options.compat = global.compat;
+    if !global.measure {
+        options.measurement = crate::render::MeasurementPolicy::Disabled;
+    }
+    let parsed = parser::parse_with_language(&source_text, language, options.compat, &config)?;
     for diag in &parsed.diagnostics {
         global.print_warning(diag);
     }
@@ -591,6 +597,7 @@ fn parse_input(input: &Path, global: &GlobalCtx) -> Result<Parsed> {
         display_path(input),
     ));
     Ok(Parsed {
+        options,
         document: parsed.document,
         source_dir,
         includes: parsed.includes,

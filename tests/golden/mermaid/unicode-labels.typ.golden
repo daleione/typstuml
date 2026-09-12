@@ -1,0 +1,13 @@
+#set page(width: auto, height: auto, margin: 8pt)
+#set text(size: 10pt)
+#import "/blockcell/lib.typ": *
+
+#flowchart-layout(
+  nodes: (
+    (x: 35.83pt, y: 16.67pt, width: 44.00pt, height: 28.00pt, kind: "flow-rect", name: [#text("开始")]),
+    (x: 8.33pt, y: 78.00pt, width: 99.00pt, height: 56.00pt, kind: "flow-diamond", name: [#text("就绪?")]),
+  ),
+  edges: (
+    (from: 0, to: 1, head-from: "none", head-to: "arrow-open", style: "solid", from-side: "bot", to-side: "top", from-x: 57.83pt, to-x: 57.83pt, path: ((c1: (57.83pt, 55.78pt), c2: (57.83pt, 66.89pt), end: (57.83pt, 78.00pt)),)),
+  ),
+)

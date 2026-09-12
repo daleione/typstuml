@@ -62,7 +62,7 @@ pub(super) fn write_class_spec_body(out: &mut String, entity: &Entity, hide: &Hi
     let kind_kw = entity_kind_keyword(entity);
     out.push_str("kind: \"");
     out.push_str(kind_kw);
-    out.push_str("\"");
+    out.push('"');
     if let EntityKindData::Note { body } = &entity.kind_data {
         out.push_str(", body: [");
         if !body.is_empty() {
@@ -285,6 +285,9 @@ pub(super) fn emit_edge(
         if let Some(c) = to_override {
             out.push_str(&format!(", to-{to_key}: {c:.2}pt"));
         }
+    }
+    if oe.relation.line_weight == crate::ir::LineWeight::Thick {
+        out.push_str(", weight: 2");
     }
     if let Some(label) = &oe.relation.label {
         out.push_str(", label: [");

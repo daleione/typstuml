@@ -6,7 +6,7 @@ Layout Kernel's `layered` algorithm and is licensed under the
 NOT the MIT license that covers the rest of this repository.
 
 - Upstream: <https://github.com/eclipse-elk/elk>, tag `v0.11.0`
-  (matching the elkjs 0.11.x oracle in `tools/elk-oracle/`).
+  (matching the elkjs 0.11.x reference data in `tests/fixtures/elk/`).
 - Source plugin: `plugins/org.eclipse.elk.alg.layered/`.
 - Each Rust file names the Java file(s) it was ported from in its
   module doc comment.

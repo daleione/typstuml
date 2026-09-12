@@ -1,0 +1,510 @@
+{
+ "id": "root",
+ "layoutOptions": {
+  "elk.algorithm": "layered",
+  "elk.direction": "DOWN",
+  "elk.edgeRouting": "ORTHOGONAL",
+  "elk.spacing.nodeNode": "20",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+  "elk.spacing.edgeNode": "20",
+  "elk.spacing.edgeEdge": "10",
+  "elk.spacing.nodeSelfLoop": "20",
+  "elk.spacing.componentComponent": "20",
+  "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+  "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+  "elk.spacing.edgeLabel": "5",
+  "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+  "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+  "elk.layered.mergeEdges": "false"
+ },
+ "children": [
+  {
+   "id": "A",
+   "width": 100,
+   "height": 50,
+   "$H": 277,
+   "x": 60.75,
+   "y": 160
+  },
+  {
+   "id": "B",
+   "width": 120,
+   "height": 50,
+   "$H": 279,
+   "x": 180.75,
+   "y": 12
+  },
+  {
+   "id": "C",
+   "width": 90,
+   "height": 50,
+   "$H": 281,
+   "x": 188.75,
+   "y": 250
+  },
+  {
+   "id": "D",
+   "width": 140,
+   "height": 50,
+   "$H": 283,
+   "x": 103.75,
+   "y": 426
+  },
+  {
+   "id": "E",
+   "width": 80,
+   "height": 50,
+   "$H": 285,
+   "x": 133.75,
+   "y": 516
+  },
+  {
+   "id": "F",
+   "width": 100,
+   "height": 50,
+   "$H": 287,
+   "x": 123.75,
+   "y": 664
+  }
+ ],
+ "edges": [
+  {
+   "id": "e0",
+   "sources": [
+    "A"
+   ],
+   "targets": [
+    "B"
+   ],
+   "labels": [
+    {
+     "text": "alpha",
+     "width": 60,
+     "height": 18,
+     "x": 45.75,
+     "y": 102
+    }
+   ],
+   "sections": [
+    {
+     "id": "e0_s0",
+     "startPoint": {
+      "x": 110.75,
+      "y": 160
+     },
+     "endPoint": {
+      "x": 204.75,
+      "y": 62
+     },
+     "bendPoints": [
+      {
+       "x": 110.75,
+       "y": 82
+      },
+      {
+       "x": 204.75,
+       "y": 82
+      }
+     ],
+     "incomingShape": "A",
+     "outgoingShape": "B"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e1",
+   "sources": [
+    "A"
+   ],
+   "targets": [
+    "C"
+   ],
+   "sections": [
+    {
+     "id": "e1_s0",
+     "startPoint": {
+      "x": 135.75,
+      "y": 210
+     },
+     "endPoint": {
+      "x": 211.25,
+      "y": 250
+     },
+     "bendPoints": [
+      {
+       "x": 135.75,
+       "y": 230
+      },
+      {
+       "x": 211.25,
+       "y": 230
+      }
+     ],
+     "incomingShape": "A",
+     "outgoingShape": "C"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e2",
+   "sources": [
+    "B"
+   ],
+   "targets": [
+    "D"
+   ],
+   "labels": [
+    {
+     "text": "beta-long-label",
+     "width": 110,
+     "height": 18,
+     "x": 308.75,
+     "y": 176
+    }
+   ],
+   "sections": [
+    {
+     "id": "e2_s0",
+     "startPoint": {
+      "x": 276.75,
+      "y": 62
+     },
+     "endPoint": {
+      "x": 215.75,
+      "y": 426
+     },
+     "bendPoints": [
+      {
+       "x": 276.75,
+       "y": 82
+      },
+      {
+       "x": 302.75,
+       "y": 82
+      },
+      {
+       "x": 302.75,
+       "y": 406
+      },
+      {
+       "x": 215.75,
+       "y": 406
+      }
+     ],
+     "incomingShape": "B",
+     "outgoingShape": "D"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e3",
+   "sources": [
+    "C"
+   ],
+   "targets": [
+    "D"
+   ],
+   "labels": [
+    {
+     "text": "gamma\\ntwo lines",
+     "width": 64,
+     "height": 36,
+     "x": 164.75,
+     "y": 340
+    }
+   ],
+   "sections": [
+    {
+     "id": "e3_s0",
+     "startPoint": {
+      "x": 233.75,
+      "y": 300
+     },
+     "endPoint": {
+      "x": 187.75,
+      "y": 426
+     },
+     "bendPoints": [
+      {
+       "x": 233.75,
+       "y": 396
+      },
+      {
+       "x": 187.75,
+       "y": 396
+      }
+     ],
+     "incomingShape": "C",
+     "outgoingShape": "D"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e4",
+   "sources": [
+    "D"
+   ],
+   "targets": [
+    "A"
+   ],
+   "labels": [
+    {
+     "text": "cycle back",
+     "width": 70,
+     "height": 18,
+     "x": 12,
+     "y": 266
+    }
+   ],
+   "sections": [
+    {
+     "id": "e4_s0",
+     "startPoint": {
+      "x": 131.75,
+      "y": 426
+     },
+     "endPoint": {
+      "x": 85.75,
+      "y": 210
+     },
+     "bendPoints": [
+      {
+       "x": 131.75,
+       "y": 406
+      },
+      {
+       "x": 87,
+       "y": 406
+      },
+      {
+       "x": 87,
+       "y": 230
+      },
+      {
+       "x": 85.75,
+       "y": 230
+      }
+     ],
+     "incomingShape": "D",
+     "outgoingShape": "A"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e5",
+   "sources": [
+    "B"
+   ],
+   "targets": [
+    "C"
+   ],
+   "labels": [
+    {
+     "text": "one",
+     "width": 30,
+     "height": 18,
+     "x": 198.75,
+     "y": 102
+    }
+   ],
+   "sections": [
+    {
+     "id": "e5_s0",
+     "startPoint": {
+      "x": 228.75,
+      "y": 62
+     },
+     "endPoint": {
+      "x": 233.75,
+      "y": 250
+     },
+     "bendPoints": [
+      {
+       "x": 228.75,
+       "y": 82
+      },
+      {
+       "x": 233.75,
+       "y": 82
+      }
+     ],
+     "incomingShape": "B",
+     "outgoingShape": "C"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e6",
+   "sources": [
+    "B"
+   ],
+   "targets": [
+    "C"
+   ],
+   "labels": [
+    {
+     "text": "two",
+     "width": 32,
+     "height": 18,
+     "x": 250.75,
+     "y": 102
+    }
+   ],
+   "sections": [
+    {
+     "id": "e6_s0",
+     "startPoint": {
+      "x": 252.75,
+      "y": 62
+     },
+     "endPoint": {
+      "x": 256.25,
+      "y": 250
+     },
+     "bendPoints": [
+      {
+       "x": 252.75,
+       "y": 82
+      },
+      {
+       "x": 244.75,
+       "y": 82
+      },
+      {
+       "x": 244.75,
+       "y": 230
+      },
+      {
+       "x": 256.25,
+       "y": 230
+      }
+     ],
+     "incomingShape": "B",
+     "outgoingShape": "C"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e7",
+   "sources": [
+    "A"
+   ],
+   "targets": [
+    "D"
+   ],
+   "labels": [
+    {
+     "text": "first",
+     "width": 40,
+     "height": 18,
+     "x": 116.75,
+     "y": 257
+    },
+    {
+     "text": "second",
+     "width": 52,
+     "height": 18,
+     "x": 116.75,
+     "y": 275
+    }
+   ],
+   "sections": [
+    {
+     "id": "e7_s0",
+     "startPoint": {
+      "x": 110.75,
+      "y": 210
+     },
+     "endPoint": {
+      "x": 159.75,
+      "y": 426
+     },
+     "bendPoints": [
+      {
+       "x": 110.75,
+       "y": 396
+      },
+      {
+       "x": 159.75,
+       "y": 396
+      }
+     ],
+     "incomingShape": "A",
+     "outgoingShape": "D"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e8",
+   "sources": [
+    "D"
+   ],
+   "targets": [
+    "E"
+   ],
+   "sections": [
+    {
+     "id": "e8_s0",
+     "startPoint": {
+      "x": 173.75,
+      "y": 476
+     },
+     "endPoint": {
+      "x": 173.75,
+      "y": 516
+     },
+     "incomingShape": "D",
+     "outgoingShape": "E"
+    }
+   ],
+   "container": "root"
+  },
+  {
+   "id": "e9",
+   "sources": [
+    "E"
+   ],
+   "targets": [
+    "F"
+   ],
+   "labels": [
+    {
+     "text": "omega",
+     "width": 55,
+     "height": 18,
+     "x": 113.75,
+     "y": 606
+    }
+   ],
+   "sections": [
+    {
+     "id": "e9_s0",
+     "startPoint": {
+      "x": 173.75,
+      "y": 566
+     },
+     "endPoint": {
+      "x": 173.75,
+      "y": 664
+     },
+     "incomingShape": "E",
+     "outgoingShape": "F"
+    }
+   ],
+   "container": "root"
+  }
+ ],
+ "$H": 13,
+ "x": 0,
+ "y": 0,
+ "width": 430.75,
+ "height": 726
+}

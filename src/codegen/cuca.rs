@@ -1,35 +1,16 @@
 //! Class diagram codegen.
 //!
-//! Pipeline:
-//!
-//! 1. Estimate per-class bounding boxes (`geom`). Note / lollipop have
-//!    their own shapes.
-//! 2. Build oriented edges + association-class couple virtual edges,
-//!    then drive compound layout (`layout::compound_layout`), which
-//!    sizes sibling/rank gaps from this diagram's `Spacing` table
-//!    (`layout::node_halo` — docs/cuca-architecture-layout-redesign.md
-//!    §3.1) directly on each node's halo, so the top-lefts it returns
-//!    are final.
-//! 3. Post-layout fixes: leaf-only recenter when all predecessors share
-//!    a rank; couple-edge A/B column alignment and C-clear-of-chord.
-//! 4. Pick anchor sides + smart-align coord per edge (`route`), route
-//!    through line-of-sight → Manhattan → pathplan → straight cubic
-//!    fallback.
-//! 5. Emit one `#cuca-layout(...)` call (`emit`).
-//!
-//! Heuristics this file owns:
-//!
-//! - `ROUTE_PADDING_PT` (pathplan obstacle padding).
-//! - `EDGE_FORCE_MAX_PT` (straight-fallback control-handle pull).
-//! - `chord_pad` inside the couple-edge post-fix loop (visible dashed
-//!   connector length).
+//! CUCA owns semantic normalization (association classes, UML directions,
+//! skinparams), painter specs, and architecture engine selection. The shared
+//! graph backend owns compound geometry, routing and label placement.
+//! CUCA-only post-layout adjustments keep ports and association classes aligned.
 
 mod elk;
 mod emit;
 mod geom;
 mod layout;
 pub(super) mod probe;
-mod route;
+use super::graph::route;
 mod scope;
 mod text;
 mod theme;
@@ -40,29 +21,19 @@ use crate::ir::{
 };
 use crate::layout::geometry::Point;
 use crate::layout::graph::Orientation;
-use crate::layout::ortho;
-use crate::layout::pathplan;
 use crate::runtime::MeasurementSet;
 
 use self::emit::{emit_class, emit_couple_edge, emit_edge, emit_packages, EmitGeom};
 use self::geom::{
-    anchor_for_side, bot_anchor, box_center, class_geom_filtered, left_anchor, right_anchor,
-    top_anchor, ClassGeom, Side,
+    bot_anchor, box_center, class_geom_filtered, left_anchor, right_anchor, top_anchor, ClassGeom,
+    Side,
 };
 use self::layout::{compound_layout, spacing as cuca_spacing, LabelBand};
-use self::route::{
-    cubic_from_straight, line_of_sight_clear, pick_edge_sides, side_tangent, smart_align_coord,
-    straight_fallback, try_manhattan_route, SMART_ALIGN_HEADROOM_PT,
-};
+use self::route::{cubic_from_straight, SMART_ALIGN_HEADROOM_PT};
 use self::scope::foreign_frame_obstacles;
 use self::text::typst_escape;
 use self::theme::{emit_skinparam_preamble, LineMode};
 
-/// Bezier control-handle pull for the straight-fallback path (same
-/// scheme as `record_graph.rs`).
-const EDGE_FORCE_MAX_PT: f64 = 30.0;
-/// Obstacle padding the pathplan router uses when routing detours.
-const ROUTE_PADDING_PT: f64 = 1.0;
 /// Per-entity geometry: prefer measurement from pass-1 when available,
 /// otherwise fall back to the Rust-side heuristic. We keep the heuristic
 /// path in tree so `--no-measure` and the unit tests still work — and
@@ -223,12 +194,8 @@ pub fn emit(
     // outer width so the title doesn't overflow narrow contents.
     let label_bands = resolve_label_bands(diag, measurements, diagram_idx);
 
-    // Compound layout: one sub-Sugiyama per cluster (recursive into
-    // nested containers), then a super-Sugiyama treating every
-    // top-level cluster as one box. This guarantees non-overlapping
-    // cluster rectangles even when one cluster's widest member is
-    // wider than another cluster's narrowest. With no containers the
-    // whole thing falls back to a flat single-pass layout.
+    // Shared compound layout ranks all nodes in one hierarchical Sugiyama
+    // pass; cluster padding and label bands determine container bounds.
     // E9: desc-flavor architecture diagrams place AND route through the
     // ported ELK engine (draw-uml's layered pipeline, oracle-verified in
     // tests/elk_port.rs). The engine owns node positions, package frames
@@ -290,26 +257,8 @@ pub fn emit(
     // so they must not undo that guarantee (see the M2 regression this
     // guards: a leaf-recenter move landed MongoDBDao inside a foreign
     // package's frame, docs/cuca-architecture-layout-redesign.md §3.2c).
-    let violates_containment = |ei: usize, new_box: (Point, Point)| -> bool {
-        let own = entity_container[ei];
-        container_bboxes.iter().enumerate().any(|(ci, bb)| {
-            let Some((bx0, bx1)) = bb else {
-                return false;
-            };
-            let overlaps = new_box.0.x < bx1.x
-                && bx0.x < new_box.1.x
-                && new_box.0.y < bx1.y
-                && bx0.y < new_box.1.y;
-            if Some(ci) == own {
-                // Must stay fully inside its own frame.
-                !(new_box.0.x >= bx0.x
-                    && new_box.0.y >= bx0.y
-                    && new_box.1.x <= bx1.x
-                    && new_box.1.y <= bx1.y)
-            } else {
-                overlaps
-            }
-        })
+    let violates_containment = |ei, bbox| {
+        super::graph::placement::violates_containment(ei, bbox, entity_container, &container_bboxes)
     };
 
     // Snap root-level interface/port entities onto the boundary of the
@@ -421,56 +370,13 @@ pub fn emit(
     // of centered. We do this *before* the chord-overlap fix below
     // because re-centering can resolve some overlaps too.
     if elk_desc.is_none() {
-        let mut preds: Vec<Vec<usize>> = vec![Vec::new(); diag.entities.len()];
-        for &(s, d) in &layout_edges {
-            preds[d].push(s);
-        }
-        let entity_count = diag.entities.len();
-        for ei in 0..entity_count {
-            let p = &preds[ei];
-            if p.len() < 2 {
-                continue;
-            }
-            let pred_y0 = top_lefts[p[0]].y;
-            if !p.iter().all(|&pi| (top_lefts[pi].y - pred_y0).abs() < 1.0) {
-                continue;
-            }
-            // Don't re-center if this entity has its own successors
-            // that would themselves prefer different alignment — keep
-            // the leaf-only rule simple.
-            let mid_x_avg: f64 = p
-                .iter()
-                .map(|&pi| top_lefts[pi].x + geoms[pi].size.x / 2.0)
-                .sum::<f64>()
-                / p.len() as f64;
-            let my_y = top_lefts[ei].y;
-            let my_w = geoms[ei].size.x;
-            let new_x = mid_x_avg - my_w / 2.0;
-            let new_box = (
-                Point::new(new_x, my_y),
-                Point::new(new_x + my_w, my_y + geoms[ei].size.y),
-            );
-            // Reject if the move would crash into another entity.
-            // Bbox overlap is the real test — a same-rank y-proximity
-            // gate used to stand in for it here, but in a multi-cluster
-            // layout two entities at the same DAG rank can have
-            // slightly different absolute y (different ancestor pad /
-            // label-band), so a small but genuine y-gap could slip
-            // past a coarse threshold while the bboxes still overlap.
-            let conflict = (0..entity_count).any(|j| {
-                if j == ei {
-                    return false;
-                }
-                let other = (top_lefts[j], top_lefts[j].add(geoms[j].size));
-                new_box.0.x < other.1.x
-                    && other.0.x < new_box.1.x
-                    && new_box.0.y < other.1.y
-                    && other.0.y < new_box.1.y
-            });
-            if !conflict && !violates_containment(ei, new_box) {
-                top_lefts[ei] = Point::new(new_x, my_y);
-            }
-        }
+        super::graph::placement::recenter(
+            &mut top_lefts,
+            &geoms,
+            &layout_edges,
+            entity_container,
+            &container_bboxes,
+        );
     }
 
     // Couple-edge post-fixes:
@@ -615,10 +521,6 @@ pub fn emit(
     }
     out.push_str("  ),\n");
 
-    let class_bboxes: Vec<(Point, Point)> = (0..diag.entities.len())
-        .map(|i| (top_lefts[i], top_lefts[i].add(geoms[i].size)))
-        .collect();
-
     if !diag.containers.is_empty() {
         emit_packages(out, &diag.containers, &container_bboxes);
     }
@@ -630,276 +532,25 @@ pub fn emit(
         // produced by the ELK pipeline above.
         elk::emit_edges(out, diag, &oriented, elk, line_mode);
     } else {
-        // Pre-pass 1: pick from/to sides for every edge. Distribution needs
-        // side info before we can group siblings by shared face.
-        let edge_sides: Vec<(Side, Side)> = oriented
+        use super::graph::routing::{
+            self, AnchorConstraints, LabelPlacement, RouteEdge, RoutingInput, RoutingMode,
+            RoutingOptions,
+        };
+        let edges: Vec<_> = oriented
             .iter()
-            .map(|oe| {
-                let from = oe.src_idx;
-                let to = oe.dst_idx;
-                pick_edge_sides(
-                    box_center(&geoms[from], top_lefts[from]),
-                    box_center(&geoms[to], top_lefts[to]),
-                    (top_lefts[from], top_lefts[from].add(geoms[from].size)),
-                    (top_lefts[to], top_lefts[to].add(geoms[to].size)),
-                    is_lr,
-                )
+            .map(|oe| RouteEdge {
+                src_idx: oe.src_idx,
+                dst_idx: oe.dst_idx,
+                has_label: oe.relation.label.is_some(),
+                label_size: None,
             })
             .collect();
-
-        // Pre-pass 2: nudge arrowheads off each other when sibling edges
-        // collide at the same anchor point on a destination face. We DO NOT
-        // redistribute by default — `smart_align_coord` already places
-        // anchors at geometrically meaningful coords (perpendicular-overlap
-        // overlaps that yield straight sibling-rank lines), and moving them
-        // turns previously-clean horizontals into S-bends.
-        //
-        // What we do: for each destination face with >=2 edges arriving,
-        // collect their natural anchor coords (smart-aligned or midpoint).
-        // If two or more land within COLLISION_EPS_PT of each other, keep
-        // the smart-aligned anchors in place and shove the un-aligned ones
-        // to fresh slots along the face. Source faces aren't redistributed
-        // since arrowheads sit at the destination — tails fanning out from
-        // a shared point don't pile visibly.
-        const COLLISION_EPS_PT: f64 = 4.0;
-        const MIN_SEPARATION_PT: f64 = 10.0;
-        const FACE_INSET_FRAC: f64 = 0.15;
-        use std::collections::BTreeMap;
-        let mut dst_face_groups: BTreeMap<(usize, Side), Vec<usize>> = BTreeMap::new();
-        for (i, oe) in oriented.iter().enumerate() {
-            let (_, ts) = edge_sides[i];
-            dst_face_groups.entry((oe.dst_idx, ts)).or_default().push(i);
-        }
-        let mut to_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
-
-        // Per-edge pre-computed default + smart-align coords for the
-        // destination face. Needed to decide collisions before we commit to
-        // any override.
-        let mut to_natural: Vec<f64> = Vec::with_capacity(oriented.len());
-        let mut to_aligned_flag: Vec<bool> = Vec::with_capacity(oriented.len());
-        for (i, oe) in oriented.iter().enumerate() {
-            let (from_side, to_side) = edge_sides[i];
-            let default_end = anchor_for_side(&geoms[oe.dst_idx], top_lefts[oe.dst_idx], to_side);
-            let aligned = smart_align_coord(
-                &geoms[oe.src_idx],
-                top_lefts[oe.src_idx],
-                &geoms[oe.dst_idx],
-                top_lefts[oe.dst_idx],
-                from_side,
-                to_side,
-            );
-            let face_horizontal = matches!(to_side, Side::Left | Side::Right);
-            let coord = match aligned {
-                Some(c) => c,
-                None => {
-                    if face_horizontal {
-                        default_end.y
-                    } else {
-                        default_end.x
-                    }
-                }
-            };
-            to_natural.push(coord);
-            to_aligned_flag.push(aligned.is_some());
-        }
-
-        for ((entity_idx, side), edges) in dst_face_groups.iter() {
-            if edges.len() < 2 {
-                continue;
-            }
-            let face_horizontal = matches!(side, Side::Left | Side::Right);
-            // Detect collision: any two natural coords within EPS?
-            let mut collided = false;
-            for i in 0..edges.len() {
-                for j in (i + 1)..edges.len() {
-                    if (to_natural[edges[i]] - to_natural[edges[j]]).abs() < COLLISION_EPS_PT {
-                        collided = true;
-                        break;
-                    }
-                }
-                if collided {
-                    break;
-                }
-            }
-            if !collided {
-                continue;
-            }
-            let bbox_min = top_lefts[*entity_idx];
-            let bbox_max = bbox_min.add(geoms[*entity_idx].size);
-            let (face_min, face_max) = if face_horizontal {
-                (bbox_min.y, bbox_max.y)
-            } else {
-                (bbox_min.x, bbox_max.x)
-            };
-            // Useable portion of the face — inset slightly from the bbox
-            // corners. For ellipse-shaped entities (usecase / cloud /
-            // database) the corners are far from the actual boundary, and
-            // even for rectangles distributing edges right up to the
-            // corner looks cramped.
-            let inset = (face_max - face_min) * FACE_INSET_FRAC;
-            let face_min_use = face_min + inset;
-            let face_max_use = face_max - inset;
-            // Split into "fixed" (smart-aligned) and "flexible" (midpoint).
-            let fixed: Vec<usize> = edges
-                .iter()
-                .copied()
-                .filter(|&i| to_aligned_flag[i])
-                .collect();
-            let flexible: Vec<usize> = edges
-                .iter()
-                .copied()
-                .filter(|&i| !to_aligned_flag[i])
-                .collect();
-            let reserved: Vec<f64> = fixed.iter().map(|&i| to_natural[i]).collect();
-            // For each flexible edge, place it where its source naturally
-            // wants to enter — but force MIN_SEPARATION_PT clearance from
-            // every reserved (smart-aligned) and already-chosen anchor.
-            // Without the minimum-separation guarantee, sibling arrows
-            // land within a few pt of each other and the heads still pile
-            // visibly.
-            let mut chosen: Vec<f64> = Vec::new();
-            for &edge_idx in flexible.iter() {
-                let src_center = box_center(
-                    &geoms[oriented[edge_idx].src_idx],
-                    top_lefts[oriented[edge_idx].src_idx],
-                );
-                let ideal_raw = if face_horizontal {
-                    src_center.y
-                } else {
-                    src_center.x
-                };
-                let ideal = ideal_raw.clamp(face_min_use, face_max_use);
-                let mut coord = ideal;
-                // One pass of snap-away from each conflict. For 1 fixed +
-                // few flexible (the common case), one pass is enough; the
-                // initial ideal already biases toward the source's side.
-                for &r in reserved.iter().chain(chosen.iter()) {
-                    if (coord - r).abs() < MIN_SEPARATION_PT {
-                        if ideal >= r {
-                            coord = (r + MIN_SEPARATION_PT).min(face_max_use);
-                        } else {
-                            coord = (r - MIN_SEPARATION_PT).max(face_min_use);
-                        }
-                    }
-                }
-                to_overrides[edge_idx] = Some(coord);
-                chosen.push(coord);
-            }
-            // Silence unused warnings on the COLLISION_EPS_PT const if no
-            // path uses it after this restructure. Currently still used by
-            // the slot-removal logic above the loop.
-            let _ = COLLISION_EPS_PT;
-        }
-        // No source-side redistribution.
-        let from_overrides: Vec<Option<f64>> = vec![None; oriented.len()];
-
-        // Two passes: the first resolves every edge's route (ortho routes
-        // stay as raw polylines, not yet rounded), then
-        // `ortho::separate_overlapping` (§3.5.2) fans apart parallel trunk
-        // segments across *all* routes at once — it needs every polyline
-        // up front, so it can't run inside the per-edge loop. The second
-        // pass rounds the (possibly now-separated) ortho polylines and
-        // emits every edge in original order.
-        enum PendingRoute {
-            Final(Vec<(Point, Point, Point)>),
-            Ortho(Vec<Point>),
-        }
-        struct PendingEdge<'a> {
-            oe: &'a OrientedEdge,
-            from_side: Side,
-            to_side: Side,
-            from_emit_override: Option<f64>,
-            to_emit_override: Option<f64>,
-            route: PendingRoute,
-        }
-        let mut pending: Vec<PendingEdge> = Vec::with_capacity(oriented.len());
-
-        for (edge_idx, oe) in oriented.iter().enumerate() {
-            let from = oe.src_idx;
-            let to = oe.dst_idx;
-            let (from_side, to_side) = edge_sides[edge_idx];
-            let mainly_vertical = matches!(from_side, Side::Top | Side::Bot);
-
-            let default_start = anchor_for_side(&geoms[from], top_lefts[from], from_side);
-            let default_end = anchor_for_side(&geoms[to], top_lefts[to], to_side);
-
-            // Smart alignment — when both ends are unconstrained AND on the
-            // same axis with overlapping perpendicular extents, place both
-            // anchors at the same coord inside the overlap. The distribution
-            // overrides take precedence: once we've assigned a sibling-spread
-            // coord to either end, smart-align is no longer applicable.
-            let aligned_coord =
-                if from_overrides[edge_idx].is_none() && to_overrides[edge_idx].is_none() {
-                    smart_align_coord(
-                        &geoms[from],
-                        top_lefts[from],
-                        &geoms[to],
-                        top_lefts[to],
-                        from_side,
-                        to_side,
-                    )
-                } else {
-                    None
-                };
-
-            let (mut from_emit_override, mut to_emit_override) =
-                (from_overrides[edge_idx], to_overrides[edge_idx]);
-            let (start, end) = if let Some(coord) = aligned_coord {
-                from_emit_override = Some(coord);
-                to_emit_override = Some(coord);
-                if mainly_vertical {
-                    (
-                        Point::new(coord, default_start.y),
-                        Point::new(coord, default_end.y),
-                    )
-                } else {
-                    (
-                        Point::new(default_start.x, coord),
-                        Point::new(default_end.x, coord),
-                    )
-                }
-            } else {
-                let start = match (from_overrides[edge_idx], from_side) {
-                    (Some(c), Side::Left | Side::Right) => Point::new(default_start.x, c),
-                    (Some(c), Side::Top | Side::Bot) => Point::new(c, default_start.y),
-                    (None, _) => default_start,
-                };
-                let end = match (to_overrides[edge_idx], to_side) {
-                    (Some(c), Side::Left | Side::Right) => Point::new(default_end.x, c),
-                    (Some(c), Side::Top | Side::Bot) => Point::new(c, default_end.y),
-                    (None, _) => default_end,
-                };
-                (start, end)
-            };
-
-            // Entity obstacles: every entity bbox except this edge's two
-            // endpoints. M3 ranks clusters via Sugiyama and tighten pulls
-            // them apart, so cross-cluster edges no longer need explicit
-            // cluster-bbox obstacles to detour — the rank ordering keeps
-            // the natural path from clipping through a sibling cluster.
-            // try_manhattan_route's detour-bend remains the safety net for
-            // residual obstacle-clipping cases.
-            let obstacles: Vec<pathplan::Box> = (0..diag.entities.len())
-                .filter(|i| *i != from && *i != to)
-                .map(|i| pathplan::Box::new(class_bboxes[i].0, class_bboxes[i].1))
-                .collect();
-            let route_opts = pathplan::RouteOpts {
-                obstacle_padding: ROUTE_PADDING_PT,
-                src_tangent: side_tangent(from_side),
-                dst_tangent: side_tangent(to_side).neg(),
-            };
-
-            // Lollipop / socket connectors (`--`, `-(`) are short curved
-            // stubs to a small disc approached from any angle, not
-            // rectangular-face-to-face architecture edges — forcing them
-            // through the axis-aligned router produces ugly hooked
-            // detours. Actor/use-case edges have the same problem (open
-            // question 7 in docs/cuca-architecture-layout-redesign.md):
-            // an ellipse or stick figure read poorly with orthogonal
-            // jogs. Keep both on the spline chain even in ortho mode.
-            let keeps_spline_shape = |i: usize| {
-                matches!(
-                    diag.entities[i].usymbol,
+        let constraints: Vec<_> = diag
+            .entities
+            .iter()
+            .map(|e| AnchorConstraints {
+                prefers_spline: matches!(
+                    e.usymbol,
                     USymbol::Interface
                         | USymbol::Port
                         | USymbol::PortIn
@@ -910,168 +561,41 @@ pub fn emit(
                         | USymbol::ActorHollow
                         | USymbol::UseCase
                         | USymbol::UseCaseBusiness
-                )
-            };
-            let edge_prefers_spline = keeps_spline_shape(from) || keeps_spline_shape(to);
-
-            // Orthogonal routing (§3.4): desc-flavor diagrams (or an
-            // explicit `skinparam linetype`) route through the grid + A*
-            // router instead of the spline chain below. Obstacles add
-            // every *foreign* package frame (§3.3) on top of the entity
-            // boxes, since the whole point of ortho mode is detouring
-            // around packages, not just entities. Falls through to the
-            // spline chain if the grid search fails (should only happen on
-            // a genuinely unroutable layout). The raw (unrounded) polyline
-            // is stashed for now — `separate_overlapping` (§3.5.2) needs
-            // every edge's polyline at once, so rounding happens in the
-            // second pass below.
-            let ortho_polyline: Option<Vec<Point>> =
-                if line_mode != LineMode::Spline && !edge_prefers_spline {
-                    let sp = cuca_spacing();
-                    let mut ortho_obstacles = obstacles.clone();
-                    ortho_obstacles.extend(foreign_frame_obstacles(
-                        diag,
-                        &container_bboxes,
-                        entity_container,
-                        from,
-                        to,
-                    ));
-                    let opts = ortho::RouteOpts {
-                        clearance: sp.edge_node,
-                        bend_penalty: 4.0 * sp.edge_node,
-                        stub_len: sp.edge_node,
-                    };
-                    ortho::route(
-                        start,
-                        ortho::Dir::from_tangent(side_tangent(from_side)),
-                        end,
-                        ortho::Dir::from_tangent(side_tangent(to_side).neg()),
-                        &ortho_obstacles,
-                        &opts,
-                    )
-                    .map(|pts| ortho::simplify(&pts, 1.0))
-                } else {
-                    None
-                };
-
-            // Routing priority (cuca-edge-routing-redesign.md §2.1),
-            // superseded by `ortho_polyline` when ortho mode is active:
-            //   1. Straight line of sight — single direct cubic bezier
-            //      from source anchor to dest anchor (PlantUML / dot
-            //      `splines=true` style). The control handles sit at 1/3
-            //      and 2/3 along the chord so the visible curve is a
-            //      straight line; decorated heads rotate to match.
-            //   2. Manhattan Z — for blocked diagonals, fall back to a
-            //      down-across-down (or right-along-right) right-angle route.
-            //   3. Pathplan bezier — for routes that need to detour around
-            //      multiple obstacles.
-            //   4. Forced straight cubic — last resort.
-            let line_of_sight =
-                ortho_polyline.is_none() && line_of_sight_clear(start, end, &obstacles);
-            let route = if let Some(pts) = ortho_polyline {
-                PendingRoute::Ortho(pts)
-            } else if line_of_sight {
-                PendingRoute::Final(vec![cubic_from_straight(start, end)])
-            } else if let Some(segs) = try_manhattan_route(start, end, &obstacles, mainly_vertical)
-            {
-                PendingRoute::Final(segs)
-            } else {
-                PendingRoute::Final(
-                    match pathplan::route_edge(start, end, &obstacles, route_opts) {
-                        Ok(cubics) => cubics
-                            .into_iter()
-                            .map(|c| c.into_painter_segment())
-                            .collect(),
-                        Err(_) => straight_fallback(start, end, EDGE_FORCE_MAX_PT),
-                    },
-                )
-            };
-
-            // For direct cubics, codegen owns the chord tangent — the head
-            // should rotate with it. Setting explicit anchor overrides
-            // signals the painter to skip the axis-snap that would
-            // otherwise force the head perpendicular to the destination
-            // face. Manhattan / pathplan / ortho routes keep midpoint
-            // anchors unless smart-align or distribution already set them,
-            // since their final segment is axis-aligned by construction.
-            if line_of_sight {
-                if from_emit_override.is_none() {
-                    from_emit_override = Some(match from_side {
-                        Side::Top | Side::Bot => start.x,
-                        Side::Left | Side::Right => start.y,
-                    });
-                }
-                if to_emit_override.is_none() {
-                    to_emit_override = Some(match to_side {
-                        Side::Top | Side::Bot => end.x,
-                        Side::Left | Side::Right => end.y,
-                    });
-                }
-            }
-
-            pending.push(PendingEdge {
-                oe,
-                from_side,
-                to_side,
-                from_emit_override,
-                to_emit_override,
-                route,
-            });
-        }
-
-        // Batch pass: fan apart parallel trunk segments across every
-        // ortho-routed edge, then round each polyline (post-separation)
-        // into the painter's cubic segment list, and emit every edge in
-        // its original order.
-        let mut ortho_indices: Vec<usize> = Vec::new();
-        let mut ortho_polylines: Vec<Vec<Point>> = Vec::new();
-        for (i, pe) in pending.iter().enumerate() {
-            if let PendingRoute::Ortho(pts) = &pe.route {
-                ortho_indices.push(i);
-                ortho_polylines.push(pts.clone());
-            }
-        }
-        if !ortho_polylines.is_empty() {
-            let sp = cuca_spacing();
-            ortho::separate_overlapping(&mut ortho_polylines, sp.ortho_min_gap);
-        }
-        let mut ortho_result_iter = ortho_indices.into_iter().zip(ortho_polylines);
-
-        let sp = cuca_spacing();
-        for pe in &pending {
-            let (segments, label_pos) = match &pe.route {
-                PendingRoute::Final(segs) => (segs.clone(), None),
-                PendingRoute::Ortho(_) => {
-                    let (_, separated) =
-                        ortho_result_iter.next().expect("one entry per ortho edge");
-                    let arc = if line_mode == LineMode::Polyline {
-                        0.0
-                    } else {
-                        sp.ortho_arc
-                    };
-                    // Longest-trunk midpoint (§3.8): the straight
-                    // start→end chord midpoint the painter uses by
-                    // default can land far from a bent orthogonal path,
-                    // so ortho edges carrying a label get an explicit
-                    // position instead. Only worth computing when there
-                    // actually is a label to place.
-                    let label_pos = pe
-                        .oe
-                        .relation
-                        .label
-                        .as_ref()
-                        .and_then(|_| ortho::longest_trunk_midpoint(&separated));
-                    (ortho::to_rounded_cubics(&separated, arc), label_pos)
-                }
-            };
+                ),
+                ..Default::default()
+            })
+            .collect();
+        let obstacles =
+            |from, to| foreign_frame_obstacles(diag, &container_bboxes, entity_container, from, to);
+        let routes = routing::route(
+            RoutingInput {
+                geoms: &geoms,
+                top_lefts: &top_lefts,
+                edges: &edges,
+                constraints: &constraints,
+                is_lr,
+                foreign_obstacles: &obstacles,
+            },
+            RoutingOptions {
+                mode: match line_mode {
+                    LineMode::Spline => RoutingMode::Spline,
+                    LineMode::Ortho => RoutingMode::Ortho,
+                    LineMode::Polyline => RoutingMode::Polyline,
+                },
+                spacing: cuca_spacing(),
+                exterior_self_loops: false,
+                labels: LabelPlacement::Trunk,
+            },
+        );
+        for (oe, route) in oriented.iter().zip(routes) {
             emit_edge(
                 out,
-                pe.oe,
-                &segments,
-                Some((pe.from_side, pe.to_side)),
-                pe.from_emit_override,
-                pe.to_emit_override,
-                label_pos,
+                oe,
+                &route.segments,
+                Some(route.sides),
+                route.from_override,
+                route.to_override,
+                route.label_pos,
             );
         }
     }
@@ -1290,6 +814,7 @@ mod tests {
             head_from: ArrowHead::None,
             head_to: ArrowHead::TriangleOpen,
             line_style: LineStyle::Solid,
+            line_weight: crate::ir::LineWeight::Normal,
             direction: None,
             label: None,
             mult_from: None,
@@ -1321,6 +846,7 @@ mod tests {
             head_from: ArrowHead::None,
             head_to: ArrowHead::ArrowOpen,
             line_style: LineStyle::Solid,
+            line_weight: crate::ir::LineWeight::Normal,
             direction: None,
             label: None,
             mult_from: None,
@@ -1399,6 +925,7 @@ mod tests {
             head_from: ArrowHead::None,
             head_to: ArrowHead::TriangleOpen,
             line_style: LineStyle::Solid,
+            line_weight: crate::ir::LineWeight::Normal,
             direction: Some(IrDirection::Up),
             label: None,
             mult_from: Some("S".into()),
@@ -1438,6 +965,7 @@ mod tests {
             head_from: ArrowHead::None,
             head_to: ArrowHead::ArrowOpen,
             line_style: LineStyle::Solid,
+            line_weight: crate::ir::LineWeight::Normal,
             direction: Some(IrDirection::Up),
             label: None,
             mult_from: None,
@@ -1474,6 +1002,7 @@ mod tests {
             head_from: ArrowHead::None,
             head_to: ArrowHead::ArrowOpen,
             line_style: LineStyle::Solid,
+            line_weight: crate::ir::LineWeight::Normal,
             direction: Some(IrDirection::Left),
             label: None,
             mult_from: None,

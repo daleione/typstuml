@@ -1,0 +1,2915 @@
+{
+ "meta": {
+  "input": "examples/content-publishing.puml",
+  "diagramType": "uml",
+  "diagramContext": "deployment"
+ },
+ "model": {
+  "diagramType": "uml",
+  "nodes": [
+   {
+    "id": "AI",
+    "type": "class",
+    "label": "AI 生成",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">AI 生成</span>"
+   },
+   {
+    "id": "FE",
+    "type": "class",
+    "label": "图文编辑器",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">图文编辑器</span>"
+   },
+   {
+    "id": "RENDER",
+    "type": "class",
+    "label": "模版渲染\nmarkdown → 图片 + 源码",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">模版渲染<br>markdown → 图片 + 源码</span>"
+   },
+   {
+    "id": "COMPILE",
+    "type": "class",
+    "label": "源码编译模式\n（校验）",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">源码编译模式<br>（校验）</span>"
+   },
+   {
+    "id": "TPL",
+    "type": "class",
+    "label": "模版库\n模版ID ⇔ layoutID（一对一）",
+    "stereotype": "database",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">模版库<br>模版ID ⇔ layoutID（一对一）</span>"
+   },
+   {
+    "id": "PW",
+    "type": "class",
+    "label": "Publish Work",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">Publish Work</span>"
+   },
+   {
+    "id": "EDIT",
+    "type": "class",
+    "label": "源码修改服务",
+    "stereotype": "component",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">源码修改服务</span>"
+   },
+   {
+    "id": "USER",
+    "type": "usecase_actor",
+    "label": "用户",
+    "stereotype": "actor",
+    "stereotypeLabel": "",
+    "bodyLines": [],
+    "style": null,
+    "labelHtml": "<span style=\"color:#181818;\">用户</span>"
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "type": "association",
+    "from": "AI",
+    "to": "FE",
+    "label": "生成 markdown",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">生成 markdown</span>"
+   },
+   {
+    "id": "e2",
+    "type": "association",
+    "from": "FE",
+    "to": "RENDER",
+    "label": "markdown + 模版ID + layoutID",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">markdown + 模版ID + layoutID</span>"
+   },
+   {
+    "id": "e3",
+    "type": "dependency",
+    "from": "RENDER",
+    "to": "TPL",
+    "label": "按 ID 取模版",
+    "arrow": "..>",
+    "arrowMeta": {
+     "token": "..>",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "..",
+     "lineStyle": "dashed",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">按 ID 取模版</span>"
+   },
+   {
+    "id": "e4",
+    "type": "association",
+    "from": "RENDER",
+    "to": "FE",
+    "label": "图片 + typst 源码",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">图片 + typst 源码</span>"
+   },
+   {
+    "id": "e5",
+    "type": "association",
+    "from": "FE",
+    "to": "PW",
+    "label": "typst 源码（保存 publish work）",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">typst 源码（保存 publish work）</span>"
+   },
+   {
+    "id": "e6",
+    "type": "association",
+    "from": "USER",
+    "to": "EDIT",
+    "label": "修改 typst 源码",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">修改 typst 源码</span>"
+   },
+   {
+    "id": "e7",
+    "type": "association",
+    "from": "EDIT",
+    "to": "PW",
+    "label": "更新源码",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">更新源码</span>"
+   },
+   {
+    "id": "e8",
+    "type": "association",
+    "from": "EDIT",
+    "to": "COMPILE",
+    "label": "源码编译校验",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">源码编译校验</span>"
+   },
+   {
+    "id": "e9",
+    "type": "association",
+    "from": "COMPILE",
+    "to": "FE",
+    "label": "生成图片展示",
+    "arrow": "-->",
+    "arrowMeta": {
+     "token": "-->",
+     "startHead": "",
+     "endHead": ">",
+     "startHeadToken": "",
+     "endHeadToken": ">",
+     "bodyToken": "--",
+     "lineStyle": "solid",
+     "color": null,
+     "middleShape": null,
+     "direction": null,
+     "structured": true
+    },
+    "style": null,
+    "direction": null,
+    "length": 2,
+    "labelHtml": "<span style=\"color:#181818;\">生成图片展示</span>"
+   }
+  ],
+  "notes": [],
+  "groups": [
+   {
+    "id": "group_1",
+    "label": "前端",
+    "type": "package",
+    "children": [
+     "FE"
+    ],
+    "childGroups": [],
+    "labelHtml": "<span style=\"color:#181818;\">前端</span>"
+   },
+   {
+    "id": "group_2",
+    "label": "Typst 服务",
+    "type": "package",
+    "children": [
+     "RENDER",
+     "COMPILE",
+     "TPL"
+    ],
+    "childGroups": [],
+    "labelHtml": "<span style=\"color:#181818;\">Typst 服务</span>"
+   },
+   {
+    "id": "group_3",
+    "label": "算法端",
+    "type": "package",
+    "children": [
+     "PW",
+     "EDIT"
+    ],
+    "childGroups": [],
+    "labelHtml": "<span style=\"color:#181818;\">算法端</span>"
+   }
+  ],
+  "errors": [],
+  "rankdir": "TB",
+  "title": "小红书图文链路（markdown → Typst → publish work）",
+  "titleHtml": "<span style=\"color:#181818;\">小红书图文链路（markdown → Typst → publish work）</span>",
+  "diagramContext": "deployment"
+ },
+ "pass1Input": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.compaction.postCompaction.strategy": "LEFT",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "AI",
+    "width": 60,
+    "height": 49
+   },
+   {
+    "id": "USER",
+    "width": 30,
+    "height": 40,
+    "labels": [
+     {
+      "text": "用户",
+      "width": 44,
+      "height": 25,
+      "layoutOptions": {
+       "elk.nodeLabels.placement": "OUTSIDE V_BOTTOM H_CENTER"
+      }
+     }
+    ]
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 80,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    }
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "RENDER",
+      "width": 150,
+      "height": 63
+     },
+     {
+      "id": "COMPILE",
+      "width": 92,
+      "height": 63
+     },
+     {
+      "id": "TPL",
+      "width": 175,
+      "height": 54.666666666666664
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e3",
+      "sources": [
+       "RENDER"
+      ],
+      "targets": [
+       "TPL"
+      ],
+      "labels": [
+       {
+        "text": "按 ID 取模版",
+        "width": 67,
+        "height": 14,
+        "placement": "center"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "PW",
+      "width": 93,
+      "height": 49
+     },
+     {
+      "id": "EDIT",
+      "width": 92,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "EDIT"
+      ],
+      "targets": [
+       "PW"
+      ],
+      "labels": [
+       {
+        "text": "更新源码",
+        "width": 48,
+        "height": 14,
+        "placement": "center"
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "sources": [
+     "AI"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成 markdown",
+      "width": 83,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "RENDER"
+    ],
+    "labels": [
+     {
+      "text": "markdown + 模版ID + layoutID",
+      "width": 163,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "RENDER"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "图片 + typst 源码",
+      "width": 94,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "PW"
+    ],
+    "labels": [
+     {
+      "text": "typst 源码（保存 publish work）",
+      "width": 175,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "USER"
+    ],
+    "targets": [
+     "EDIT"
+    ],
+    "labels": [
+     {
+      "text": "修改 typst 源码",
+      "width": 84,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "COMPILE"
+    ],
+    "labels": [
+     {
+      "text": "源码编译校验",
+      "width": 72,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "COMPILE"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成图片展示",
+      "width": 72,
+      "height": 14,
+      "placement": "center"
+     }
+    ]
+   }
+  ]
+ },
+ "pass1Output": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.compaction.postCompaction.strategy": "LEFT",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "AI",
+    "width": 60,
+    "height": 49,
+    "$H": 277,
+    "x": 285,
+    "y": 12
+   },
+   {
+    "id": "USER",
+    "width": 30,
+    "height": 40,
+    "labels": [
+     {
+      "text": "用户",
+      "width": 44,
+      "height": 25,
+      "layoutOptions": {
+       "elk.nodeLabels.placement": "OUTSIDE V_BOTTOM H_CENTER"
+      },
+      "x": -7,
+      "y": 45
+     }
+    ],
+    "$H": 279,
+    "x": 118.66666666666666,
+    "y": 12
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 80,
+      "height": 49,
+      "$H": 285,
+      "x": 30,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "$H": 283,
+    "x": 265,
+    "y": 160,
+    "width": 140,
+    "height": 129
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "RENDER",
+      "width": 150,
+      "height": 63,
+      "$H": 289,
+      "x": 142,
+      "y": 50
+     },
+     {
+      "id": "COMPILE",
+      "width": 92,
+      "height": 63,
+      "$H": 291,
+      "x": 30,
+      "y": 50
+     },
+     {
+      "id": "TPL",
+      "width": 175,
+      "height": 54.666666666666664,
+      "$H": 293,
+      "x": 104.5,
+      "y": 167
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e3",
+      "sources": [
+       "RENDER"
+      ],
+      "targets": [
+       "TPL"
+      ],
+      "labels": [
+       {
+        "text": "按 ID 取模版",
+        "width": 67,
+        "height": 14,
+        "placement": "center",
+        "x": 123,
+        "y": 133
+       }
+      ],
+      "sections": [
+       {
+        "id": "e3_s0",
+        "startPoint": {
+         "x": 192,
+         "y": 113
+        },
+        "endPoint": {
+         "x": 192,
+         "y": 167
+        },
+        "incomingShape": "RENDER",
+        "outgoingShape": "TPL"
+       }
+      ],
+      "container": "group_2"
+     }
+    ],
+    "$H": 287,
+    "x": 12,
+    "y": 729,
+    "width": 322,
+    "height": 251.66666666666666
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "PW",
+      "width": 93,
+      "height": 49,
+      "$H": 297,
+      "x": 70,
+      "y": 153
+     },
+     {
+      "id": "EDIT",
+      "width": 92,
+      "height": 49,
+      "$H": 299,
+      "x": 30,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "EDIT"
+      ],
+      "targets": [
+       "PW"
+      ],
+      "labels": [
+       {
+        "text": "更新源码",
+        "width": 48,
+        "height": 14,
+        "placement": "center",
+        "x": 41.333333333333336,
+        "y": 119
+       }
+      ],
+      "sections": [
+       {
+        "id": "e7_s0",
+        "startPoint": {
+         "x": 91.33333333333334,
+         "y": 99
+        },
+        "endPoint": {
+         "x": 101,
+         "y": 153
+        },
+        "bendPoints": [
+         {
+          "x": 91.33333333333334,
+          "y": 143
+         },
+         {
+          "x": 101,
+          "y": 143
+         }
+        ],
+        "incomingShape": "EDIT",
+        "outgoingShape": "PW"
+       }
+      ],
+      "container": "group_3"
+     }
+    ],
+    "$H": 295,
+    "x": 57.66666666666666,
+    "y": 393,
+    "width": 193,
+    "height": 232
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "sources": [
+     "AI"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成 markdown",
+      "width": 83,
+      "height": 14,
+      "placement": "center",
+      "x": 230,
+      "y": 101
+     }
+    ],
+    "sections": [
+     {
+      "id": "e1_s0",
+      "startPoint": {
+       "x": 315,
+       "y": 61
+      },
+      "endPoint": {
+       "x": 315,
+       "y": 210
+      },
+      "incomingShape": "AI",
+      "outgoingShape": "FE"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "RENDER"
+    ],
+    "labels": [
+     {
+      "text": "markdown + 模版ID + layoutID",
+      "width": 163,
+      "height": 14,
+      "placement": "center",
+      "x": 260.66666666666663,
+      "y": 388
+     }
+    ],
+    "sections": [
+     {
+      "id": "e2_s0",
+      "startPoint": {
+       "x": 348.3333333333333,
+       "y": 259
+      },
+      "endPoint": {
+       "x": 229,
+       "y": 779
+      },
+      "bendPoints": [
+       {
+        "x": 348.3333333333333,
+        "y": 314
+       },
+       {
+        "x": 425.66666666666663,
+        "y": 314
+       },
+       {
+        "x": 425.66666666666663,
+        "y": 650
+       },
+       {
+        "x": 229,
+        "y": 650
+       }
+      ],
+      "incomingShape": "FE",
+      "outgoingShape": "RENDER"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "RENDER"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "图片 + typst 源码",
+      "width": 94,
+      "height": 14,
+      "placement": "center",
+      "x": 436.66666666666663,
+      "y": 111
+     }
+    ],
+    "sections": [
+     {
+      "id": "e4_s0",
+      "startPoint": {
+       "x": 254,
+       "y": 842
+      },
+      "endPoint": {
+       "x": 355,
+       "y": 210
+      },
+      "bendPoints": [
+       {
+        "x": 254,
+        "y": 852
+       },
+       {
+        "x": 301.5,
+        "y": 852
+       },
+       {
+        "x": 301.5,
+        "y": 1005.6666666666666
+       },
+       {
+        "x": 532.6666666666666,
+        "y": 1005.6666666666666
+       },
+       {
+        "x": 532.6666666666666,
+        "y": 91
+       },
+       {
+        "x": 355,
+        "y": 91
+       }
+      ],
+      "incomingShape": "RENDER",
+      "outgoingShape": "FE"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "PW"
+    ],
+    "labels": [
+     {
+      "text": "typst 源码（保存 publish work）",
+      "width": 175,
+      "height": 14,
+      "placement": "center",
+      "x": 144.66666666666666,
+      "y": 334
+     }
+    ],
+    "sections": [
+     {
+      "id": "e5_s0",
+      "startPoint": {
+       "x": 321.6666666666667,
+       "y": 259
+      },
+      "endPoint": {
+       "x": 189.66666666666669,
+       "y": 546
+      },
+      "bendPoints": [
+       {
+        "x": 321.66666666666663,
+        "y": 368
+       },
+       {
+        "x": 189.66666666666666,
+        "y": 368
+       }
+      ],
+      "incomingShape": "FE",
+      "outgoingShape": "PW"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "USER"
+    ],
+    "targets": [
+     "EDIT"
+    ],
+    "labels": [
+     {
+      "text": "修改 typst 源码",
+      "width": 84,
+      "height": 14,
+      "placement": "center",
+      "x": 47.66666666666666,
+      "y": 122
+     }
+    ],
+    "sections": [
+     {
+      "id": "e6_s0",
+      "startPoint": {
+       "x": 133.66666666666666,
+       "y": 52
+      },
+      "endPoint": {
+       "x": 133.66666666666666,
+       "y": 443
+      },
+      "incomingShape": "USER",
+      "outgoingShape": "EDIT"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "COMPILE"
+    ],
+    "labels": [
+     {
+      "text": "源码编译校验",
+      "width": 72,
+      "height": 14,
+      "placement": "center",
+      "x": 14,
+      "y": 670
+     }
+    ],
+    "sections": [
+     {
+      "id": "e8_s0",
+      "startPoint": {
+       "x": 118.33333333333333,
+       "y": 492
+      },
+      "endPoint": {
+       "x": 88,
+       "y": 779
+      },
+      "bendPoints": [
+       {
+        "x": 118.33333333333333,
+        "y": 502
+       },
+       {
+        "x": 88,
+        "y": 502
+       }
+      ],
+      "incomingShape": "EDIT",
+      "outgoingShape": "COMPILE"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "COMPILE"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成图片展示",
+      "width": 72,
+      "height": 14,
+      "placement": "center",
+      "x": 543.6666666666666,
+      "y": 101
+     }
+    ],
+    "sections": [
+     {
+      "id": "e9_s0",
+      "startPoint": {
+       "x": 88,
+       "y": 842
+      },
+      "endPoint": {
+       "x": 335,
+       "y": 210
+      },
+      "bendPoints": [
+       {
+        "x": 88,
+        "y": 1015.6666666666666
+       },
+       {
+        "x": 617.6666666666666,
+        "y": 1015.6666666666666
+       },
+       {
+        "x": 617.6666666666666,
+        "y": 81
+       },
+       {
+        "x": 335,
+        "y": 81
+       }
+      ],
+      "incomingShape": "COMPILE",
+      "outgoingShape": "FE"
+     }
+    ],
+    "container": "root"
+   }
+  ],
+  "$H": 13,
+  "x": 0,
+  "y": 0,
+  "width": 630.6666666666666,
+  "height": 1027.6666666666665
+ },
+ "pass2Input": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.spacing.edgeLabel": "5",
+   "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+   "elk.contentAlignment": "H_CENTER V_CENTER",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.highDegreeNodes.treatment": "true",
+   "elk.layered.highDegreeNodes.threshold": "8",
+   "elk.layered.mergeEdges": "false",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "AI",
+    "width": 60,
+    "height": 49
+   },
+   {
+    "id": "USER",
+    "width": 30,
+    "height": 40,
+    "labels": [
+     {
+      "text": "用户",
+      "width": 44,
+      "height": 25,
+      "layoutOptions": {
+       "elk.nodeLabels.placement": "OUTSIDE V_BOTTOM H_CENTER"
+      }
+     }
+    ]
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 80,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    }
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "RENDER",
+      "width": 150,
+      "height": 63
+     },
+     {
+      "id": "COMPILE",
+      "width": 92,
+      "height": 63
+     },
+     {
+      "id": "TPL",
+      "width": 175,
+      "height": 54.666666666666664
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e3",
+      "sources": [
+       "RENDER"
+      ],
+      "targets": [
+       "TPL"
+      ],
+      "labels": [
+       {
+        "text": "按 ID 取模版",
+        "width": 67,
+        "height": 14,
+        "placement": "center"
+       }
+      ],
+      "layoutOptions": {
+       "org.eclipse.elk.edgeLabels.inline": "true"
+      }
+     }
+    ]
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "PW",
+      "width": 93,
+      "height": 49
+     },
+     {
+      "id": "EDIT",
+      "width": 92,
+      "height": 49
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "EDIT"
+      ],
+      "targets": [
+       "PW"
+      ],
+      "labels": [
+       {
+        "text": "更新源码",
+        "width": 48,
+        "height": 14,
+        "placement": "center"
+       }
+      ],
+      "layoutOptions": {
+       "org.eclipse.elk.edgeLabels.inline": "true"
+      }
+     }
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "sources": [
+     "AI"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成 markdown",
+      "width": 83,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "RENDER"
+    ],
+    "labels": [
+     {
+      "text": "markdown + 模版ID + layoutID",
+      "width": 163,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "RENDER"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "图片 + typst 源码",
+      "width": 94,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "PW"
+    ],
+    "labels": [
+     {
+      "text": "typst 源码（保存 publish work）",
+      "width": 175,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "USER"
+    ],
+    "targets": [
+     "EDIT"
+    ],
+    "labels": [
+     {
+      "text": "修改 typst 源码",
+      "width": 84,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "COMPILE"
+    ],
+    "labels": [
+     {
+      "text": "源码编译校验",
+      "width": 72,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "COMPILE"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成图片展示",
+      "width": 72,
+      "height": 14,
+      "placement": "center"
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    }
+   }
+  ]
+ },
+ "pass2Output": {
+  "id": "root",
+  "layoutOptions": {
+   "elk.algorithm": "layered",
+   "elk.direction": "DOWN",
+   "elk.edgeRouting": "ORTHOGONAL",
+   "elk.spacing.nodeNode": "10",
+   "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+   "elk.spacing.edgeNode": "20",
+   "elk.spacing.edgeEdge": "10",
+   "elk.spacing.nodeSelfLoop": "20",
+   "elk.spacing.componentComponent": "20",
+   "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+   "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+   "elk.spacing.edgeLabel": "5",
+   "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
+   "elk.contentAlignment": "H_CENTER V_CENTER",
+   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+   "elk.layered.highDegreeNodes.treatment": "true",
+   "elk.layered.highDegreeNodes.threshold": "8",
+   "elk.layered.mergeEdges": "false",
+   "elk.hierarchyHandling": "INCLUDE_CHILDREN"
+  },
+  "children": [
+   {
+    "id": "AI",
+    "width": 60,
+    "height": 49,
+    "$H": 638,
+    "x": 361.5,
+    "y": 12
+   },
+   {
+    "id": "USER",
+    "width": 30,
+    "height": 40,
+    "labels": [
+     {
+      "text": "用户",
+      "width": 44,
+      "height": 25,
+      "layoutOptions": {
+       "elk.nodeLabels.placement": "OUTSIDE V_BOTTOM H_CENTER"
+      },
+      "x": -7,
+      "y": 45
+     }
+    ],
+    "$H": 640,
+    "x": 86,
+    "y": 234
+   },
+   {
+    "id": "group_1",
+    "children": [
+     {
+      "id": "FE",
+      "width": 80,
+      "height": 49,
+      "$H": 645,
+      "x": 30,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "$H": 643,
+    "x": 341.5,
+    "y": 170,
+    "width": 140,
+    "height": 129
+   },
+   {
+    "id": "group_2",
+    "children": [
+     {
+      "id": "RENDER",
+      "width": 150,
+      "height": 63,
+      "$H": 649,
+      "x": 142,
+      "y": 50
+     },
+     {
+      "id": "COMPILE",
+      "width": 92,
+      "height": 63,
+      "$H": 651,
+      "x": 30,
+      "y": 50
+     },
+     {
+      "id": "TPL",
+      "width": 175,
+      "height": 54.666666666666664,
+      "$H": 653,
+      "x": 104.5,
+      "y": 207
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e3",
+      "sources": [
+       "RENDER"
+      ],
+      "targets": [
+       "TPL"
+      ],
+      "labels": [
+       {
+        "text": "按 ID 取模版",
+        "width": 67,
+        "height": 14,
+        "placement": "center",
+        "x": 123,
+        "y": 153
+       }
+      ],
+      "layoutOptions": {
+       "org.eclipse.elk.edgeLabels.inline": "true"
+      },
+      "sections": [
+       {
+        "id": "e3_s0",
+        "startPoint": {
+         "x": 192,
+         "y": 113
+        },
+        "endPoint": {
+         "x": 192,
+         "y": 207
+        },
+        "incomingShape": "RENDER",
+        "outgoingShape": "TPL"
+       }
+      ],
+      "container": "group_2"
+     }
+    ],
+    "$H": 647,
+    "x": 141.66666666666669,
+    "y": 779,
+    "width": 330.5,
+    "height": 291.66666666666663
+   },
+   {
+    "id": "group_3",
+    "children": [
+     {
+      "id": "PW",
+      "width": 93,
+      "height": 49,
+      "$H": 657,
+      "x": 89.66666666666666,
+      "y": 193
+     },
+     {
+      "id": "EDIT",
+      "width": 92,
+      "height": 49,
+      "$H": 659,
+      "x": 39.66666666666666,
+      "y": 50
+     }
+    ],
+    "layoutOptions": {
+     "elk.padding": "[top=50,left=30,bottom=30,right=30]",
+     "elk.spacing.nodeNode": "20",
+     "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+     "elk.spacing.edgeNode": "20",
+     "elk.spacing.edgeEdge": "10",
+     "elk.spacing.nodeSelfLoop": "20",
+     "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
+     "elk.layered.spacing.edgeNodeBetweenLayers": "20"
+    },
+    "edges": [
+     {
+      "id": "e7",
+      "sources": [
+       "EDIT"
+      ],
+      "targets": [
+       "PW"
+      ],
+      "labels": [
+       {
+        "text": "更新源码",
+        "width": 48,
+        "height": 14,
+        "placement": "center",
+        "x": 50.99999999999999,
+        "y": 139
+       }
+      ],
+      "layoutOptions": {
+       "org.eclipse.elk.edgeLabels.inline": "true"
+      },
+      "sections": [
+       {
+        "id": "e7_s0",
+        "startPoint": {
+         "x": 101,
+         "y": 99
+        },
+        "endPoint": {
+         "x": 120.66666666666666,
+         "y": 193
+        },
+        "bendPoints": [
+         {
+          "x": 101,
+          "y": 173
+         },
+         {
+          "x": 120.66666666666666,
+          "y": 173
+         }
+        ],
+        "incomingShape": "EDIT",
+        "outgoingShape": "PW"
+       }
+      ],
+      "container": "group_3"
+     }
+    ],
+    "$H": 655,
+    "x": 77.83333333333336,
+    "y": 403,
+    "width": 212.66666666666666,
+    "height": 272
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "sources": [
+     "AI"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成 markdown",
+      "width": 83,
+      "height": 14,
+      "placement": "center",
+      "x": 303.5,
+      "y": 101
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e1_s0",
+      "startPoint": {
+       "x": 391.5,
+       "y": 61
+      },
+      "endPoint": {
+       "x": 391.5,
+       "y": 220
+      },
+      "incomingShape": "AI",
+      "outgoingShape": "FE"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e2",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "RENDER"
+    ],
+    "labels": [
+     {
+      "text": "markdown + 模版ID + layoutID",
+      "width": 163,
+      "height": 14,
+      "placement": "center",
+      "x": 300.5,
+      "y": 532
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e2_s0",
+      "startPoint": {
+       "x": 424.8333333333333,
+       "y": 269
+      },
+      "endPoint": {
+       "x": 358.6666666666667,
+       "y": 829
+      },
+      "bendPoints": [
+       {
+        "x": 424.83333333333337,
+        "y": 324
+       },
+       {
+        "x": 468.5,
+        "y": 324
+       },
+       {
+        "x": 468.5,
+        "y": 754
+       },
+       {
+        "x": 358.6666666666667,
+        "y": 754
+       }
+      ],
+      "incomingShape": "FE",
+      "outgoingShape": "RENDER"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e4",
+    "sources": [
+     "RENDER"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "图片 + typst 源码",
+      "width": 94,
+      "height": 14,
+      "placement": "center",
+      "x": 491.25,
+      "y": 532
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e4_s0",
+      "startPoint": {
+       "x": 383.6666666666667,
+       "y": 892
+      },
+      "endPoint": {
+       "x": 431.5,
+       "y": 220
+      },
+      "bendPoints": [
+       {
+        "x": 383.6666666666667,
+        "y": 912
+       },
+       {
+        "x": 441.1666666666667,
+        "y": 912
+       },
+       {
+        "x": 441.1666666666667,
+        "y": 1095.6666666666665
+       },
+       {
+        "x": 590.25,
+        "y": 1095.6666666666665
+       },
+       {
+        "x": 590.25,
+        "y": 145
+       },
+       {
+        "x": 431.5,
+        "y": 145
+       }
+      ],
+      "incomingShape": "RENDER",
+      "outgoingShape": "FE"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e5",
+    "sources": [
+     "FE"
+    ],
+    "targets": [
+     "PW"
+    ],
+    "labels": [
+     {
+      "text": "typst 源码（保存 publish work）",
+      "width": 175,
+      "height": 14,
+      "placement": "center",
+      "x": 112,
+      "y": 344
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e5_s0",
+      "startPoint": {
+       "x": 398.1666666666667,
+       "y": 269
+      },
+      "endPoint": {
+       "x": 229.5,
+       "y": 596
+      },
+      "bendPoints": [
+       {
+        "x": 398.1666666666667,
+        "y": 324
+       },
+       {
+        "x": 292,
+        "y": 324
+       },
+       {
+        "x": 292,
+        "y": 378
+       },
+       {
+        "x": 229.50000000000003,
+        "y": 378
+       }
+      ],
+      "incomingShape": "FE",
+      "outgoingShape": "PW"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e6",
+    "sources": [
+     "USER"
+    ],
+    "targets": [
+     "EDIT"
+    ],
+    "labels": [
+     {
+      "text": "修改 typst 源码",
+      "width": 84,
+      "height": 14,
+      "placement": "center",
+      "x": 12,
+      "y": 344
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e6_s0",
+      "startPoint": {
+       "x": 101,
+       "y": 274
+      },
+      "endPoint": {
+       "x": 163.5,
+       "y": 453
+      },
+      "bendPoints": [
+       {
+        "x": 101,
+        "y": 378
+       },
+       {
+        "x": 163.5,
+        "y": 378
+       }
+      ],
+      "incomingShape": "USER",
+      "outgoingShape": "EDIT"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e8",
+    "sources": [
+     "EDIT"
+    ],
+    "targets": [
+     "COMPILE"
+    ],
+    "labels": [
+     {
+      "text": "源码编译校验",
+      "width": 72,
+      "height": 14,
+      "placement": "center",
+      "x": 30.833333333333314,
+      "y": 720
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e8_s0",
+      "startPoint": {
+       "x": 148.16666666666666,
+       "y": 502
+      },
+      "endPoint": {
+       "x": 217.66666666666669,
+       "y": 829
+      },
+      "bendPoints": [
+       {
+        "x": 148.16666666666666,
+        "y": 522
+       },
+       {
+        "x": 107.83333333333334,
+        "y": 522
+       },
+       {
+        "x": 107.83333333333333,
+        "y": 754
+       },
+       {
+        "x": 217.66666666666663,
+        "y": 754
+       }
+      ],
+      "incomingShape": "EDIT",
+      "outgoingShape": "COMPILE"
+     }
+    ],
+    "container": "root"
+   },
+   {
+    "id": "e9",
+    "sources": [
+     "COMPILE"
+    ],
+    "targets": [
+     "FE"
+    ],
+    "labels": [
+     {
+      "text": "生成图片展示",
+      "width": 72,
+      "height": 14,
+      "placement": "center",
+      "x": 601.25,
+      "y": 532
+     }
+    ],
+    "layoutOptions": {
+     "org.eclipse.elk.edgeLabels.inline": "true"
+    },
+    "sections": [
+     {
+      "id": "e9_s0",
+      "startPoint": {
+       "x": 217.66666666666669,
+       "y": 892
+      },
+      "endPoint": {
+       "x": 411.5,
+       "y": 220
+      },
+      "bendPoints": [
+       {
+        "x": 217.66666666666669,
+        "y": 1105.6666666666665
+       },
+       {
+        "x": 678.25,
+        "y": 1105.6666666666665
+       },
+       {
+        "x": 678.25,
+        "y": 135
+       },
+       {
+        "x": 411.5,
+        "y": 135
+       }
+      ],
+      "incomingShape": "COMPILE",
+      "outgoingShape": "FE"
+     }
+    ],
+    "container": "root"
+   }
+  ],
+  "$H": 636,
+  "x": 0,
+  "y": 0,
+  "width": 691.25,
+  "height": 1117.6666666666665
+ },
+ "extracted": {
+  "nodes": {
+   "AI": {
+    "id": "AI",
+    "x": 361.5,
+    "y": 12,
+    "width": 60,
+    "height": 49
+   },
+   "USER": {
+    "id": "USER",
+    "x": 79,
+    "y": 234,
+    "width": 44,
+    "height": 65,
+    "xlabelPos": {
+     "x": 101,
+     "y": 291.5
+    }
+   },
+   "FE": {
+    "id": "FE",
+    "x": 371.5,
+    "y": 220,
+    "width": 80,
+    "height": 49
+   },
+   "RENDER": {
+    "id": "RENDER",
+    "x": 283.6666666666667,
+    "y": 829,
+    "width": 150,
+    "height": 63
+   },
+   "COMPILE": {
+    "id": "COMPILE",
+    "x": 171.66666666666669,
+    "y": 829,
+    "width": 92,
+    "height": 63
+   },
+   "TPL": {
+    "id": "TPL",
+    "x": 246.16666666666669,
+    "y": 986,
+    "width": 175,
+    "height": 54.666666666666664
+   },
+   "PW": {
+    "id": "PW",
+    "x": 167.5,
+    "y": 596,
+    "width": 93,
+    "height": 49
+   },
+   "EDIT": {
+    "id": "EDIT",
+    "x": 117.50000000000001,
+    "y": 453,
+    "width": 92,
+    "height": 49
+   }
+  },
+  "edges": [
+   {
+    "id": "e1",
+    "from": "AI",
+    "to": "FE",
+    "points": [
+     {
+      "x": 391.5,
+      "y": 61
+     },
+     {
+      "x": 391.5,
+      "y": 220
+     }
+    ],
+    "labelPos": {
+     "x": 345,
+     "y": 108
+    },
+    "labelSize": {
+     "width": 83,
+     "height": 14
+    }
+   },
+   {
+    "id": "e2",
+    "from": "FE",
+    "to": "RENDER",
+    "points": [
+     {
+      "x": 424.8333333333333,
+      "y": 269
+     },
+     {
+      "x": 424.83333333333337,
+      "y": 324
+     },
+     {
+      "x": 468.5,
+      "y": 324
+     },
+     {
+      "x": 468.5,
+      "y": 754
+     },
+     {
+      "x": 358.6666666666667,
+      "y": 754
+     },
+     {
+      "x": 358.6666666666667,
+      "y": 829
+     }
+    ],
+    "labelPos": {
+     "x": 382,
+     "y": 539
+    },
+    "labelSize": {
+     "width": 163,
+     "height": 14
+    }
+   },
+   {
+    "id": "e4",
+    "from": "RENDER",
+    "to": "FE",
+    "points": [
+     {
+      "x": 383.6666666666667,
+      "y": 892
+     },
+     {
+      "x": 383.6666666666667,
+      "y": 912
+     },
+     {
+      "x": 441.1666666666667,
+      "y": 912
+     },
+     {
+      "x": 441.1666666666667,
+      "y": 1095.6666666666665
+     },
+     {
+      "x": 590.25,
+      "y": 1095.6666666666665
+     },
+     {
+      "x": 590.25,
+      "y": 145
+     },
+     {
+      "x": 431.5,
+      "y": 145
+     },
+     {
+      "x": 431.5,
+      "y": 220
+     }
+    ],
+    "labelPos": {
+     "x": 538.25,
+     "y": 539
+    },
+    "labelSize": {
+     "width": 94,
+     "height": 14
+    }
+   },
+   {
+    "id": "e5",
+    "from": "FE",
+    "to": "PW",
+    "points": [
+     {
+      "x": 398.1666666666667,
+      "y": 269
+     },
+     {
+      "x": 398.1666666666667,
+      "y": 324
+     },
+     {
+      "x": 292,
+      "y": 324
+     },
+     {
+      "x": 292,
+      "y": 378
+     },
+     {
+      "x": 229.50000000000003,
+      "y": 378
+     },
+     {
+      "x": 229.5,
+      "y": 596
+     }
+    ],
+    "labelPos": {
+     "x": 199.5,
+     "y": 351
+    },
+    "labelSize": {
+     "width": 175,
+     "height": 14
+    }
+   },
+   {
+    "id": "e6",
+    "from": "USER",
+    "to": "EDIT",
+    "points": [
+     {
+      "x": 101,
+      "y": 274
+     },
+     {
+      "x": 101,
+      "y": 378
+     },
+     {
+      "x": 163.5,
+      "y": 378
+     },
+     {
+      "x": 163.5,
+      "y": 453
+     }
+    ],
+    "labelPos": {
+     "x": 54,
+     "y": 351
+    },
+    "labelSize": {
+     "width": 84,
+     "height": 14
+    }
+   },
+   {
+    "id": "e8",
+    "from": "EDIT",
+    "to": "COMPILE",
+    "points": [
+     {
+      "x": 148.16666666666666,
+      "y": 502
+     },
+     {
+      "x": 148.16666666666666,
+      "y": 522
+     },
+     {
+      "x": 107.83333333333334,
+      "y": 522
+     },
+     {
+      "x": 107.83333333333333,
+      "y": 754
+     },
+     {
+      "x": 217.66666666666663,
+      "y": 754
+     },
+     {
+      "x": 217.66666666666669,
+      "y": 829
+     }
+    ],
+    "labelPos": {
+     "x": 66.83333333333331,
+     "y": 727
+    },
+    "labelSize": {
+     "width": 72,
+     "height": 14
+    }
+   },
+   {
+    "id": "e9",
+    "from": "COMPILE",
+    "to": "FE",
+    "points": [
+     {
+      "x": 217.66666666666669,
+      "y": 892
+     },
+     {
+      "x": 217.66666666666669,
+      "y": 1105.6666666666665
+     },
+     {
+      "x": 678.25,
+      "y": 1105.6666666666665
+     },
+     {
+      "x": 678.25,
+      "y": 135
+     },
+     {
+      "x": 411.5,
+      "y": 135
+     },
+     {
+      "x": 411.5,
+      "y": 220
+     }
+    ],
+    "labelPos": {
+     "x": 637.25,
+     "y": 539
+    },
+    "labelSize": {
+     "width": 72,
+     "height": 14
+    }
+   },
+   {
+    "id": "e3",
+    "from": "RENDER",
+    "to": "TPL",
+    "points": [
+     {
+      "x": 333.6666666666667,
+      "y": 892
+     },
+     {
+      "x": 333.6666666666667,
+      "y": 986
+     }
+    ],
+    "labelPos": {
+     "x": 298.1666666666667,
+     "y": 939
+    },
+    "labelSize": {
+     "width": 67,
+     "height": 14
+    }
+   },
+   {
+    "id": "e7",
+    "from": "EDIT",
+    "to": "PW",
+    "points": [
+     {
+      "x": 178.83333333333337,
+      "y": 502
+     },
+     {
+      "x": 178.83333333333337,
+      "y": 576
+     },
+     {
+      "x": 198.5,
+      "y": 576
+     },
+     {
+      "x": 198.5,
+      "y": 596
+     }
+    ],
+    "labelPos": {
+     "x": 152.83333333333334,
+     "y": 549
+    },
+    "labelSize": {
+     "width": 48,
+     "height": 14
+    }
+   }
+  ],
+  "groups": {
+   "group_1": {
+    "id": "group_1",
+    "x": 341.5,
+    "y": 170,
+    "width": 140,
+    "height": 129
+   },
+   "group_2": {
+    "id": "group_2",
+    "x": 141.66666666666669,
+    "y": 779,
+    "width": 330.5,
+    "height": 291.66666666666663
+   },
+   "group_3": {
+    "id": "group_3",
+    "x": 77.83333333333336,
+    "y": 403,
+    "width": 212.66666666666666,
+    "height": 272
+   }
+  }
+ },
+ "final": {
+  "nodes": {
+   "AI": {
+    "id": "AI",
+    "x": 361.5,
+    "y": 12,
+    "width": 60,
+    "height": 49
+   },
+   "USER": {
+    "id": "USER",
+    "x": 79,
+    "y": 234,
+    "width": 44,
+    "height": 65,
+    "xlabelPos": {
+     "x": 101,
+     "y": 291.5
+    }
+   },
+   "FE": {
+    "id": "FE",
+    "x": 371.5,
+    "y": 220,
+    "width": 80,
+    "height": 49
+   },
+   "RENDER": {
+    "id": "RENDER",
+    "x": 283.6666666666667,
+    "y": 829,
+    "width": 150,
+    "height": 63
+   },
+   "COMPILE": {
+    "id": "COMPILE",
+    "x": 171.66666666666669,
+    "y": 829,
+    "width": 92,
+    "height": 63
+   },
+   "TPL": {
+    "id": "TPL",
+    "x": 246.16666666666669,
+    "y": 986,
+    "width": 175,
+    "height": 54.666666666666664
+   },
+   "PW": {
+    "id": "PW",
+    "x": 167.5,
+    "y": 596,
+    "width": 93,
+    "height": 49
+   },
+   "EDIT": {
+    "id": "EDIT",
+    "x": 117.50000000000001,
+    "y": 453,
+    "width": 92,
+    "height": 49
+   },
+   "__title__": {
+    "id": "__title__",
+    "x": 97.16666666666667,
+    "y": -25,
+    "width": 365,
+    "height": 37
+   }
+  },
+  "edges": [
+   {
+    "id": "e1",
+    "from": "AI",
+    "to": "FE",
+    "points": [
+     {
+      "x": 391.5,
+      "y": 61
+     },
+     {
+      "x": 391.5,
+      "y": 220
+     }
+    ],
+    "labelPos": {
+     "x": 345,
+     "y": 108
+    },
+    "labelSize": {
+     "width": 83,
+     "height": 14
+    }
+   },
+   {
+    "id": "e2",
+    "from": "FE",
+    "to": "RENDER",
+    "points": [
+     {
+      "x": 424.8333333333333,
+      "y": 269
+     },
+     {
+      "x": 424.83333333333337,
+      "y": 324
+     },
+     {
+      "x": 468.5,
+      "y": 324
+     },
+     {
+      "x": 468.5,
+      "y": 754
+     },
+     {
+      "x": 358.6666666666667,
+      "y": 754
+     },
+     {
+      "x": 358.6666666666667,
+      "y": 829
+     }
+    ],
+    "labelPos": {
+     "x": 382,
+     "y": 539
+    },
+    "labelSize": {
+     "width": 163,
+     "height": 14
+    }
+   },
+   {
+    "id": "e4",
+    "from": "RENDER",
+    "to": "FE",
+    "points": [
+     {
+      "x": 383.6666666666667,
+      "y": 892
+     },
+     {
+      "x": 383.6666666666667,
+      "y": 912
+     },
+     {
+      "x": 441.1666666666667,
+      "y": 912
+     },
+     {
+      "x": 441.1666666666667,
+      "y": 1095.6666666666665
+     },
+     {
+      "x": 590.25,
+      "y": 1095.6666666666665
+     },
+     {
+      "x": 590.25,
+      "y": 145
+     },
+     {
+      "x": 431.5,
+      "y": 145
+     },
+     {
+      "x": 431.5,
+      "y": 220
+     }
+    ],
+    "labelPos": {
+     "x": 538.25,
+     "y": 539
+    },
+    "labelSize": {
+     "width": 94,
+     "height": 14
+    }
+   },
+   {
+    "id": "e5",
+    "from": "FE",
+    "to": "PW",
+    "points": [
+     {
+      "x": 398.1666666666667,
+      "y": 269
+     },
+     {
+      "x": 398.1666666666667,
+      "y": 324
+     },
+     {
+      "x": 292,
+      "y": 324
+     },
+     {
+      "x": 292,
+      "y": 378
+     },
+     {
+      "x": 229.50000000000003,
+      "y": 378
+     },
+     {
+      "x": 229.5,
+      "y": 596
+     }
+    ],
+    "labelPos": {
+     "x": 199.5,
+     "y": 351
+    },
+    "labelSize": {
+     "width": 175,
+     "height": 14
+    }
+   },
+   {
+    "id": "e6",
+    "from": "USER",
+    "to": "EDIT",
+    "points": [
+     {
+      "x": 101,
+      "y": 274
+     },
+     {
+      "x": 101,
+      "y": 378
+     },
+     {
+      "x": 163.5,
+      "y": 378
+     },
+     {
+      "x": 163.5,
+      "y": 453
+     }
+    ],
+    "labelPos": {
+     "x": 54,
+     "y": 351
+    },
+    "labelSize": {
+     "width": 84,
+     "height": 14
+    }
+   },
+   {
+    "id": "e8",
+    "from": "EDIT",
+    "to": "COMPILE",
+    "points": [
+     {
+      "x": 148.16666666666666,
+      "y": 502
+     },
+     {
+      "x": 148.16666666666666,
+      "y": 522
+     },
+     {
+      "x": 107.83333333333334,
+      "y": 522
+     },
+     {
+      "x": 107.83333333333333,
+      "y": 754
+     },
+     {
+      "x": 217.66666666666663,
+      "y": 754
+     },
+     {
+      "x": 217.66666666666669,
+      "y": 829
+     }
+    ],
+    "labelPos": {
+     "x": 66.83333333333331,
+     "y": 727
+    },
+    "labelSize": {
+     "width": 72,
+     "height": 14
+    }
+   },
+   {
+    "id": "e9",
+    "from": "COMPILE",
+    "to": "FE",
+    "points": [
+     {
+      "x": 217.66666666666669,
+      "y": 892
+     },
+     {
+      "x": 217.66666666666669,
+      "y": 1105.6666666666665
+     },
+     {
+      "x": 678.25,
+      "y": 1105.6666666666665
+     },
+     {
+      "x": 678.25,
+      "y": 135
+     },
+     {
+      "x": 411.5,
+      "y": 135
+     },
+     {
+      "x": 411.5,
+      "y": 220
+     }
+    ],
+    "labelPos": {
+     "x": 637.25,
+     "y": 539
+    },
+    "labelSize": {
+     "width": 72,
+     "height": 14
+    }
+   },
+   {
+    "id": "e3",
+    "from": "RENDER",
+    "to": "TPL",
+    "points": [
+     {
+      "x": 333.6666666666667,
+      "y": 892
+     },
+     {
+      "x": 333.6666666666667,
+      "y": 986
+     }
+    ],
+    "labelPos": {
+     "x": 298.1666666666667,
+     "y": 939
+    },
+    "labelSize": {
+     "width": 67,
+     "height": 14
+    }
+   },
+   {
+    "id": "e7",
+    "from": "EDIT",
+    "to": "PW",
+    "points": [
+     {
+      "x": 178.83333333333337,
+      "y": 502
+     },
+     {
+      "x": 178.83333333333337,
+      "y": 576
+     },
+     {
+      "x": 198.5,
+      "y": 576
+     },
+     {
+      "x": 198.5,
+      "y": 596
+     }
+    ],
+    "labelPos": {
+     "x": 152.83333333333334,
+     "y": 549
+    },
+    "labelSize": {
+     "width": 48,
+     "height": 14
+    }
+   }
+  ],
+  "groups": {
+   "group_1": {
+    "id": "group_1",
+    "x": 341.5,
+    "y": 170,
+    "width": 140,
+    "height": 129
+   },
+   "group_2": {
+    "id": "group_2",
+    "x": 141.66666666666669,
+    "y": 779,
+    "width": 330.5,
+    "height": 291.66666666666663
+   },
+   "group_3": {
+    "id": "group_3",
+    "x": 77.83333333333336,
+    "y": 403,
+    "width": 212.66666666666666,
+    "height": 272
+   }
+  }
+ }
+}

@@ -249,6 +249,7 @@ pub(super) fn parse_relation(raw: &str, line_no: usize, flavor: Flavor) -> Optio
             head_from,
             head_to,
             line_style,
+            line_weight: crate::ir::LineWeight::Normal,
             direction,
             label,
             mult_from,

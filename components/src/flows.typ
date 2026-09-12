@@ -951,13 +951,13 @@
   node
 }
 
-#let swimlane-probe(id: none, body) = context {
+#let swimlane-probe(measure-scope: none, id: none, body) = context {
   let m = measure(_swimlane-unwrap(body))
   [#metadata((
     id: id,
     w: m.width.pt(),
     h: m.height.pt(),
-  )) <typstuml_measure>]
+  ) + if measure-scope == none { (:) } else { (scope: measure-scope,) }) <typstuml_measure>]
 }
 
 /// Absolute-position swimlane painter — the "principled" replacement for

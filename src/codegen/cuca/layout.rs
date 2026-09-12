@@ -1,21 +1,13 @@
-//! Compound layout for cuca (description-family) diagrams.
-//!
-//! Single-pass hierarchical Sugiyama (M3): all entities live in one
-//! `VisualGraph` with a side-band `HierarchyMap` recording cluster
-//! membership. Cluster-to-cluster edges participate in ranking, so
-//! `PkgA.Foo → PkgB.Bar` correctly places PkgA above PkgB in TB layout.
-//! `simple` / `bk` / `compact` / `port_align` are cluster-oblivious;
-//! the `tighten` pass closes the loop by computing per-cluster outer
-//! bboxes after BK and shifting siblings apart when their pads overlap.
-//!
-//! With no containers, falls back to `flat_layout` (an empty
-//! `HierarchyMap` makes the hierarchy-aware passes no-ops anyway).
+//! CUCA cluster membership and label bands adapted to the shared graph layout.
+//! Tests here verify that CUCA packages retain their containment semantics.
 
+use crate::codegen::graph::compound::{self, Cluster};
 use crate::ir::CucaDiagram;
+#[cfg(test)]
 use crate::layout::geometry::Point;
-use crate::layout::graph::{Edge, Orientation, VisualGraph};
+use crate::layout::graph::Orientation;
 use crate::layout::spacing::Spacing;
-use crate::layout::sugiyama::hierarchy::HierarchyMap;
+pub(super) use compound::LayoutResult;
 
 use super::geom::{ClassGeom, FONT_PT};
 
@@ -59,70 +51,6 @@ pub(super) struct LabelBand {
     pub h_pt: f64,
 }
 
-/// Output of compound layout: per-entity absolute top-left position,
-/// per-container absolute outer bbox (None for empty containers), and
-/// each entity's innermost direct container (None for root-level).
-/// The last field lets codegen's post-layout heuristics (leaf
-/// recenter, couple-edge chord alignment) keep an entity inside its
-/// own frame and out of a foreign one without recomputing membership.
-pub(super) struct LayoutResult {
-    pub top_lefts: Vec<Point>,
-    pub container_bboxes: Vec<Option<(Point, Point)>>,
-    pub entity_container: Vec<Option<usize>>,
-}
-
-/// Per-node halo for cuca's Sugiyama placement: `node_node` on the
-/// perpendicular axis, `between_layers` on the rank axis, both from
-/// this diagram's `Spacing`. `is_root` requests the reduced
-/// `root_node_node` gap on the perpendicular axis — ELK's "root
-/// nodeNode", used only when the diagram actually has containers:
-/// packages already carry their own padding, so an unclustered node
-/// sitting next to one doesn't need the full inter-node gap.
-fn node_halo(sp: &Spacing, orientation: Orientation, is_root: bool) -> Point {
-    let perp = if is_root {
-        sp.root_node_node
-    } else {
-        sp.node_node
-    };
-    match orientation {
-        Orientation::TopToBottom => Point::new(perp, sp.between_layers),
-        Orientation::LeftToRight => Point::new(sp.between_layers, perp),
-    }
-}
-
-/// Single flat Sugiyama, used when there are no containers. Same shape
-/// as `compound_layout`'s output so callers don't branch.
-fn flat_layout(
-    diag: &CucaDiagram,
-    geoms: &[ClassGeom],
-    orientation: Orientation,
-    layout_edges: &[(usize, usize)],
-) -> LayoutResult {
-    let mut vg = VisualGraph::new(orientation);
-    let sp = spacing();
-    vg.set_spacing(sp);
-    vg.set_model_order(true);
-    let halo = node_halo(&sp, orientation, false);
-    let handles: Vec<_> = geoms
-        .iter()
-        .map(|g| vg.add_node_with_halo(g.size, halo, orientation))
-        .collect();
-    for &(src, dst) in layout_edges {
-        vg.add_edge(Edge::default(), handles[src], handles[dst]);
-    }
-    vg.layout();
-    let top_lefts: Vec<Point> = handles.iter().map(|h| vg.pos(*h).bbox(false).0).collect();
-    LayoutResult {
-        top_lefts,
-        container_bboxes: vec![None; diag.containers.len()],
-        entity_container: vec![None; geoms.len()],
-    }
-}
-
-/// Compound graph layout (M3, single-pass hierarchical Sugiyama).
-/// Dispatches to `flat_layout` when there are no containers and to
-/// `hierarchical_layout` otherwise. Both return the same
-/// `LayoutResult` shape so callers don't branch.
 pub(super) fn compound_layout(
     diag: &CucaDiagram,
     geoms: &[ClassGeom],
@@ -130,128 +58,29 @@ pub(super) fn compound_layout(
     layout_edges: &[(usize, usize)],
     bands: LabelBands,
 ) -> LayoutResult {
-    if diag.containers.is_empty() {
-        return flat_layout(diag, geoms, orientation, layout_edges);
-    }
-    hierarchical_layout(diag, geoms, orientation, layout_edges, bands)
-}
-
-/// Single-pass hierarchical Sugiyama (M3). All entities live in one
-/// `VisualGraph`; cluster membership is recorded in `HierarchyMap` and
-/// consulted by the row-grouping pass + the mincross same-cluster gate
-/// + tighten. Cluster-to-cluster edges now participate in ranking
-/// (replacing the old two-stage "drop cluster-to-cluster super-edges"
-/// shortcut), so source / target clusters get ranked relative to each
-/// other through their members' rank assignment.
-fn hierarchical_layout(
-    diag: &CucaDiagram,
-    geoms: &[ClassGeom],
-    orientation: Orientation,
-    layout_edges: &[(usize, usize)],
-    bands: LabelBands,
-) -> LayoutResult {
-    let mut vg = VisualGraph::new(orientation);
-    let sp = spacing();
-    vg.set_spacing(sp);
-    vg.set_model_order(true);
-
-    // Innermost direct container for each entity (or `None` for a
-    // root-level / unclustered entity), computed up front so node
-    // construction can give root-level entities the reduced
-    // `root_node_node` halo (§3.1) — packages already carry their own
-    // padding, so an unclustered node next to one doesn't need the
-    // full inter-node gap.
-    let direct_container: Vec<Option<usize>> = diag
-        .entities
-        .iter()
-        .map(|e| {
-            diag.containers
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, c)| c.children_entities.iter().any(|id| id == &e.id))
-                .map(|(i, _)| i)
-        })
-        .collect();
-
-    let entity_handles: Vec<_> = geoms
+    let clusters: Vec<_> = diag
+        .containers
         .iter()
         .enumerate()
-        .map(|(ei, g)| {
-            let halo = node_halo(&sp, orientation, direct_container[ei].is_none());
-            vg.add_node_with_halo(g.size, halo, orientation)
+        .map(|(ci, c)| Cluster {
+            nodes: diag
+                .entities
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| c.children_entities.contains(&e.id))
+                .map(|(i, _)| i)
+                .collect(),
+            children: c.children_containers.clone(),
+            pad: container_pad_pt(),
+            label_band: cluster_label_band_for_map(c, bands.get(ci)),
+            label_min_width: bands
+                .get(ci)
+                .and_then(|b| b.as_ref())
+                .map(|b| b.w_pt + 2.0 * LABEL_BAND_INSET_PT)
+                .unwrap_or(0.0),
         })
         .collect();
-    for &(src, dst) in layout_edges {
-        vg.add_edge(Edge::default(), entity_handles[src], entity_handles[dst]);
-    }
-
-    // Build the cluster map. We need a stable mapping from container index
-    // (CucaDiagram order) to ClusterId; using the same indices keeps
-    // downstream code (container_bboxes vec) trivially indexed.
-    let mut hierarchy = HierarchyMap::new();
-    // Two-pass: first add all clusters so parent pointers can reference
-    // them; then wire children + node membership.
-    for c in &diag.containers {
-        // Parent is filled in pass 2.
-        let _ = hierarchy.add_cluster(None);
-        // Per-cluster geometric knobs feed `tighten`.
-        let last = hierarchy.clusters.len() - 1;
-        hierarchy.clusters[last].pad = container_pad_pt();
-        hierarchy.clusters[last].label_band = if c.together {
-            0.0
-        } else {
-            cluster_label_band_for_map(c, bands.get(last))
-        };
-        hierarchy.clusters[last].label_min_w = bands
-            .get(last)
-            .and_then(|b| b.as_ref())
-            .map(|b| b.w_pt + 2.0 * LABEL_BAND_INSET_PT)
-            .unwrap_or(0.0);
-    }
-    for (pi, c) in diag.containers.iter().enumerate() {
-        for &ci in &c.children_containers {
-            if ci < hierarchy.clusters.len() {
-                hierarchy.clusters[ci].parent = Some(pi);
-                hierarchy.clusters[pi].direct_children.push(ci);
-            }
-        }
-    }
-    // Attach each entity to its innermost direct cluster (the container
-    // whose `children_entities` lists it) — reusing the membership
-    // computed above for halo selection.
-    for (ei, direct) in direct_container.iter().enumerate() {
-        if let Some(c) = *direct {
-            hierarchy.assign_node(entity_handles[ei], c);
-        }
-    }
-    vg.set_hierarchy(hierarchy);
-    vg.set_cluster_rank(true);
-
-    vg.layout();
-
-    // Extract per-entity top-lefts.
-    let top_lefts: Vec<Point> = entity_handles
-        .iter()
-        .map(|h| vg.pos(*h).bbox(false).0)
-        .collect();
-    // Extract per-cluster outer bboxes; infinity sentinel → None.
-    let container_bboxes: Vec<Option<(Point, Point)>> = (0..diag.containers.len())
-        .map(|i| {
-            let c = &vg.hierarchy.clusters[i];
-            if c.x_min.is_finite() && c.x_max.is_finite() {
-                Some((Point::new(c.x_min, c.y_min), Point::new(c.x_max, c.y_max)))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    LayoutResult {
-        top_lefts,
-        container_bboxes,
-        entity_container: direct_container,
-    }
+    compound::compound_layout(&clusters, geoms, orientation, layout_edges, spacing())
 }
 
 /// Mirror of `cluster_label_band` but reads from an `Option<&LabelBand>`

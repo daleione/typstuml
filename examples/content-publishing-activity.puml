@@ -1,0 +1,37 @@
+@startuml
+title 小红书图文生成流程（markdown → Typst → publish work → 修改闭环）
+
+|AI|
+start
+:生成 markdown;
+
+|#E8F4FD|前端|
+:携带 markdown + 模版ID + layoutID
+调用 Typst 服务;
+
+|#FFF7E0|Typst 服务|
+:模版渲染
+（模版ID ⇔ layoutID 一对一）;
+:生成图片 + typst 源码;
+
+|前端|
+:展示图片;
+:typst 源码发给算法端;
+
+|#EAF7EA|算法端|
+:保存 publish work;
+
+|用户|
+repeat
+  :修改 typst 源码;
+  :算法端编译校验
+  （Typst 源码编译模式）;
+repeat while (校验失败？) is (是) not (否)
+
+|算法端|
+:生成图片返回前端;
+
+|前端|
+:展示编译后的图片;
+stop
+@enduml
